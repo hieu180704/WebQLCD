@@ -31,8 +31,8 @@ GIẢ ĐỊNH TẠM (2026-10-19). Khách đã xem mockup ngày 2026-10-19, khôn
 - **Hình thức lãi:** enum gồm k/triệu/ngày, %/tháng, %/tuần. **Kỳ lãi** là số ngày giữa hai lần đóng lãi.
   - Ứng viên mở rộng (thấy ở phần mềm tham khảo 5gold.biz, chưa làm): lãi ngày k/ngày, lãi tháng % định kỳ, lãi tháng VNĐ định kỳ, lãi tuần VNĐ, lãi phẳng (kỳ tháng / kỳ ngày), dư nợ giảm dần (gốc lãi cố định / gốc cố định). Thêm = thêm strategy mới, không sửa code cũ.
 - **Thu lãi trước:** tuỳ chọn khi tạo hợp đồng; nếu bật, lãi kỳ đầu được trừ ngay lúc giải ngân (tiền giao khách = tiền vay − lãi kỳ đầu).
-- **Sửa** là chỉnh thông tin hồ sơ, không sinh giao dịch.
-- **Cập nhật** là thao tác có tiền (đóng lãi, trả bớt gốc, vay thêm, gia hạn). Mỗi lần cập nhật sinh giao dịch két.
+- **Sửa** là chỉnh thông tin hồ sơ, không sinh giao dịch. Khi hợp đồng đã có giao dịch ngoài giải ngân, không được sửa field tiền (số tiền vay, ngày vay, hình thức lãi, lãi suất, kỳ lãi); muốn đổi thì dùng thao tác cập nhật hoặc xoá rồi tạo lại.
+- **Cập nhật** là thao tác nghiệp vụ trên hợp đồng (đóng lãi, trả bớt gốc, vay thêm, gia hạn). Thao tác nào có tiền vào/ra két thì sinh giao dịch két; gia hạn chỉ đổi số ngày vay, có thu lãi thì ghi giao dịch đóng lãi.
 - **Xoá:** soft delete. Giao dịch của hồ sơ bị xoá được ghi bút toán đảo, không xoá bản ghi. Áp dụng cho cả cầm đồ, tín chấp, trả góp.
 - **Cầm đồ và tín chấp** dùng chung model hợp đồng, phân biệt bằng field loại tài sản (thế chấp / tín chấp). Tín chấp không bắt buộc tên tài sản.
 

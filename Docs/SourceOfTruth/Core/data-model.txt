@@ -1,0 +1,113 @@
+# DATA MODEL — CƠ SỞ DỮ LIỆU POSTGRESQL
+
+# Mục lục
+1. Mục Tiêu & Phạm Vi
+2. Quy Chuẩn Thiết Kế
+3. Danh Mục Bảng
+4. Truy Vấn Đối Soát
+5. Cố Ý Chưa Làm & Ràng Buộc Mở
+
+---
+
+# 1. Mục Tiêu & Phạm Vi
+- Mô tả schema PostgreSQL cho nghiệp vụ ở `Docs/SourceOfTruth/Core/core-spec.txt`. Nghiệp vụ đổi thì cập nhật file này cùng lúc.
+- Đây là mô hình logic (bảng, cột, ràng buộc, index). Cú pháp ORM chốt ở bước dựng project (Drizzle hoặc Prisma, xem `Docs/Decisions/2026-10-19-techstack.txt`).
+- Mọi bảng nghiệp vụ có `shop_id`, `created_at`. Bảng sửa được có thêm `updated_at`.
+
+---
+
+# 2. Quy Chuẩn Thiết Kế
+1. **Tiền:** `bigint`, đơn vị VND, không dùng số thực. Lãi suất: `numeric(9,4)`.
+2. **ID:** `uuid` v7, sinh bằng `uuidv7()` của PostgreSQL 18 (xem mục 5 nếu hosting chưa có PG 18).
+3. **Cách ly cửa hàng:** mọi bảng có `UNIQUE (shop_id, id)`. Khoá ngoại tới bảng nghiệp vụ khác dùng cặp `(shop_id, <x>_id)` để DB chặn tham chiếu chéo cửa hàng. `shop_id` chỉ lấy từ session; repository tự lọc.
+4. **Sổ két append-only:** `cash_transactions` có trigger chặn UPDATE/DELETE. Huỷ một giao dịch = thêm dòng `reversal` có `reverses_id` và `amount` bằng số đối của dòng gốc.
+5. **Một thao tác, nhiều dòng:** các dòng sinh từ cùng một thao tác chung `operation_id`. Ví dụ: giải ngân có thu lãi trước sinh dòng `disbursement` và dòng `interest_payment`; chuộc đồ sinh dòng `interest_payment` và dòng `principal_repayment`. Huỷ thao tác = đảo mọi dòng của `operation_id` đó.
+6. **Trạng thái tính sẵn** trên hợp đồng (`outstanding_principal`, `interest_paid_until`, `amount_paid`, `status`) được cập nhật trong cùng DB transaction với việc ghi sổ. Test chạy truy vấn đối soát ở mục 4.
+7. **Lãi đến hôm nay và trạng thái quá hạn** tính lúc đọc, không lưu.
+8. **`business_date`** là ngày nghiệp vụ theo múi giờ `Asia/Ho_Chi_Minh`. `occurred_at` là `timestamptz`.
+9. **Quỹ đầu két ngày D** = tổng `amount` mọi giao dịch có `business_date < D`. Chỉ thêm bảng chốt ngày `cash_daily_balances` khi đo thấy chậm.
+10. **Sửa thông tin vs cập nhật:** quy tắc nghiệp vụ ở `core-spec.txt` mục 2. Mọi thao tác đổi field nghiệp vụ đều ghi một dòng `audit_logs`.
+
+---
+
+# 3. Danh Mục Bảng
+
+## 3.1 `shops`
+- `name`, `opened_at` (ngày mở két), `subscription_status` (`trial` / `active` / `expired`), `trial_ends_at`, `paid_until`.
+- Quỹ đầu két không lưu trên bảng này: nó là giao dịch `opening_balance` ghi vào ngày `opened_at`.
+
+## 3.2 `users`
+- `shop_id`, `username`, `password_hash`, `full_name`, `role` (`owner` / `staff`), `is_active`.
+- `UNIQUE (lower(username))` toàn hệ thống, để đăng nhập không phải chọn cửa hàng trước.
+- Bảng phiên và các bảng phụ do thư viện auth sinh.
+
+## 3.3 `customers`
+- `shop_id`, `full_name`, `phone`, `address`, `cccd_encrypted`, `cccd_hash`, `cccd_masked`.
+- `cccd_hash` = HMAC-SHA256 của CCCD đã chuẩn hoá. Khoá HMAC tách riêng khoá mã hoá; cả hai nằm trong biến môi trường, không lưu trong DB.
+- `UNIQUE (shop_id, cccd_hash) WHERE cccd_hash IS NOT NULL`.
+
+## 3.4 `contracts` (cầm đồ + tín chấp)
+- `shop_id`, `code`, `customer_id`, `kind` (`secured` / `unsecured`), `asset_name`.
+- `principal` (số tiền vay ban đầu), `outstanding_principal` (gốc còn lại).
+- `interest_type` (`per_million_per_day` / `percent_per_month` / `percent_per_week`), `interest_rate`, `interest_period_days` (kỳ lãi), `term_days` (số ngày vay).
+- `loan_date`, `interest_paid_until`, `prepaid_interest` (`boolean`, bật "Thu lãi trước"; số tiền nằm ở dòng `interest_payment` lúc giải ngân).
+- `status` (`active` / `closed`), `closed_at`, `note`, `staff_id` (KTV), `deleted_at`, `deleted_by`.
+- CHECK: `kind = 'secured'` thì `asset_name` không rỗng. CHECK: tiền và số ngày > 0.
+- `UNIQUE (shop_id, code)`.
+- Gia hạn: đổi `term_days` và ghi `audit_logs`. Lãi thu khi gia hạn ghi thành `interest_payment`. Không có loại giao dịch riêng cho gia hạn.
+
+## 3.5 `installment_contracts` (trả góp)
+- `shop_id`, `code`, `customer_id`, `amount_given` (tiền đưa khách), `total_due` (tổng phải thu), `total_days`, `period_days`, `start_date`.
+- `amount_paid`, `status` (`active` / `closed`), `closed_at`, `note`, `staff_id`, `deleted_at`, `deleted_by`.
+- CHECK: `total_due >= amount_given > 0`. `UNIQUE (shop_id, code)`.
+
+## 3.6 `cash_transactions` (nguồn sự thật về tiền)
+- `shop_id`, `operation_id`, `occurred_at`, `business_date`, `amount` (có dấu: + thu, − chi), `type`.
+- `contract_id` / `installment_contract_id` (tối đa một trong hai), `period_from`, `period_to` (kỳ lãi được đóng), `reverses_id`, `note`, `created_by`.
+- `type` và dấu bắt buộc (CHECK):
+
+| type | Dấu | Gắn với |
+| :--- | :--- | :--- |
+| `opening_balance`, `capital_in`, `manual_income` | + | Quỹ két |
+| `manual_expense` | − | Quỹ két |
+| `disbursement`, `additional_loan` | − | `contracts` |
+| `interest_payment`, `principal_repayment` | + | `contracts` |
+| `installment_disbursement` | − | `installment_contracts` |
+| `installment_payment` | + | `installment_contracts` |
+| `reversal` | Ngược dòng gốc | Như dòng gốc |
+
+- CHECK: `type = 'reversal'` khi và chỉ khi `reverses_id IS NOT NULL`. `UNIQUE (reverses_id)` để không đảo một dòng hai lần.
+- CHECK: `interest_payment` phải có `period_from`, `period_to`.
+- Chuộc đồ / đóng hợp đồng không có loại riêng: thao tác sinh các dòng `interest_payment` + `principal_repayment` rồi đặt `status = 'closed'`.
+
+## 3.7 `audit_logs`
+- `shop_id`, `user_id`, `entity`, `entity_id`, `action` (`create` / `edit` / `extend` / `delete` / ...), `changed_fields` (chỉ tên field, không lưu giá trị), `at`.
+- Append-only, trigger chặn UPDATE/DELETE giống `cash_transactions`.
+
+## 3.8 `shop_counters`
+- PK `(shop_id, prefix)`, `next_value`. Prefix: `CD-` (cầm đồ), `TC-` (tín chấp), `TG-` (trả góp).
+- Cấp mã bằng `UPDATE ... SET next_value = next_value + 1 RETURNING` trong cùng transaction tạo hợp đồng (khoá dòng, không trùng mã).
+
+## 3.9 Index
+- `contracts (shop_id, status, interest_paid_until)`: danh sách đến hạn đóng lãi.
+- `cash_transactions (shop_id, business_date)`: sổ quỹ theo ngày, quỹ đầu két.
+- `cash_transactions (shop_id, contract_id)`, `(shop_id, installment_contract_id)`: lịch sử giao dịch của một hợp đồng.
+- `customers (shop_id, cccd_hash)`: tìm khớp chính xác CCCD (đã có qua UNIQUE).
+- `pg_trgm` GIN: `customers.full_name`, `customers.phone`, `contracts.code`, `contracts.asset_name`, `installment_contracts.code`.
+
+---
+
+# 4. Truy Vấn Đối Soát
+Tính trên các dòng chưa bị đảo (loại dòng gốc có reversal trỏ tới và chính dòng reversal). Test so kết quả với cột tính sẵn; lệch là bug.
+- `contracts.outstanding_principal` = `principal` + |Σ `additional_loan`| − Σ `principal_repayment`.
+- `contracts.interest_paid_until` = max(`period_to`) của `interest_payment`; chưa có thì bằng `loan_date`.
+- `installment_contracts.amount_paid` = Σ `installment_payment`.
+- Tiền két cuối ngày D = Σ `amount` mọi dòng có `business_date <= D` (dòng reversal bù trừ dòng gốc nên cộng thẳng được).
+
+---
+
+# 5. Cố Ý Chưa Làm & Ràng Buộc Mở
+- **PostgreSQL Row-Level Security:** chưa bật. Cách ly dựa vào repository lọc `shop_id`, khoá ngoại kép và test chéo cửa hàng. Bật sau nếu cần, khi đó phải gắn biến session (`SET LOCAL`) cho mỗi transaction.
+- **Bảng chốt ngày `cash_daily_balances`:** chỉ thêm khi đo thấy truy vấn quỹ đầu két chậm.
+- **Phụ thuộc PostgreSQL 18:** `uuidv7()` chỉ có từ PG 18. Hosting chưa hỗ trợ thì sinh UUID v7 ở tầng ứng dụng, schema giữ nguyên.
+- **Hình thức lãi mở rộng** (ứng viên ở `core-spec.txt` mục 2): thêm giá trị enum `interest_type` và strategy tính lãi; có thể cần thêm cột tham số.
