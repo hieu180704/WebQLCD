@@ -57,7 +57,7 @@
 ---
 
 # 6. Giả Định Tạm & Câu Hỏi Còn Mở
-GIẢ ĐỊNH TẠM do AI đề xuất (2026-10-19), chưa được khách hàng xác nhận. Khách chốt khác thì sửa tại đây và trong `Core/core-spec.txt`.
+GIẢ ĐỊNH TẠM do AI đề xuất (2026-10-19). Khách đã xem mockup (`Design/mockup/`) ngày 2026-10-19, không có phản hồi; chưa phải xác nhận tường minh từng điểm. Khách chốt khác thì sửa tại đây và trong `Core/core-spec.txt`.
 
 Giả định tạm:
 - Hình thức lãi, kỳ lãi, sửa/cập nhật, xoá, gộp cầm đồ – tín chấp, field trả góp: xem `Core/core-spec.txt`.

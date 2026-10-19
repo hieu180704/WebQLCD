@@ -1,0 +1,15 @@
+# 2026-10-19: Khởi tạo dự án, chốt techstack/kiến trúc, mockup giao diện — [verify một phần: mockup chạy thử trên Edge 1440px + 390px; docs chưa có review độc lập]
+
+- Commit: e1990d1 (khởi tạo), 847b387 (bỏ ignore package-lock.json), commit đóng phiên: xem `git log`
+- Đã làm:
+  1. /init: điền AGENTS.md, tạo overview.txt, phân vùng Core (core-spec.txt).
+  2. Ghi 7 giả định tạm cho các câu hỏi khách chưa trả lời (overview mục 6, core-spec mục 2).
+  3. Chốt techstack Next.js + TypeScript + PostgreSQL (Docs/Decisions/2026-10-19-techstack.txt).
+  4. Chốt kiến trúc Modular Monolith + Clean Architecture rút gọn (Docs/Decisions/2026-10-19-architecture.txt, Docs/SourceOfTruth/Architecture/).
+  5. Cài Playwright MCP 0.0.83 điều khiển Edge (scope local, --isolated); smoke test đạt. So sánh với Chrome DevTools MCP 1.11.0.
+  6. Viết rule web-security.md, web-performance.md + spec Security/, Performance/; /sync-engines sang .agents, .codex (--check exit 0).
+  7. Xem phần mềm tham khảo 5gold.biz (chỉ đọc), dựng 5 màn mockup HTML trong Design/mockup/.
+  8. Git init, commit; bỏ ignore package-lock.json.
+  9. Cập nhật core-spec: thêm Số tiền vay, Thu lãi trước, quy tắc cảnh báo lãi suất, danh sách hình thức lãi ứng viên.
+- Trạng thái: đang dở ở bước 3 (database schema) — đã đề xuất trong chat, chép nguyên vào handoff, chưa ghi data-model.txt.
+- Lưu ý cho phiên sau: đọc Docs/Handoffs/handoff-webqlcd-mvp.txt.

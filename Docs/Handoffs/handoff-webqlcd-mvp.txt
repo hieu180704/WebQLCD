@@ -1,0 +1,69 @@
+# BÀN GIAO: WEBQLCD MVP
+# STATUS: 🟡 IN PROGRESS
+
+# Mục lục
+1. Trạng Thái Hiện Tại
+2. Những Việc Đã Xong
+3. Đầu Việc Tiếp Theo & Lưu Ý
+4. Đề Xuất Database Schema (chờ ghi vào docs)
+
+---
+
+# 1. Trạng Thái Hiện Tại
+- Nhánh Git: `main`. Chưa có remote.
+- Tiến độ: xong giai đoạn nền (docs, quyết định, mockup); bước 3/5 của lộ trình đang dở.
+- Lộ trình: (1) khách xem mockup → (2) cập nhật core-spec → (3) database schema → (4) dựng khung project → (5) lát cắt dọc đầu tiên.
+
+---
+
+# 2. Những Việc Đã Xong
+- [x] Docs nền: overview, Core, Architecture, Security, Performance; 2 Decision (techstack, kiến trúc).
+- [x] Rule web-security.md, web-performance.md, đồng bộ 3 engine.
+- [x] Playwright MCP (Edge) cài scope local.
+- [x] Mockup 5 màn: `Design/mockup/` (xem bằng `npx -y http-server@14.1.1 Design/mockup -p 5173 -c-1`).
+- [x] Bước 1: khách xem mockup, không có phản hồi (chưa phải xác nhận tường minh từng giả định tạm).
+- [x] Bước 2: cập nhật core-spec (Số tiền vay, Thu lãi trước, cảnh báo lãi suất, hình thức lãi ứng viên).
+
+---
+
+# 3. Đầu Việc Tiếp Theo & Lưu Ý
+- [ ] Xác nhận với người dùng: đề xuất schema ở mục 4, đặc biệt (a) quy tắc "Sửa thông tin" không đổi field tiền, (b) chưa bật Row-Level Security. Người dùng trả lời "ok làm /close" — chưa rõ "ok" là duyệt schema hay chỉ đồng ý đóng phiên; hỏi lại một câu trước khi ghi.
+- [ ] Sau khi duyệt: ghi `Docs/SourceOfTruth/Core/data-model.txt`; thêm quy tắc "Sửa thông tin" vào core-spec mục 2; commit.
+- [ ] Bước 4: dựng khung Next.js theo `Docs/SourceOfTruth/Architecture/architecture-spec.txt` (chốt Drizzle/Prisma, Better Auth/Auth.js).
+- **Lưu ý:**
+  - Giả định tạm vẫn mang nhãn GIẢ ĐỊNH TẠM; không gỡ nhãn khi chưa có xác nhận tường minh.
+  - Người dùng không muốn dùng Artifact tool (đã lưu memory); mockup làm bằng HTML local.
+  - Không ghi thông tin đăng nhập 5gold.biz vào bất kỳ file nào.
+  - Chưa xác minh luật bảo vệ dữ liệu cá nhân VN về nơi lưu CCCD — ảnh hưởng chọn hosting.
+
+---
+
+# 4. Đề Xuất Database Schema (chờ ghi vào docs)
+
+## 4.1 Bảng
+- `shops`: name, opened_at, subscription_status (trial / active / expired), trial_ends_at, paid_until.
+- `users`: shop_id, username, password_hash, full_name, role (owner / staff), is_active. Bảng phiên do thư viện auth sinh.
+- `customers`: shop_id, full_name, phone, address, cccd_encrypted, cccd_hash (HMAC, tìm khớp chính xác), cccd_masked (hiển thị).
+- `contracts` (cầm đồ + tín chấp): shop_id, code, customer_id, kind (secured / unsecured), asset_name, principal, outstanding_principal, interest_type, interest_rate, interest_period_days, term_days, loan_date, interest_paid_until, prepaid_interest, status, staff_id, deleted_at/by. CHECK: secured thì asset_name bắt buộc.
+- `installment_contracts`: shop_id, code, customer_id, amount_given, total_due, total_days, period_days, start_date, amount_paid, status, staff_id, deleted_at/by.
+- `cash_transactions` (append-only, nguồn sự thật về tiền): shop_id, occurred_at, business_date, amount (có dấu: + thu, − chi), type, contract_id / installment_contract_id, period_from/to, reverses_id, note, created_by.
+  - type: opening_balance, capital_in, disbursement, interest_payment, principal_repayment, additional_loan, redemption, installment_payment, contract_close, manual_income, manual_expense, reversal.
+- `audit_logs`: shop_id, user_id, entity, entity_id, action, changed_fields (chỉ tên field, không lưu giá trị), at.
+- `shop_counters`: sinh mã hợp đồng tăng dần theo cửa hàng (CD-/TC-/TG-), khoá dòng khi cấp mã.
+
+## 4.2 Quyết định thiết kế
+1. Tiền `bigint` VND; lãi suất `numeric(9,4)`.
+2. ID `uuid` v7 (`uuidv7()` của PostgreSQL 18).
+3. Khoá ngoại kép `(shop_id, id)` để DB chặn tham chiếu chéo cửa hàng.
+4. `cash_transactions` append-only: trigger chặn UPDATE/DELETE; huỷ = giao dịch `reversal` có `reverses_id`.
+5. Trạng thái tính sẵn trên hợp đồng (outstanding_principal, interest_paid_until, amount_paid) cập nhật cùng transaction với ghi sổ; có truy vấn đối soát chạy trong test.
+6. Lãi đến hôm nay tính lúc đọc, không lưu.
+7. `business_date` theo múi giờ Asia/Ho_Chi_Minh.
+8. Quỹ đầu két ngày D = tổng giao dịch trước D; bảng chốt ngày `cash_daily_balances` chỉ thêm khi đo thấy chậm.
+9. Index: (shop_id, status, interest_paid_until); (shop_id, business_date); (shop_id, cccd_hash); pg_trgm cho tên, SĐT, mã HĐ, tên tài sản.
+
+## 4.3 Quy tắc nghiệp vụ mới (cần người dùng đồng ý)
+- "Sửa thông tin" không được đổi field tiền (tiền vay, ngày vay, hình thức lãi, lãi suất, kỳ lãi) khi hợp đồng đã có giao dịch ngoài giải ngân. Đổi qua thao tác có tiền hoặc xoá rồi tạo lại.
+
+## 4.4 Cố ý chưa làm
+- PostgreSQL Row-Level Security: phương án bật sau khi cần (phải gắn biến session mỗi transaction).

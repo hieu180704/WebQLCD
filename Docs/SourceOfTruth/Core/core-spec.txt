@@ -22,9 +22,15 @@
 - Số tiền cuối ngày = Quỹ đầu két − Tổng chi + Tổng thu.
 - Mọi thao tác làm thay đổi tiền trong két đều sinh một bản ghi lịch sử giao dịch.
 - Mỗi hồ sơ ghi KTV (nhân viên làm hồ sơ).
+- **Cảnh báo lãi suất (không chặn lưu, cửa hàng tự chịu trách nhiệm tuân thủ):**
+  - Lãi suất quy đổi %/năm: k/triệu/ngày → `lãi × 36,5`; %/tháng → `lãi × 365 / 30`; %/tuần → `lãi × 365 / 7`.
+  - > 20%/năm: cảnh báo vàng (mức trần thoả thuận theo Điều 468 Bộ luật Dân sự 2015, trừ khi luật khác quy định).
+  - ≥ 100%/năm: cảnh báo đỏ (có thể bị truy cứu theo Điều 201 Bộ luật Hình sự).
 
-GIẢ ĐỊNH TẠM (2026-10-19, chưa được khách hàng xác nhận):
+GIẢ ĐỊNH TẠM (2026-10-19). Khách đã xem mockup ngày 2026-10-19, không có phản hồi; chưa phải xác nhận tường minh từng điểm:
 - **Hình thức lãi:** enum gồm k/triệu/ngày, %/tháng, %/tuần. **Kỳ lãi** là số ngày giữa hai lần đóng lãi.
+  - Ứng viên mở rộng (thấy ở phần mềm tham khảo 5gold.biz, chưa làm): lãi ngày k/ngày, lãi tháng % định kỳ, lãi tháng VNĐ định kỳ, lãi tuần VNĐ, lãi phẳng (kỳ tháng / kỳ ngày), dư nợ giảm dần (gốc lãi cố định / gốc cố định). Thêm = thêm strategy mới, không sửa code cũ.
+- **Thu lãi trước:** tuỳ chọn khi tạo hợp đồng; nếu bật, lãi kỳ đầu được trừ ngay lúc giải ngân (tiền giao khách = tiền vay − lãi kỳ đầu).
 - **Sửa** là chỉnh thông tin hồ sơ, không sinh giao dịch.
 - **Cập nhật** là thao tác có tiền (đóng lãi, trả bớt gốc, vay thêm, gia hạn). Mỗi lần cập nhật sinh giao dịch két.
 - **Xoá:** soft delete. Giao dịch của hồ sơ bị xoá được ghi bút toán đảo, không xoá bản ghi. Áp dụng cho cả cầm đồ, tín chấp, trả góp.
@@ -34,11 +40,13 @@ GIẢ ĐỊNH TẠM (2026-10-19, chưa được khách hàng xác nhận):
 
 # 3. Danh Mục Thực Thể & Cấu Trúc
 - **Khách hàng:** Tên khách hàng, Số CCCD, Số điện thoại, Địa chỉ.
-- **Hợp đồng cầm đồ (field theo yêu cầu gốc):**
+- **Hợp đồng cầm đồ (field theo yêu cầu gốc, bổ sung "Số tiền vay" và "Thu lãi trước"):**
   - Mã hợp đồng
   - Loại tài sản: tín chấp hoặc thế chấp
   - Tên tài sản
+  - Số tiền vay (yêu cầu gốc thiếu, bắt buộc phải có để tính lãi và ghi quỹ két)
   - Hình thức lãi
+  - Thu lãi trước (giả định tạm)
   - Số ngày vay
   - Kỳ lãi
   - Lãi
