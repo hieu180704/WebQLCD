@@ -4,7 +4,7 @@ paths:
   - "src/**"
   - "drizzle/**"
   - "next.config.*"
-  - "middleware.ts"
+  - "proxy.ts"
 ---
 
 # Luật Bảo Mật Web
@@ -31,7 +31,7 @@ Lý do, threat model, phân loại dữ liệu: `Docs/SourceOfTruth/Security/sec
 
 ## Cấm
 - Nhận `shop_id`, `user_id`, vai trò, giá tiền đã tính từ input của client.
-- Chỉ dựa vào `middleware.ts` để phân quyền (từng có CVE-2025-29927 bỏ qua middleware).
+- Chỉ dựa vào `proxy.ts` (trước Next 16 tên là `middleware.ts`) để phân quyền (từng có CVE-2025-29927 bỏ qua middleware).
 - Nối chuỗi SQL; dùng `sql.raw` với dữ liệu người dùng.
 - Ghi CCCD, SĐT, mật khẩu, token vào log hoặc thông báo lỗi trả về client.
 - Đặt secret trong biến `NEXT_PUBLIC_*` hoặc commit file `.env`.

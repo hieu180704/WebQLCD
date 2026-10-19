@@ -27,6 +27,7 @@ Luật chung nằm ở các rule always-on của engine (`core-protocol.md`, `qu
 - Giao diện chỉ tiếng Việt (giai đoạn hiện tại).
 - Dòng tiền: Quỹ đầu két − Tổng chi + Tổng thu = Số tiền cuối ngày; mọi thao tác đổi tiền két phải sinh bản ghi lịch sử giao dịch.
 - **Bảo mật & hiệu năng là hai ưu tiên hàng đầu.** Luật: rule `web-security.md`, `web-performance.md` trong thư mục rules của engine (tự nạp khi đụng code). Khi thiết kế (schema, API, màn hình) chưa đụng code: đọc hai rule đó trước.
+- Next.js 16 khác nhiều so với dữ liệu huấn luyện của AI: đọc guide trong `node_modules/next/dist/docs/` trước khi viết code Next (`next.config.ts` đặt `agentRules: false` để `next dev` không chèn block tự sinh vào file này).
 - Tài liệu dự án viết bằng tiếng Anh? Thêm một dòng đứng riêng, đúng nguyên văn `LANGUAGE-GUARD: off` (không kèm dấu backtick) vào mục này để tắt hook `language-guard`.
 
 ---
@@ -71,7 +72,7 @@ Ba engine vận hành độc lập, mỗi engine giữ bản rule/skill/agent/ho
 ### Rules
 - Always-on: `core-protocol.md`, `quality-standards.md`, `doc-policy.md`, `knowledge-graph.md` (Node-0 Dispatcher).
 - Lazy: `framework-maintenance.md` (hạn mức tài liệu, đăng ký hook — nạp khi đụng thư mục engine, `Docs/`, `AGENTS.md`).
-- Lazy: `web-security.md`, `web-performance.md` (luật bảo mật, hiệu năng — nạp khi đụng `src/`, `drizzle/`, `next.config.*`; `web-security.md` thêm `middleware.ts`).
+- Lazy: `web-security.md`, `web-performance.md` (luật bảo mật, hiệu năng — nạp khi đụng `src/`, `drizzle/`, `next.config.*`; `web-security.md` thêm `proxy.ts`).
 - Rule theo ngữ cảnh: khai báo frontmatter đúng cú pháp của từng engine (xem bảng trên).
 
 ### Skills

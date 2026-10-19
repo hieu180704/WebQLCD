@@ -16,3 +16,12 @@ node_modules/
 
 # Playwright MCP snapshots
 .playwright-mcp/
+
+# Next.js
+/.next/
+/out/
+next-env.d.ts
+*.tsbuildinfo
+/coverage
+.env*
+!.env.example

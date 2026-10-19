@@ -1,0 +1,41 @@
+# QUYẾT ĐỊNH: CHỌN ORM VÀ THƯ VIỆN AUTH
+
+# Mục lục
+1. Bối Cảnh & Vấn Đề
+2. Các Phương Án Đã Cân Nhắc
+3. Quyết Định Đã Chốt & Lý Do
+
+---
+
+# 1. Bối Cảnh & Vấn Đề
+- Ngày ghi nhận: 2026-10-19
+- Vấn đề: `2026-10-19-techstack.txt` để treo hai lựa chọn "Drizzle hoặc Prisma", "Better Auth hoặc Auth.js" tới lúc dựng project.
+- Ràng buộc:
+  - Schema (`Docs/SourceOfTruth/Core/data-model.txt`) cần CHECK, partial unique, khoá ngoại kép `(shop_id, id)`, index GIN `pg_trgm`, trigger append-only.
+  - Rule `web-security.md`: mật khẩu argon2id, giới hạn số lần đăng nhập sai, cookie phiên `HttpOnly` + `Secure` + `SameSite`.
+  - Đăng nhập bằng username + mật khẩu, tự host, không dùng OAuth bên thứ ba.
+
+---
+
+# 2. Các Phương Án Đã Cân Nhắc
+- **Drizzle (0.45.x):**
+  - Ưu: khai báo sát SQL, schema TypeScript thể hiện được CHECK, partial index, khoá ngoại nhiều cột; không có engine binary; truy vấn ra SQL đoán trước được.
+  - Nhược: trigger vẫn phải viết SQL tay trong migration; hệ sinh thái nhỏ hơn Prisma.
+- **Prisma:**
+  - Ưu: tài liệu nhiều, công cụ migrate quen thuộc.
+  - Nhược: CHECK, partial index, trigger đều phải viết SQL tay ngoài schema; lớp trừu tượng dày, khó kiểm soát SQL sinh ra cho báo cáo.
+- **Better Auth (1.7.x):**
+  - Ưu: plugin username, rate limit sẵn, session lưu DB, adapter Drizzle, thay được hàm băm mật khẩu.
+  - Nhược: mặc định băm bằng scrypt, phải cấu hình thêm để dùng argon2id.
+- **Auth.js:**
+  - Ưu: phổ biến lâu năm.
+  - Nhược: v5 vẫn beta; provider Credentials không được khuyến khích; không có rate limit sẵn.
+
+---
+
+# 3. Quyết Định Đã Chốt & Lý Do
+- Quyết định: **Drizzle** + **Better Auth**. Driver PostgreSQL chốt ở bước 4b.
+- Lý do: đáp ứng trực tiếp các ràng buộc ở mục 1 với ít code tự viết nhất; `architecture-spec.txt` mục 3.2 đã giả định repository Drizzle.
+- Đánh đổi chấp nhận:
+  - Trigger append-only và extension `pg_trgm` viết bằng SQL tay trong migration.
+  - Better Auth phải cấu hình băm argon2id (`@node-rs/argon2`) thay cho scrypt mặc định.
