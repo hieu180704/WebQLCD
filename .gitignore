@@ -4,7 +4,6 @@ Thumbs.db
 
 # Node & Package Managers
 node_modules/
-package-lock.json
 
 # Temporary files
 *.log
