@@ -1,0 +1,54 @@
+﻿{
+  "safety-guard": {
+    "PreToolUse": [
+      {
+        "matcher": "write_to_file|replace_file_content|multi_replace_file_content|run_command|view_file",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node hooks/safety-guard.js"
+          }
+        ]
+      }
+    ]
+  },
+  "closeout-trigger": {
+    "PreToolUse": [
+      {
+        "matcher": "run_command",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node hooks/closeout-trigger.js"
+          }
+        ]
+      }
+    ]
+  },
+  "language-guard": {
+    "PreToolUse": [
+      {
+        "matcher": "write_to_file|replace_file_content|multi_replace_file_content",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node hooks/language-guard.js"
+          }
+        ]
+      }
+    ]
+  },
+  "doc-budget": {
+    "PostToolUse": [
+      {
+        "matcher": "write_to_file|replace_file_content|multi_replace_file_content",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node hooks/doc-budget.js"
+          }
+        ]
+      }
+    ]
+  }
+}

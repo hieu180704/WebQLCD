@@ -1,0 +1,18 @@
+# MẪU CHECKLIST THẨM ĐỊNH CHẤT LƯỢNG (QC Checklist)
+
+# Mục lục
+1. [Danh Mục Tiêu Chí Nghiệm Thu](#1-danh-mục-tiêu-chí-nghiệm-thu)
+2. [Kết Quả Đánh Giá](#2-kết-quả-đánh-giá)
+
+---
+
+# 1. Danh Mục Tiêu Chí Nghiệm Thu
+- [ ] Tiêu chí 1: Không có lỗi logic hoặc mâu thuẫn dữ liệu.
+- [ ] Tiêu chí 2: Đúng định dạng và đầy đủ 100% nội dung.
+- [ ] Tiêu chí 3: Đã cập nhật tài liệu sống tương ứng.
+
+---
+
+# 2. Kết Quả Đánh Giá
+- Ngày đánh giá: [YYYY-MM-DD]
+- Kết luận: [PASS / REWORK]

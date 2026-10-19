@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tổng quan — TP83</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.1.11"></script>
+<link rel="stylesheet" href="assets/common.css">
+</head>
+<body data-page="dashboard">
+<div id="app-shell">
+
+  <div class="flex flex-wrap items-end gap-3">
+    <div>
+      <h1 class="text-2xl font-bold">Tổng quan</h1>
+      <p class="text-sm text-slate-500">Thứ Hai, 19/10/2026</p>
+    </div>
+    <div class="ml-auto flex flex-wrap gap-2">
+      <a href="#" class="btn btn-outline">Nhập quỹ đầu két</a>
+      <a href="cam-do-form.html" class="btn btn-primary">+ Hồ sơ cầm đồ</a>
+    </div>
+  </div>
+
+  <!-- Quỹ két hôm nay -->
+  <section class="card mt-6 p-5" aria-labelledby="cash-title">
+    <div class="flex flex-wrap items-center gap-2">
+      <h2 id="cash-title" class="font-semibold">Quỹ két hôm nay</h2>
+      <span class="text-xs text-slate-500">Quỹ đầu két − Tổng chi + Tổng thu = Tiền cuối ngày</span>
+    </div>
+    <div class="mt-4 grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div class="rounded-lg bg-slate-50 p-4">
+        <div class="text-sm text-slate-500">Quỹ đầu két</div>
+        <div class="mt-1 text-base sm:text-xl font-bold num whitespace-nowrap">200.000.000</div>
+      </div>
+      <div class="rounded-lg bg-slate-50 p-4">
+        <div class="text-sm text-slate-500">Tổng chi</div>
+        <div class="mt-1 text-base sm:text-xl font-bold num whitespace-nowrap text-red-700">− 35.000.000</div>
+      </div>
+      <div class="rounded-lg bg-slate-50 p-4">
+        <div class="text-sm text-slate-500">Tổng thu</div>
+        <div class="mt-1 text-base sm:text-xl font-bold num whitespace-nowrap text-emerald-700">+ 12.450.000</div>
+      </div>
+      <div class="rounded-lg bg-teal-700 text-white p-4">
+        <div class="text-sm text-teal-100">Tiền cuối ngày</div>
+        <div class="mt-1 text-base sm:text-xl font-bold num whitespace-nowrap">177.450.000</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Thống kê hợp đồng -->
+  <section class="mt-6 grid sm:grid-cols-2 lg:grid-cols-4 gap-4" aria-label="Thống kê hợp đồng">
+    <div class="card p-5">
+      <div class="text-sm text-slate-500">Đang cho vay</div>
+      <div class="mt-1 text-2xl font-bold num">1.284.500.000</div>
+      <div class="mt-1 text-xs text-slate-500">VNĐ, tất cả loại hợp đồng</div>
+    </div>
+    <div class="card p-5">
+      <div class="text-sm text-slate-500">Hợp đồng đang mở</div>
+      <div class="mt-1 text-2xl font-bold num">86</div>
+      <div class="mt-1 text-xs text-slate-500">Cầm đồ 58 · Tín chấp 17 · Trả góp 11</div>
+    </div>
+    <div class="card p-5">
+      <div class="text-sm text-slate-500">Lãi đã thu tháng này</div>
+      <div class="mt-1 text-2xl font-bold num text-emerald-700">48.320.000</div>
+      <div class="mt-1 text-xs text-slate-500">VNĐ</div>
+    </div>
+    <div class="card p-5">
+      <div class="text-sm text-slate-500">Quá hạn đóng lãi</div>
+      <div class="mt-1 text-2xl font-bold num text-red-700">7</div>
+      <a href="cam-do.html" class="mt-1 text-xs text-teal-700 hover:underline inline-block">Xem danh sách</a>
+    </div>
+  </section>
+
+  <div class="mt-6 grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-6">
+    <!-- Đến hạn -->
+    <section class="card" aria-labelledby="due-title">
+      <div class="p-5 pb-3 flex items-center">
+        <h2 id="due-title" class="font-semibold">Đến hạn đóng lãi</h2>
+        <a href="cam-do.html" class="ml-auto text-sm text-teal-700 hover:underline">Tất cả</a>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="table">
+          <thead><tr><th>Mã HĐ</th><th>Khách hàng</th><th>Loại</th><th class="text-right">Lãi kỳ này</th><th>Hạn</th><th>Trạng thái</th></tr></thead>
+          <tbody>
+            <tr><td><a href="cam-do-chi-tiet.html" class="text-teal-700 font-medium">CD-0412</a></td><td>Nguyễn Văn Bình</td><td>Cầm đồ</td><td class="text-right num">450.000</td><td>15/10</td><td><span class="badge badge-late">Quá 4 ngày</span></td></tr>
+            <tr><td><a href="cam-do-chi-tiet.html" class="text-teal-700 font-medium">TC-0088</a></td><td>Lê Thị Hoa</td><td>Tín chấp</td><td class="text-right num">600.000</td><td>18/10</td><td><span class="badge badge-late">Quá 1 ngày</span></td></tr>
+            <tr><td><a href="cam-do-chi-tiet.html" class="text-teal-700 font-medium">CD-0431</a></td><td>Phạm Quốc Huy</td><td>Cầm đồ</td><td class="text-right num">1.200.000</td><td>19/10</td><td><span class="badge badge-warn">Hôm nay</span></td></tr>
+            <tr><td><a href="cam-do-chi-tiet.html" class="text-teal-700 font-medium">TG-0021</a></td><td>Đỗ Minh Tâm</td><td>Trả góp</td><td class="text-right num">200.000</td><td>19/10</td><td><span class="badge badge-warn">Hôm nay</span></td></tr>
+            <tr><td><a href="cam-do-chi-tiet.html" class="text-teal-700 font-medium">CD-0437</a></td><td>Võ Thanh Sơn</td><td>Cầm đồ</td><td class="text-right num">300.000</td><td>21/10</td><td><span class="badge badge-muted">Còn 2 ngày</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Giao dịch hôm nay -->
+    <section class="card" aria-labelledby="tx-title">
+      <div class="p-5 pb-3 flex items-center">
+        <h2 id="tx-title" class="font-semibold">Giao dịch hôm nay</h2>
+        <a href="#" class="ml-auto text-sm text-teal-700 hover:underline">Lịch sử</a>
+      </div>
+      <ul class="px-5 pb-4 divide-y divide-slate-100 text-sm">
+        <li class="py-3 flex gap-3"><span class="text-slate-400 num w-11">16:20</span><div class="flex-1 min-w-0"><div class="truncate">Chuộc đồ CD-0398</div><div class="text-xs text-slate-500">NV: Hùng</div></div><span class="num font-medium text-emerald-700">+ 8.300.000</span></li>
+        <li class="py-3 flex gap-3"><span class="text-slate-400 num w-11">14:05</span><div class="flex-1 min-w-0"><div class="truncate">Giải ngân CD-0441</div><div class="text-xs text-slate-500">NV: Lan</div></div><span class="num font-medium text-red-700">− 15.000.000</span></li>
+        <li class="py-3 flex gap-3"><span class="text-slate-400 num w-11">11:40</span><div class="flex-1 min-w-0"><div class="truncate">Đóng lãi TC-0075</div><div class="text-xs text-slate-500">NV: Hùng</div></div><span class="num font-medium text-emerald-700">+ 1.650.000</span></li>
+        <li class="py-3 flex gap-3"><span class="text-slate-400 num w-11">10:12</span><div class="flex-1 min-w-0"><div class="truncate">Giải ngân TG-0024</div><div class="text-xs text-slate-500">NV: Lan</div></div><span class="num font-medium text-red-700">− 20.000.000</span></li>
+        <li class="py-3 flex gap-3"><span class="text-slate-400 num w-11">09:30</span><div class="flex-1 min-w-0"><div class="truncate">Góp kỳ 6 TG-0019</div><div class="text-xs text-slate-500">NV: Lan</div></div><span class="num font-medium text-emerald-700">+ 2.500.000</span></li>
+      </ul>
+    </section>
+  </div>
+
+</div>
+<script src="assets/layout.js"></script>
+</body>
+</html>

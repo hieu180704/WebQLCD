@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cầm đồ & Tín chấp — TP83</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.1.11"></script>
+<link rel="stylesheet" href="assets/common.css">
+</head>
+<body data-page="pawn">
+<div id="app-shell">
+
+  <div class="flex flex-wrap items-end gap-3">
+    <div>
+      <h1 class="text-2xl font-bold">Cầm đồ & Tín chấp</h1>
+      <p class="text-sm text-slate-500">75 hợp đồng đang mở</p>
+    </div>
+    <div class="ml-auto flex flex-wrap gap-2">
+      <a href="#" class="btn btn-outline">Xuất Excel</a>
+      <a href="cam-do-form.html" class="btn btn-primary">+ Thêm hồ sơ</a>
+    </div>
+  </div>
+
+  <section class="mt-6 grid grid-cols-2 lg:grid-cols-4 gap-4" aria-label="Tóm tắt">
+    <div class="card p-4"><div class="text-sm text-slate-500">Tiền đang cho vay</div><div class="mt-1 text-lg font-bold num">982.000.000</div></div>
+    <div class="card p-4"><div class="text-sm text-slate-500">Lãi đến hôm nay</div><div class="mt-1 text-lg font-bold num">21.740.000</div></div>
+    <div class="card p-4"><div class="text-sm text-slate-500">Lãi đã thu tháng này</div><div class="mt-1 text-lg font-bold num text-emerald-700">36.900.000</div></div>
+    <div class="card p-4"><div class="text-sm text-slate-500">Quá hạn</div><div class="mt-1 text-lg font-bold num text-red-700">6</div></div>
+  </section>
+
+  <section class="card mt-6">
+    <!-- Bộ lọc -->
+    <form class="p-4 flex flex-wrap gap-3 items-end border-b border-slate-200" role="search">
+      <div class="field flex-1 min-w-[240px]">
+        <label for="q">Tìm kiếm</label>
+        <input id="q" class="input" placeholder="Mã HĐ, tên khách, SĐT, tên tài sản">
+      </div>
+      <div class="field w-full sm:w-52">
+        <label for="cccd">Số CCCD (khớp đủ 12 số)</label>
+        <input id="cccd" class="input" inputmode="numeric" maxlength="12" placeholder="0xxxxxxxxxxx">
+      </div>
+      <div class="field w-[calc(50%-6px)] sm:w-40">
+        <label for="type">Loại</label>
+        <select id="type" class="input"><option>Tất cả</option><option>Thế chấp (cầm đồ)</option><option>Tín chấp</option></select>
+      </div>
+      <div class="field w-[calc(50%-6px)] sm:w-44">
+        <label for="status">Trạng thái</label>
+        <select id="status" class="input"><option>Đang mở</option><option>Quá hạn</option><option>Đến hạn hôm nay</option><option>Đã chuộc / Đã đóng</option><option>Đã xoá</option></select>
+      </div>
+      <button class="btn btn-outline">Lọc</button>
+    </form>
+
+    <div class="overflow-x-auto">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Mã HĐ</th><th>Khách hàng</th><th>Loại</th><th>Tài sản</th>
+            <th class="text-right">Tiền vay</th><th>Ngày vay</th><th>Hình thức lãi</th>
+            <th class="text-right">Lãi đến hôm nay</th><th>Hạn đóng lãi</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><a href="cam-do-chi-tiet.html" class="text-teal-700 font-medium">CD-0412</a></td>
+            <td><div class="font-medium">Nguyễn Văn Bình</div><div class="text-xs text-slate-500 num">0912 *** 678</div></td>
+            <td>Thế chấp</td><td>Honda Vision 2022</td>
+            <td class="text-right num">15.000.000</td><td class="num">05/09/2026</td><td>3k/triệu/ngày</td>
+            <td class="text-right num">630.000</td><td><div class="num">15/10/2026</div><div class="mt-1"><span class="badge badge-late">Quá 4 ngày</span></div></td>
+          </tr>
+          <tr>
+            <td><a href="cam-do-chi-tiet.html" class="text-teal-700 font-medium">TC-0088</a></td>
+            <td><div class="font-medium">Lê Thị Hoa</div><div class="text-xs text-slate-500 num">0987 *** 112</div></td>
+            <td>Tín chấp</td><td class="text-slate-400">—</td>
+            <td class="text-right num">20.000.000</td><td class="num">18/08/2026</td><td>3%/tháng</td>
+            <td class="text-right num">620.000</td><td><div class="num">18/10/2026</div><div class="mt-1"><span class="badge badge-late">Quá 1 ngày</span></div></td>
+          </tr>
+          <tr>
+            <td><a href="cam-do-chi-tiet.html" class="text-teal-700 font-medium">CD-0431</a></td>
+            <td><div class="font-medium">Phạm Quốc Huy</div><div class="text-xs text-slate-500 num">0903 *** 455</div></td>
+            <td>Thế chấp</td><td>iPhone 15 Pro Max 256GB</td>
+            <td class="text-right num">40.000.000</td><td class="num">09/10/2026</td><td>3k/triệu/ngày</td>
+            <td class="text-right num">1.200.000</td><td><div class="num">19/10/2026</div><div class="mt-1"><span class="badge badge-warn">Hôm nay</span></div></td>
+          </tr>
+          <tr>
+            <td><a href="cam-do-chi-tiet.html" class="text-teal-700 font-medium">CD-0437</a></td>
+            <td><div class="font-medium">Võ Thanh Sơn</div><div class="text-xs text-slate-500 num">0938 *** 021</div></td>
+            <td>Thế chấp</td><td>Nhẫn vàng 18K 2 chỉ</td>
+            <td class="text-right num">10.000.000</td><td class="num">11/10/2026</td><td>2k/triệu/ngày</td>
+            <td class="text-right num">160.000</td><td><div class="num">21/10/2026</div><div class="mt-1"><span class="badge badge-ok">Đang vay</span></div></td>
+          </tr>
+          <tr>
+            <td><a href="cam-do-chi-tiet.html" class="text-teal-700 font-medium">CD-0441</a></td>
+            <td><div class="font-medium">Trần Thị Mai</div><div class="text-xs text-slate-500 num">0977 *** 390</div></td>
+            <td>Thế chấp</td><td>Laptop Dell XPS 13</td>
+            <td class="text-right num">15.000.000</td><td class="num">19/10/2026</td><td>0,5%/tuần</td>
+            <td class="text-right num">0</td><td><div class="num">26/10/2026</div><div class="mt-1"><span class="badge badge-ok">Đang vay</span></div></td>
+          </tr>
+          <tr>
+            <td><a href="cam-do-chi-tiet.html" class="text-teal-700 font-medium">TC-0091</a></td>
+            <td><div class="font-medium">Bùi Văn Long</div><div class="text-xs text-slate-500 num">0965 *** 804</div></td>
+            <td>Tín chấp</td><td class="text-slate-400">—</td>
+            <td class="text-right num">8.000.000</td><td class="num">01/10/2026</td><td>2,5%/tháng</td>
+            <td class="text-right num">120.000</td><td><div class="num">31/10/2026</div><div class="mt-1"><span class="badge badge-ok">Đang vay</span></div></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="p-4 flex flex-wrap items-center gap-3 text-sm text-slate-600">
+      <span>Hiển thị 1–20 / 75 hợp đồng</span>
+      <nav class="ml-auto flex gap-1" aria-label="Phân trang">
+        <a href="#" class="btn btn-outline !h-9 !px-3" aria-label="Trang trước">‹</a>
+        <a href="#" class="btn btn-primary !h-9 !px-3" aria-current="page">1</a>
+        <a href="#" class="btn btn-outline !h-9 !px-3">2</a>
+        <a href="#" class="btn btn-outline !h-9 !px-3">3</a>
+        <a href="#" class="btn btn-outline !h-9 !px-3">4</a>
+        <a href="#" class="btn btn-outline !h-9 !px-3" aria-label="Trang sau">›</a>
+      </nav>
+    </div>
+  </section>
+
+</div>
+<script src="assets/layout.js"></script>
+</body>
+</html>

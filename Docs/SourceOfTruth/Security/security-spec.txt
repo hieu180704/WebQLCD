@@ -1,0 +1,59 @@
+# ĐẶC TẢ BẢO MẬT
+
+# Mục lục
+1. Mục Tiêu & Định Nghĩa Cốt Lõi
+2. Quy Chuẩn & Thiết Lập Nền Tảng
+3. Danh Mục Thực Thể & Cấu Trúc
+
+---
+
+# 1. Mục Tiêu & Định Nghĩa Cốt Lõi
+- **Phân hệ:** Bảo mật ứng dụng web.
+- **Mục đích:** Bảo vệ tiền, dữ liệu khách hàng và tính tách biệt giữa các cửa hàng.
+- **Ưu tiên:** bảo mật là một trong hai ưu tiên hàng đầu của dự án (cùng hiệu năng); khi xung đột với tốc độ phát triển thì bảo mật thắng.
+- Luật thực thi (bắt buộc / cấm): rule `web-security.md` trong thư mục rules của engine. File này chỉ giữ lý do và bối cảnh.
+
+---
+
+# 2. Quy Chuẩn & Thiết Lập Nền Tảng
+
+## 2.1 Threat model (rủi ro xếp theo mức độ)
+1. **Rò dữ liệu chéo cửa hàng:** một cửa hàng xem/sửa được hợp đồng của cửa hàng khác. Hậu quả nặng nhất với SaaS.
+   - Nguyên nhân thường gặp: lấy `shop_id` từ form/URL, quên lọc ở một truy vấn.
+   - Chặn: `shop_id` chỉ từ session, lọc tự động ở repository, test chéo cửa hàng.
+2. **Thao tác vượt quyền:** KTV xoá hồ sơ, tài khoản hết hạn vẫn ghi dữ liệu, người lạ gọi server action.
+   - Server action của Next.js là endpoint công khai, gọi được bằng request tự tạo.
+   - Middleware từng bị bỏ qua (CVE-2025-29927), nên phân quyền phải nằm trong use case.
+3. **Lộ dữ liệu cá nhân (CCCD, SĐT, địa chỉ):** rủi ro pháp lý theo luật bảo vệ dữ liệu cá nhân VN.
+   - Chặn: mã hoá CCCD, che bớt khi hiển thị, cấm ghi log, backup mã hoá.
+4. **Sai lệch tiền do gian lận hoặc lỗi:** sửa số tiền phía client, xoá giao dịch để che dấu.
+   - Chặn: server tự tính tiền, sổ giao dịch append-only, soft delete + bút toán đảo, audit người thực hiện.
+5. **Chiếm tài khoản:** dò mật khẩu, đánh cắp cookie.
+   - Chặn: argon2id, giới hạn đăng nhập sai, cookie `HttpOnly`/`Secure`/`SameSite`, CSP.
+6. **Tấn công qua file xuất:** formula injection khi mở Excel.
+7. **Chuỗi cung ứng:** gói npm độc hại hoặc có lỗ hổng.
+
+## 2.2 Đánh đổi đã chấp nhận
+- Mã hoá CCCD làm mất khả năng tìm "chứa một phần" theo CCCD; chỉ tìm khớp chính xác qua hash. Chấp nhận vì rủi ro lộ CCCD lớn hơn.
+
+## 2.3 Chưa xác minh
+- Điều khoản cụ thể của luật bảo vệ dữ liệu cá nhân VN về nơi lưu trữ và thủ tục đăng ký xử lý dữ liệu. Ảnh hưởng chọn hosting.
+
+---
+
+# 3. Danh Mục Thực Thể & Cấu Trúc
+
+## 3.1 Phân loại dữ liệu
+| Mức | Dữ liệu | Xử lý |
+| :--- | :--- | :--- |
+| Bí mật | Mật khẩu, token phiên, secret, khoá mã hoá | Không bao giờ lưu dạng rõ, không log, không gửi client |
+| Nhạy cảm | CCCD | Mã hoá ở DB, che khi hiển thị, không log |
+| Cá nhân | Tên, SĐT, địa chỉ khách hàng | Che SĐT ở danh sách, không log |
+| Nghiệp vụ | Hợp đồng, giao dịch, quỹ két | Tách theo `shop_id`, audit khi đổi tiền |
+| Công khai | Nội dung landing page | Không hạn chế |
+
+## 3.2 Điểm kiểm soát trong kiến trúc
+- `presentation`: Zod validate input.
+- `application`: guard dùng chung (session, vai trò, thuê bao) ở đầu mỗi use case.
+- `infrastructure`: repository lọc `shop_id`; mã hoá/giải mã CCCD; truy vấn tham số hoá.
+- `shared/infrastructure`: cấu hình cookie phiên, header bảo mật.

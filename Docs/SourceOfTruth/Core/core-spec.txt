@@ -1,0 +1,60 @@
+# ĐẶC TẢ NGHIỆP VỤ CỐT LÕI — HỢP ĐỒNG & QUỸ KÉT
+
+# Mục lục
+1. Mục Tiêu & Định Nghĩa Cốt Lõi
+2. Quy Chuẩn & Thiết Lập Nền Tảng
+3. Danh Mục Thực Thể & Cấu Trúc
+
+---
+
+# 1. Mục Tiêu & Định Nghĩa Cốt Lõi
+- **Phân hệ:** Nghiệp vụ hợp đồng (cầm đồ, tín chấp, trả góp) và quỹ két.
+- **Mục đích:** Ghi nhận hợp đồng cho vay, tính lãi, theo dõi trạng thái hợp đồng và mọi luồng tiền ra/vào két.
+- **Định nghĩa:**
+  - Cầm đồ: khách để lại tài sản, kết thúc bằng chuộc đồ.
+  - Tín chấp: cho vay không cần tài sản, kết thúc bằng đóng hợp đồng.
+  - Trả góp: khách trả dần theo kỳ, kết thúc bằng đóng hợp đồng.
+  - Quỹ két: tiền mặt của cửa hàng, khởi tạo bằng quỹ đầu két.
+
+---
+
+# 2. Quy Chuẩn & Thiết Lập Nền Tảng
+- Số tiền cuối ngày = Quỹ đầu két − Tổng chi + Tổng thu.
+- Mọi thao tác làm thay đổi tiền trong két đều sinh một bản ghi lịch sử giao dịch.
+- Mỗi hồ sơ ghi KTV (nhân viên làm hồ sơ).
+
+GIẢ ĐỊNH TẠM (2026-10-19, chưa được khách hàng xác nhận):
+- **Hình thức lãi:** enum gồm k/triệu/ngày, %/tháng, %/tuần. **Kỳ lãi** là số ngày giữa hai lần đóng lãi.
+- **Sửa** là chỉnh thông tin hồ sơ, không sinh giao dịch.
+- **Cập nhật** là thao tác có tiền (đóng lãi, trả bớt gốc, vay thêm, gia hạn). Mỗi lần cập nhật sinh giao dịch két.
+- **Xoá:** soft delete. Giao dịch của hồ sơ bị xoá được ghi bút toán đảo, không xoá bản ghi. Áp dụng cho cả cầm đồ, tín chấp, trả góp.
+- **Cầm đồ và tín chấp** dùng chung model hợp đồng, phân biệt bằng field loại tài sản (thế chấp / tín chấp). Tín chấp không bắt buộc tên tài sản.
+
+---
+
+# 3. Danh Mục Thực Thể & Cấu Trúc
+- **Khách hàng:** Tên khách hàng, Số CCCD, Số điện thoại, Địa chỉ.
+- **Hợp đồng cầm đồ (field theo yêu cầu gốc):**
+  - Mã hợp đồng
+  - Loại tài sản: tín chấp hoặc thế chấp
+  - Tên tài sản
+  - Hình thức lãi
+  - Số ngày vay
+  - Kỳ lãi
+  - Lãi
+  - Ngày vay
+  - Ghi chú
+  - KTV
+- **Hợp đồng tín chấp:** Dùng chung model với cầm đồ, loại tài sản = tín chấp (giả định tạm).
+- **Hợp đồng trả góp (giả định tạm, theo mô hình "bát họ"):**
+  - Mã hợp đồng
+  - Tiền đưa khách
+  - Tổng tiền phải thu
+  - Số ngày góp
+  - Số ngày mỗi kỳ
+  - Ngày bắt đầu
+  - Ghi chú
+  - KTV
+- **Giao dịch:** Bản ghi thu/chi gắn với hợp đồng hoặc với quỹ két.
+- **Cửa hàng:** Tên cửa hàng, quỹ đầu két, ngày mở két, trạng thái thuê bao (dùng thử / trả phí).
+- Quan hệ: Cửa hàng 1–n Hợp đồng; Khách hàng 1–n Hợp đồng; Hợp đồng 1–n Giao dịch.

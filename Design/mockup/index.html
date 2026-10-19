@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TP83 — Phần mềm quản lý cầm đồ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.1.11"></script>
+<link rel="stylesheet" href="assets/common.css">
+</head>
+<body class="bg-white">
+
+<header class="border-b border-slate-200">
+  <div class="max-w-6xl mx-auto px-4 h-16 flex items-center gap-3">
+    <div class="w-9 h-9 rounded-lg bg-teal-700 text-white grid place-items-center text-xs font-bold">LOGO</div>
+    <div class="font-bold text-lg">TP83</div>
+    <nav class="ml-auto hidden md:flex items-center gap-6 text-sm text-slate-600" aria-label="Điều hướng">
+      <a href="#tinh-nang" class="hover:text-slate-900">Tính năng</a>
+      <a href="#bang-gia" class="hover:text-slate-900">Bảng giá</a>
+      <a href="#lien-he" class="hover:text-slate-900">Liên hệ</a>
+    </nav>
+    <a href="#dang-nhap" class="btn btn-primary ml-auto md:ml-6">Dùng thử 7 ngày</a>
+  </div>
+</header>
+
+<!-- Hero + đăng nhập -->
+<section class="bg-gradient-to-b from-teal-50/60 to-white">
+  <div class="max-w-6xl mx-auto px-4 py-12 lg:py-20 grid lg:grid-cols-[1fr_420px] gap-10 items-center">
+    <div>
+      <span class="badge badge-ok">Miễn phí 7 ngày, không cần thẻ</span>
+      <h1 class="mt-4 text-3xl sm:text-4xl lg:text-5xl font-bold leading-tight">
+        Quản lý tiệm cầm đồ<br>gọn trong một màn hình
+      </h1>
+      <p class="mt-4 text-lg text-slate-600 max-w-xl">
+        Ghi hồ sơ cầm đồ, tín chấp, trả góp. Tự tính lãi, nhắc ngày đóng lãi,
+        chốt quỹ két cuối ngày và xuất báo cáo Excel.
+      </p>
+      <ul class="mt-6 grid sm:grid-cols-2 gap-3 text-sm text-slate-700">
+        <li class="flex gap-2"><span class="text-teal-700 font-bold">✓</span>Tính lãi tự động theo kỳ</li>
+        <li class="flex gap-2"><span class="text-teal-700 font-bold">✓</span>Quỹ két khớp từng đồng</li>
+        <li class="flex gap-2"><span class="text-teal-700 font-bold">✓</span>Tra cứu theo tên, SĐT, mã HĐ</li>
+        <li class="flex gap-2"><span class="text-teal-700 font-bold">✓</span>Sao lưu & xuất Excel</li>
+      </ul>
+    </div>
+
+    <div id="dang-nhap" class="card p-6 shadow-sm">
+      <div class="flex gap-1 p-1 bg-slate-100 rounded-lg" role="tablist">
+        <button id="tab-login" role="tab" aria-selected="true" class="flex-1 h-9 rounded-md text-sm font-medium bg-white shadow-sm">Đăng nhập</button>
+        <button id="tab-register" role="tab" aria-selected="false" class="flex-1 h-9 rounded-md text-sm font-medium text-slate-600">Đăng ký dùng thử</button>
+      </div>
+
+      <form id="form-login" class="mt-5 flex flex-col gap-4" action="dashboard.html">
+        <div class="field"><label for="l-user">Tên đăng nhập hoặc SĐT</label><input id="l-user" class="input" autocomplete="username"></div>
+        <div class="field"><label for="l-pass">Mật khẩu</label><input id="l-pass" type="password" class="input" autocomplete="current-password"></div>
+        <div class="flex items-center justify-between text-sm">
+          <label class="flex items-center gap-2"><input type="checkbox"> Ghi nhớ đăng nhập</label>
+          <a href="#" class="text-teal-700 hover:underline">Quên mật khẩu?</a>
+        </div>
+        <button class="btn btn-primary w-full">Đăng nhập</button>
+      </form>
+
+      <form id="form-register" class="mt-5 flex-col gap-4 hidden" action="dashboard.html">
+        <div class="field"><label for="r-shop">Tên cửa hàng <span class="req">*</span></label><input id="r-shop" class="input" placeholder="VD: Cầm đồ Minh Phát"></div>
+        <div class="field"><label for="r-name">Họ tên chủ tiệm <span class="req">*</span></label><input id="r-name" class="input"></div>
+        <div class="field"><label for="r-phone">Số điện thoại <span class="req">*</span></label><input id="r-phone" class="input" inputmode="tel" autocomplete="tel"></div>
+        <div class="field"><label for="r-pass">Mật khẩu <span class="req">*</span></label><input id="r-pass" type="password" class="input" autocomplete="new-password"></div>
+        <button class="btn btn-primary w-full">Bắt đầu dùng thử 7 ngày</button>
+        <p class="text-xs text-slate-500">Hết 7 ngày, dữ liệu vẫn được giữ. Tài khoản chuyển sang chỉ xem cho tới khi gia hạn.</p>
+      </form>
+    </div>
+  </div>
+</section>
+
+<section id="tinh-nang" class="max-w-6xl mx-auto px-4 py-16">
+  <h2 class="text-2xl font-bold">Đủ nghiệp vụ cho một tiệm cầm đồ</h2>
+  <div class="mt-8 grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+    <div class="card p-5"><div class="font-semibold">Cầm đồ & Tín chấp</div><p class="mt-2 text-sm text-slate-600">Thêm, sửa, đóng lãi, gia hạn, chuộc đồ, đóng hợp đồng. Theo dõi hồ sơ quá hạn.</p></div>
+    <div class="card p-5"><div class="font-semibold">Trả góp</div><p class="mt-2 text-sm text-slate-600">Lịch góp theo kỳ, ghi nhận từng lần góp, cảnh báo chậm góp.</p></div>
+    <div class="card p-5"><div class="font-semibold">Quỹ két</div><p class="mt-2 text-sm text-slate-600">Quỹ đầu két − Tổng chi + Tổng thu = Tiền cuối ngày. Mọi giao dịch đều có lịch sử.</p></div>
+    <div class="card p-5"><div class="font-semibold">Báo cáo</div><p class="mt-2 text-sm text-slate-600">Tổng kết giao dịch theo ngày, tháng, từ ngày mở két.</p></div>
+    <div class="card p-5"><div class="font-semibold">Nhân viên</div><p class="mt-2 text-sm text-slate-600">Phân quyền chủ tiệm và nhân viên. Biết ai làm hồ sơ nào.</p></div>
+    <div class="card p-5"><div class="font-semibold">An toàn dữ liệu</div><p class="mt-2 text-sm text-slate-600">CCCD được mã hoá. Sao lưu định kỳ, xuất Excel bất cứ lúc nào.</p></div>
+  </div>
+</section>
+
+<section id="bang-gia" class="bg-slate-50 border-y border-slate-200">
+  <div class="max-w-6xl mx-auto px-4 py-16 text-center">
+    <h2 class="text-2xl font-bold">Bảng giá</h2>
+    <div class="mt-8 card p-8 max-w-md mx-auto text-left">
+      <div class="text-sm text-slate-500">Gói tiêu chuẩn</div>
+      <div class="mt-2 text-3xl font-bold">[GIÁ] <span class="text-base font-normal text-slate-500">/ tháng</span></div>
+      <p class="mt-3 text-sm text-slate-600">Dùng thử miễn phí 7 ngày, đầy đủ tính năng.</p>
+      <a href="#dang-nhap" class="btn btn-primary w-full mt-6">Dùng thử ngay</a>
+    </div>
+  </div>
+</section>
+
+<footer id="lien-he" class="max-w-6xl mx-auto px-4 py-10 text-sm text-slate-500 flex flex-wrap gap-4 justify-between">
+  <div>© 2026 TP83. Phần mềm quản lý cầm đồ.</div>
+  <div>Hỗ trợ: [SỐ ĐIỆN THOẠI] · [ZALO]</div>
+</footer>
+
+<script>
+  const tl = document.getElementById('tab-login'), tr = document.getElementById('tab-register');
+  const fl = document.getElementById('form-login'), fr = document.getElementById('form-register');
+  function show(reg) {
+    fl.classList.toggle('hidden', reg); fl.classList.toggle('flex', !reg);
+    fr.classList.toggle('hidden', !reg); fr.classList.toggle('flex', reg);
+    tl.setAttribute('aria-selected', !reg); tr.setAttribute('aria-selected', reg);
+    tl.className = tl.className.replace(/ ?(bg-white shadow-sm|text-slate-600)/g, '') + (reg ? ' text-slate-600' : ' bg-white shadow-sm');
+    tr.className = tr.className.replace(/ ?(bg-white shadow-sm|text-slate-600)/g, '') + (reg ? ' bg-white shadow-sm' : ' text-slate-600');
+  }
+  tl.onclick = () => show(false); tr.onclick = () => show(true);
+</script>
+</body>
+</html>

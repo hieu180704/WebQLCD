@@ -1,0 +1,23 @@
+# MẪU WORKLOG FRAGMENT (Docs/Done/YYYY-MM-DD-task.txt)
+
+# Mục lục
+1. [Tóm Tắt Công Việc](#1-tóm-tắt-công-việc)
+2. [Chi Tiết Thay Đổi](#2-chi-tiết-thay-đổi)
+3. [Kết Quả Kiểm Chứng](#3-kết-quả-kiểm-chứng)
+
+---
+
+# 1. Tóm Tắt Công Việc
+- **Mục tiêu:** [Tóm tắt mục tiêu task]
+- **Thời gian hoàn thành:** [YYYY-MM-DD]
+
+---
+
+# 2. Chi Tiết Thay Đổi
+- Đã tạo/chỉnh sửa các tệp: ...
+- Quyết định quan trọng đi kèm: ...
+
+---
+
+# 3. Kết Quả Kiểm Chứng
+- Trạng thái nghiệm thu: PASS 100%

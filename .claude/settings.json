@@ -1,0 +1,67 @@
+{
+  "permissions": {
+    "deny": [
+      "Read(./.env)",
+      "Read(./**/.env)",
+      "Read(./**/*.pem)",
+      "Read(./**/id_rsa*)",
+      "Read(./**/credentials.json)",
+      "Read(./**/secrets/**)",
+      "Edit(./.env)",
+      "Edit(./**/.env)",
+      "Edit(./**/*.pem)",
+      "Edit(./**/id_rsa*)",
+      "Edit(./**/credentials.json)",
+      "Edit(./**/secrets/**)",
+      "Write(./.env)",
+      "Write(./**/.env)",
+      "Write(./**/*.pem)",
+      "Write(./**/id_rsa*)",
+      "Write(./**/credentials.json)",
+      "Write(./**/secrets/**)",
+      "Bash(rm -rf:*)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/hooks/language-guard.js"
+          }
+        ]
+      },
+      {
+        "matcher": "Read|Write|Edit|MultiEdit|NotebookEdit|Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/hooks/safety-guard.js"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/hooks/closeout-trigger.js"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/hooks/doc-budget.js"
+          }
+        ]
+      }
+    ]
+  }
+}

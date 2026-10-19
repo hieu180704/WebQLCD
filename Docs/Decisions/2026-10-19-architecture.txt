@@ -1,0 +1,50 @@
+# QUYẾT ĐỊNH: KIẾN TRÚC HỆ THỐNG
+
+# Mục lục
+1. Bối Cảnh & Vấn Đề
+2. Các Phương Án Đã Cân Nhắc
+3. Quyết Định Đã Chốt & Lý Do
+
+---
+
+# 1. Bối Cảnh & Vấn Đề
+- Ngày ghi nhận: 2026-10-19
+- Vấn đề: Chọn kiến trúc cho web SaaS quản lý cầm đồ trên Next.js + TypeScript + PostgreSQL (`Docs/Decisions/2026-10-19-techstack.txt`).
+- Yêu cầu của người dùng:
+  - Dễ sửa đổi, dễ thay thế, dễ bảo trì và phát triển.
+  - Tránh spaghetti code, áp dụng SOLID.
+- Ràng buộc nghiệp vụ:
+  - Tiền và lãi không được phép sai.
+  - Dữ liệu các cửa hàng phải tách biệt.
+- Bối cảnh đội: một người làm, không chuyên web, phát triển chủ yếu cùng AI.
+
+---
+
+# 2. Các Phương Án Đã Cân Nhắc
+- **Viết thẳng theo mặc định Next.js (logic trong page/server action):**
+  - Ưu: nhanh, ít file.
+  - Nhược: logic tiền rải rác, khó test, dễ thành spaghetti.
+  - Loại vì trái yêu cầu bảo trì.
+- **Microservices / CQRS + event sourcing đầy đủ:**
+  - Ưu: tách biệt mạnh.
+  - Nhược: chi phí vận hành và độ phức tạp quá lớn so với quy mô một người làm.
+  - Loại vì YAGNI.
+- **Modular Monolith + Clean Architecture rút gọn:**
+  - Ưu: một ứng dụng duy nhất, chia module theo nghiệp vụ, luật phụ thuộc rõ, domain test được không cần DB.
+  - Nhược: nhiều file và nghi thức hơn; kỷ luật dễ trôi nếu không cưỡng chế bằng công cụ.
+
+---
+
+# 3. Quyết Định Đã Chốt & Lý Do
+- Quyết định: Chọn **Modular Monolith + Clean Architecture rút gọn**. Spec chi tiết: `Docs/SourceOfTruth/Architecture/architecture-spec.txt`.
+- Rationale:
+  - Phần tiền và lãi cần cô lập và test được; Clean Architecture cho đúng điều đó.
+  - Modular monolith giữ deploy và vận hành đơn giản.
+- Có chủ đích KHÔNG làm:
+  - Microservices; CQRS hay event sourcing đầy đủ.
+  - DI container.
+  - Interface cho thứ chỉ có một implementation và không cần test giả.
+- Ngoại lệ có chủ đích: module `reporting` truy vấn DB trực tiếp, chỉ đọc, không qua domain.
+- Đánh đổi chấp nhận: nhiều file hơn cho các màn hình CRUD đơn giản.
+- Điều kiện bắt buộc: luật phụ thuộc phải được kiểm tra tự động trong CI (dependency-cruiser hoặc eslint-plugin-boundaries). Không có công cụ cưỡng chế thì kiến trúc sẽ trôi.
+- Chưa có phản biện độc lập (agent `adversary`); người dùng chốt trực tiếp.

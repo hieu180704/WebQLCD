@@ -1,0 +1,71 @@
+# TỔNG QUAN DỰ ÁN — WEB QUẢN LÝ CẦM ĐỒ (TP83)
+
+# Mục lục
+1. Mục Tiêu & Đối Tượng
+2. Mô Hình Kinh Doanh
+3. Phạm Vi Chức Năng
+4. Nguyên Tắc Dòng Tiền (Quỹ Két)
+5. Techstack & Ràng Buộc
+6. Giả Định Tạm & Câu Hỏi Còn Mở
+
+---
+
+# 1. Mục Tiêu & Đối Tượng
+- **Sản phẩm:** Website quản lý cầm đồ, thương hiệu dịch vụ "TP83".
+- **Đối tượng dùng:** Chủ tiệm cầm đồ và nhân viên làm hồ sơ (KTV).
+- **Bài toán:** Quản lý thông tin khách hàng và hợp đồng (cầm đồ, tín chấp, trả góp), tính lãi suất, tổng kết giao dịch, tra cứu lịch sử giao dịch, kiểm soát dòng tiền của két.
+
+---
+
+# 2. Mô Hình Kinh Doanh
+- Đăng ký dùng thử miễn phí 7 ngày, sau đó trả phí thuê bao để tiếp tục dùng.
+- Mỗi tài khoản đặt tên cửa hàng riêng.
+
+---
+
+# 3. Phạm Vi Chức Năng
+- **Trang công khai:** Landing page vừa làm trang đăng nhập vừa giới thiệu dịch vụ TP83 (logo đã có sẵn).
+- **Tài khoản:** Đăng ký, đăng nhập, đặt tên cửa hàng.
+- **Quỹ két:** Nhập quỹ đầu két.
+- **Hồ sơ cầm đồ:** Thêm, sửa, cập nhật, xoá, xem chi tiết, chuộc đồ.
+- **Hồ sơ tín chấp:** Thêm, sửa, xem chi tiết, đóng hợp đồng.
+- **Hồ sơ trả góp:** Thêm, sửa, cập nhật, xoá, xem chi tiết, đóng hợp đồng.
+- **Tìm kiếm:** Tìm hồ sơ cầm đồ và tín chấp (chung), tìm hồ sơ trả góp (riêng).
+- **Báo cáo:** Tổng kết giao dịch, lịch sử giao dịch kể từ ngày mở két.
+- **Dữ liệu:** Sao lưu (backup) và xuất file Excel.
+- Chi tiết field và nghiệp vụ hợp đồng: `Docs/SourceOfTruth/Core/core-spec.txt`.
+
+---
+
+# 4. Nguyên Tắc Dòng Tiền (Quỹ Két)
+- Công thức chốt ngày: **Quỹ đầu két − Tổng chi + Tổng thu = Số tiền cuối ngày**.
+- Mọi giao dịch phát sinh tiền (giải ngân, thu lãi, chuộc đồ, đóng hợp đồng...) phải ghi vào lịch sử giao dịch để đối soát được.
+
+---
+
+# 5. Techstack & Ràng Buộc
+- **Techstack:** Next.js (App Router) + TypeScript strict + PostgreSQL, deploy Docker lên VPS. Chi tiết và lý do: `Docs/Decisions/2026-10-19-techstack.txt`.
+- **Kiến trúc:** Modular Monolith + Clean Architecture rút gọn. Spec: `Docs/SourceOfTruth/Architecture/architecture-spec.txt`; lý do: `Docs/Decisions/2026-10-19-architecture.txt`.
+- **Quy ước bắt buộc:**
+  - Tiền lưu bằng số nguyên VND (`bigint`).
+  - Tính lãi gom trong một module có unit test.
+  - Trang quản lý không cache.
+  - Mọi truy vấn lọc theo `shop_id` qua một lớp chung.
+- **Ngôn ngữ giao diện:** Chỉ tiếng Việt (giai đoạn hiện tại).
+- **Ngôn ngữ tài liệu:** Tiếng Việt có dấu.
+
+---
+
+# 6. Giả Định Tạm & Câu Hỏi Còn Mở
+GIẢ ĐỊNH TẠM do AI đề xuất (2026-10-19), chưa được khách hàng xác nhận. Khách chốt khác thì sửa tại đây và trong `Core/core-spec.txt`.
+
+Giả định tạm:
+- Hình thức lãi, kỳ lãi, sửa/cập nhật, xoá, gộp cầm đồ – tín chấp, field trả góp: xem `Core/core-spec.txt`.
+- Phân quyền: 2 vai trò. Chủ tiệm toàn quyền; nhân viên (KTV) không được xoá hồ sơ, không xem báo cáo tổng.
+- Mỗi tài khoản quản lý 1 cửa hàng.
+- Hết hạn dùng thử: tài khoản chuyển sang chỉ đọc, giữ nguyên dữ liệu.
+
+Câu hỏi còn mở (tạm bỏ qua):
+- Nhà cung cấp hosting, phụ thuộc yêu cầu pháp lý về nơi lưu dữ liệu CCCD (chưa xác minh).
+- Mức phí thuê bao, cách thanh toán.
+- Ghi chú "CRUD 13" trong yêu cầu gốc nghĩa là gì.

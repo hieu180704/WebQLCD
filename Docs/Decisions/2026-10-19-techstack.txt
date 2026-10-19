@@ -1,0 +1,57 @@
+# QUYẾT ĐỊNH: CHỌN TECHSTACK
+
+# Mục lục
+1. Bối Cảnh & Vấn Đề
+2. Các Phương Án Đã Cân Nhắc
+3. Quyết Định Đã Chốt & Lý Do
+
+---
+
+# 1. Bối Cảnh & Vấn Đề
+- Ngày ghi nhận: 2026-10-19
+- Vấn đề: Chọn techstack cho web SaaS quản lý cầm đồ (TP83).
+- Ràng buộc:
+  - Tiền phải tính đúng tuyệt đối.
+  - Nhiều cửa hàng dùng chung hệ thống, dữ liệu phải tách biệt.
+  - Tính năng chủ yếu là CRUD, tìm kiếm, báo cáo, xuất Excel, backup.
+  - Một người làm, không chuyên web, phát triển chủ yếu cùng AI.
+  - Có dữ liệu cá nhân (CCCD, SĐT).
+- Người dùng không bắt buộc dùng C#; yêu cầu chọn stack tốt nhất cho web.
+
+---
+
+# 2. Các Phương Án Đã Cân Nhắc
+- **ASP.NET Core + Blazor (C#):**
+  - Ưu: người dùng quen C#, có kiểu `decimal`.
+  - Nhược: UI kém phong phú; Blazor Interactive Server giữ kết nối liên tục, dễ rớt trên 4G yếu (chưa test).
+  - Loại vì người dùng bỏ ràng buộc C#.
+- **Next.js (TypeScript) + PostgreSQL:**
+  - Ưu: hệ sinh thái lớn nhất, AI sinh code tốt nhất, một ngôn ngữ cho landing page + app + API, UI đẹp nhanh.
+  - Nhược: `number` là số thực; cơ chế cache ngầm dễ gây bug dữ liệu cũ.
+- **Laravel (PHP):**
+  - Ưu: hosting rẻ, ổn định.
+  - Nhược: UI và lượng code mẫu cho AI kém hơn Next.js.
+- **Django (Python):**
+  - Ưu: có admin dựng sẵn.
+  - Nhược: giao diện người dùng cuối vẫn phải tự làm.
+
+---
+
+# 3. Quyết Định Đã Chốt & Lý Do
+- Quyết định: Chọn **Next.js (App Router) + TypeScript strict + PostgreSQL**.
+- Stack chi tiết:
+  - ORM: Drizzle hoặc Prisma (chốt khi dựng project).
+  - UI: Tailwind + shadcn/ui.
+  - Auth: Better Auth hoặc Auth.js, tự host (chốt khi dựng project).
+  - Excel: exceljs.
+  - Backup: `pg_dump` theo lịch + xuất Excel trong app.
+  - Deploy: Docker lên VPS (VN hoặc Singapore), không dùng Vercel.
+- Quy ước bắt buộc kèm theo (giảm nhược điểm đã nêu):
+  - Tiền lưu bằng số nguyên VND (`bigint`), không dùng số thực.
+  - Toàn bộ phép tính lãi nằm trong một module riêng, một quy tắc làm tròn duy nhất, có unit test.
+  - Trang quản lý tắt cache, luôn đọc dữ liệu mới.
+  - Mọi bảng nghiệp vụ có `shop_id`; mọi truy vấn đi qua một lớp lọc chung theo cửa hàng.
+- Đánh đổi chấp nhận:
+  - Người dùng phải học đọc TypeScript (cú pháp gần C#).
+  - Phải tự vận hành VPS.
+- Chưa xác minh: yêu cầu pháp lý về nơi lưu dữ liệu CCCD theo luật bảo vệ dữ liệu cá nhân VN. Kiểm tra trước khi chọn nhà cung cấp hosting.

@@ -1,0 +1,55 @@
+# ĐẶC TẢ HIỆU NĂNG
+
+# Mục lục
+1. Mục Tiêu & Định Nghĩa Cốt Lõi
+2. Quy Chuẩn & Thiết Lập Nền Tảng
+3. Danh Mục Thực Thể & Cấu Trúc
+
+---
+
+# 1. Mục Tiêu & Định Nghĩa Cốt Lõi
+- **Phân hệ:** Hiệu năng ứng dụng web.
+- **Mục đích:** Trang mở nhanh trên điện thoại tầm trung với mạng 4G; truy vấn vẫn nhanh khi dữ liệu mỗi cửa hàng lớn dần theo năm.
+- **Ưu tiên:** hiệu năng là một trong hai ưu tiên hàng đầu (cùng bảo mật). Khi xung đột với tính đúng của dữ liệu tiền thì tính đúng thắng (ví dụ: trang quản lý không cache).
+- Luật thực thi (bắt buộc / cấm): rule `web-performance.md` trong thư mục rules của engine. File này giữ chỉ tiêu, cách đo và lý do.
+
+---
+
+# 2. Quy Chuẩn & Thiết Lập Nền Tảng
+
+## 2.1 Ngân sách hiệu năng (ĐỀ XUẤT, CHƯA ĐO)
+| Chỉ tiêu | Mục tiêu | Điều kiện đo |
+| :--- | :--- | :--- |
+| LCP | < 2,5 giây | Điện thoại tầm trung, mạng 4G mô phỏng (Lighthouse mobile) |
+| INP | < 200 ms | Như trên |
+| CLS | < 0,1 | Như trên |
+| Server trả trang danh sách | < 300 ms (p95) | Cửa hàng có 10.000 hợp đồng, 100.000 giao dịch |
+| Báo cáo tổng kết theo ngày | < 1 giây | Như trên |
+- Con số sẽ được hiệu chỉnh khi có code và đo thực tế; khi hiệu chỉnh ghi lý do vào `Docs/Decisions/`.
+
+## 2.2 Lý do các luật chính
+- **Server Components mặc định:** giảm JS phải tải và chạy trên điện thoại, cải thiện LCP và INP.
+- **Phân trang + index `shop_id`:** dữ liệu tăng tuyến tính theo thời gian; không phân trang thì trang chậm dần theo năm.
+- **Tổng hợp bằng SQL:** PostgreSQL cộng hàng trăm nghìn dòng nhanh hơn nhiều so với kéo về Node.js, và không tốn băng thông.
+- **`pg_trgm`:** `LIKE '%x%'` không index phải quét toàn bảng.
+- **Không cache trang quản lý:** dữ liệu tiền sai do cache cũ nguy hiểm hơn chậm vài chục ms.
+
+## 2.3 Quy trình khi phát hiện chậm
+1. Đo để xác định chậm ở đâu: trình duyệt (Lighthouse), server (log thời gian use case), DB (`EXPLAIN ANALYZE`).
+2. Sửa đúng điểm nghẽn đã đo, không tối ưu theo cảm tính.
+3. Đo lại với cùng điều kiện; ghi kết quả trước/sau vào worklog.
+
+---
+
+# 3. Danh Mục Thực Thể & Cấu Trúc
+
+## 3.1 Công cụ đo
+- **Trang:** Lighthouse. Có thể thêm Chrome DevTools MCP khi cần trace hiệu năng (nhớ tắt telemetry: `--no-usage-statistics --no-performance-crux`).
+- **DB:** `EXPLAIN ANALYZE`, `pg_stat_statements`.
+- **Bundle:** `@next/bundle-analyzer`.
+- **Dữ liệu thử tải:** script seed tạo cửa hàng mẫu 10.000 hợp đồng (làm khi bắt đầu code).
+
+## 3.2 Điểm áp dụng trong kiến trúc
+- `presentation`: ranh giới Server/Client Component.
+- `infrastructure`: truy vấn, index, phân trang.
+- `reporting`: truy vấn tổng hợp SQL trực tiếp.

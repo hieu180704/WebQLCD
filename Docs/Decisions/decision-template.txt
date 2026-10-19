@@ -1,0 +1,24 @@
+# MẪU NHẬT KÝ QUYẾT ĐỊNH (Decision Record)
+
+# Mục lục
+1. [Bối Cảnh & Vấn Đề](#1-bối-cảnh--vấn-đề)
+2. [Các Phương Án Đã Cân Nhắc](#2-các-phương-án-đã-cân-nhắc)
+3. [Quyết Định Đã Chốt & Lý Do](#3-quyết-định-đã-chốt--lý-do)
+
+---
+
+# 1. Bối Cảnh & Vấn Đề
+- Ngày ghi nhận: [YYYY-MM-DD]
+- Vấn đề cần giải quyết: [Mô tả]
+
+---
+
+# 2. Các Phương Án Đã Cân Nhắc
+- **Phương án 1:** [Ưu/Nhược điểm]
+- **Phương án 2:** [Ưu/Nhược điểm]
+
+---
+
+# 3. Quyết Định Đã Chốt & Lý Do
+- Quyết định: Chọn phương án [X].
+- Rationale: [Lý do lựa chọn và các đánh đổi chấp nhận].

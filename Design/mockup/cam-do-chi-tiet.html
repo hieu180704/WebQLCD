@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hợp đồng CD-0412 — TP83</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.1.11"></script>
+<link rel="stylesheet" href="assets/common.css">
+</head>
+<body data-page="pawn">
+<div id="app-shell">
+
+  <nav class="text-sm text-slate-500" aria-label="Breadcrumb"><a href="cam-do.html" class="hover:underline">Cầm đồ & Tín chấp</a> / CD-0412</nav>
+  <div class="mt-1 flex flex-wrap items-center gap-3">
+    <h1 class="text-2xl font-bold">Hợp đồng CD-0412</h1>
+    <span class="badge badge-late">Quá hạn đóng lãi 4 ngày</span>
+    <div class="ml-auto flex flex-wrap gap-2">
+      <a href="cam-do-form.html" class="btn btn-outline">Sửa thông tin</a>
+      <button class="btn btn-danger" title="Chỉ chủ tiệm">Xoá</button>
+    </div>
+  </div>
+
+  <!-- Thao tác có tiền -->
+  <section class="card mt-6 p-4 flex flex-wrap gap-2" aria-label="Thao tác">
+    <button class="btn btn-primary" data-open="dlg-interest">Đóng lãi</button>
+    <button class="btn btn-outline">Trả bớt gốc</button>
+    <button class="btn btn-outline">Vay thêm</button>
+    <button class="btn btn-outline">Gia hạn</button>
+    <button class="btn btn-outline sm:ml-auto !border-teal-700 !text-teal-800" data-open="dlg-redeem">Chuộc đồ</button>
+  </section>
+
+  <div class="mt-6 grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-6 items-start">
+    <div class="flex flex-col gap-6 min-w-0">
+
+      <section class="grid grid-cols-2 lg:grid-cols-4 gap-4" aria-label="Số liệu">
+        <div class="card p-4"><div class="text-sm text-slate-500">Tiền gốc còn lại</div><div class="mt-1 text-lg font-bold num">15.000.000</div></div>
+        <div class="card p-4"><div class="text-sm text-slate-500">Lãi đã đóng</div><div class="mt-1 text-lg font-bold num text-emerald-700">1.350.000</div></div>
+        <div class="card p-4"><div class="text-sm text-slate-500">Lãi đến hôm nay</div><div class="mt-1 text-lg font-bold num text-red-700">630.000</div></div>
+        <div class="card p-4"><div class="text-sm text-slate-500">Cần trả nếu chuộc</div><div class="mt-1 text-lg font-bold num">15.630.000</div></div>
+      </section>
+
+      <section class="card" aria-labelledby="t-schedule">
+        <h2 id="t-schedule" class="p-5 pb-3 font-semibold">Lịch đóng lãi</h2>
+        <div class="overflow-x-auto">
+          <table class="table">
+            <thead><tr><th>Kỳ</th><th>Từ ngày</th><th>Đến ngày</th><th class="text-right">Tiền lãi</th><th>Ngày đóng</th><th>Trạng thái</th></tr></thead>
+            <tbody>
+              <tr><td>1</td><td class="num">05/09/2026</td><td class="num">15/09/2026</td><td class="text-right num">450.000</td><td class="num">15/09/2026</td><td><span class="badge badge-ok">Đã đóng</span></td></tr>
+              <tr><td>2</td><td class="num">15/09/2026</td><td class="num">25/09/2026</td><td class="text-right num">450.000</td><td class="num">26/09/2026</td><td><span class="badge badge-ok">Đã đóng</span></td></tr>
+              <tr><td>3</td><td class="num">25/09/2026</td><td class="num">05/10/2026</td><td class="text-right num">450.000</td><td class="num">05/10/2026</td><td><span class="badge badge-ok">Đã đóng</span></td></tr>
+              <tr class="bg-red-50/50"><td>4</td><td class="num">05/10/2026</td><td class="num">15/10/2026</td><td class="text-right num">450.000</td><td class="text-slate-400">—</td><td><span class="badge badge-late">Quá hạn</span></td></tr>
+              <tr><td>5</td><td class="num">15/10/2026</td><td class="num">25/10/2026</td><td class="text-right num">450.000</td><td class="text-slate-400">—</td><td><span class="badge badge-muted">Chưa tới</span></td></tr>
+              <tr><td>6</td><td class="num">25/10/2026</td><td class="num">04/11/2026</td><td class="text-right num">450.000</td><td class="text-slate-400">—</td><td><span class="badge badge-muted">Chưa tới</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="card" aria-labelledby="t-history">
+        <h2 id="t-history" class="p-5 pb-3 font-semibold">Lịch sử giao dịch</h2>
+        <div class="overflow-x-auto">
+          <table class="table">
+            <thead><tr><th>Thời gian</th><th>Nội dung</th><th class="text-right">Thu</th><th class="text-right">Chi</th><th>Người thực hiện</th></tr></thead>
+            <tbody>
+              <tr><td class="num">05/10/2026 10:15</td><td>Đóng lãi kỳ 3</td><td class="text-right num text-emerald-700">450.000</td><td></td><td>Hùng</td></tr>
+              <tr><td class="num">26/09/2026 16:02</td><td>Đóng lãi kỳ 2</td><td class="text-right num text-emerald-700">450.000</td><td></td><td>Lan</td></tr>
+              <tr><td class="num">15/09/2026 09:40</td><td>Đóng lãi kỳ 1</td><td class="text-right num text-emerald-700">450.000</td><td></td><td>Hùng</td></tr>
+              <tr><td class="num">05/09/2026 14:20</td><td>Giải ngân, tạo hợp đồng</td><td></td><td class="text-right num text-red-700">15.000.000</td><td>Hùng</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+
+    <aside class="flex flex-col gap-6">
+      <section class="card p-5" aria-labelledby="s-cus">
+        <h2 id="s-cus" class="font-semibold">Khách hàng</h2>
+        <dl class="mt-4 grid grid-cols-[110px_1fr] gap-y-3 text-sm">
+          <dt class="text-slate-500">Họ tên</dt><dd class="font-medium">Nguyễn Văn Bình</dd>
+          <dt class="text-slate-500">Số CCCD</dt><dd class="num">079 *** *** 456</dd>
+          <dt class="text-slate-500">SĐT</dt><dd class="num">0912 345 678</dd>
+          <dt class="text-slate-500">Địa chỉ</dt><dd>12 Lê Lợi, P. Bến Thành, TP.HCM</dd>
+        </dl>
+      </section>
+      <section class="card p-5" aria-labelledby="s-loan">
+        <h2 id="s-loan" class="font-semibold">Khoản vay</h2>
+        <dl class="mt-4 grid grid-cols-[110px_1fr] gap-y-3 text-sm">
+          <dt class="text-slate-500">Loại</dt><dd>Thế chấp (cầm đồ)</dd>
+          <dt class="text-slate-500">Tài sản</dt><dd>Honda Vision 2022</dd>
+          <dt class="text-slate-500">Tiền vay</dt><dd class="num font-medium">15.000.000</dd>
+          <dt class="text-slate-500">Hình thức lãi</dt><dd>3k / triệu / ngày</dd>
+          <dt class="text-slate-500">Kỳ lãi</dt><dd>10 ngày</dd>
+          <dt class="text-slate-500">Ngày vay</dt><dd class="num">05/09/2026</dd>
+          <dt class="text-slate-500">Số ngày vay</dt><dd>60 ngày (đến 04/11/2026)</dd>
+          <dt class="text-slate-500">KTV</dt><dd>Hùng</dd>
+          <dt class="text-slate-500">Ghi chú</dt><dd>Giữ kèm cà vẹt xe.</dd>
+        </dl>
+      </section>
+    </aside>
+  </div>
+
+  <!-- Hộp thoại đóng lãi -->
+  <dialog id="dlg-interest" class="card p-0 m-auto w-[min(92vw,440px)] backdrop:bg-slate-900/40">
+    <form method="dialog" class="p-5 flex flex-col gap-4">
+      <h2 class="text-lg font-semibold">Đóng lãi — CD-0412</h2>
+      <div class="field"><label for="d-period">Đóng đến hết kỳ</label>
+        <select id="d-period" class="input"><option>Kỳ 4 (đến 15/10/2026) — 450.000 đ</option><option>Kỳ 5 (đến 25/10/2026) — 900.000 đ</option></select>
+      </div>
+      <div class="field"><label for="d-amount">Số tiền khách đưa</label><input id="d-amount" class="input num" value="450.000"></div>
+      <p class="text-xs text-slate-500">Quỹ két sẽ ghi một khoản thu, người thực hiện: Trần Văn A.</p>
+      <div class="flex gap-2 justify-end"><button value="cancel" class="btn btn-outline">Huỷ</button><button class="btn btn-primary">Xác nhận đóng lãi</button></div>
+    </form>
+  </dialog>
+
+  <!-- Hộp thoại chuộc đồ -->
+  <dialog id="dlg-redeem" class="card p-0 m-auto w-[min(92vw,440px)] backdrop:bg-slate-900/40">
+    <form method="dialog" class="p-5 flex flex-col gap-4">
+      <h2 class="text-lg font-semibold">Chuộc đồ — CD-0412</h2>
+      <dl class="grid grid-cols-2 gap-y-2 text-sm">
+        <dt class="text-slate-500">Tiền gốc</dt><dd class="text-right num">15.000.000</dd>
+        <dt class="text-slate-500">Lãi đến hôm nay (14 ngày)</dt><dd class="text-right num">630.000</dd>
+        <dt class="font-semibold border-t border-slate-200 pt-2">Tổng cần thu</dt><dd class="text-right num font-bold border-t border-slate-200 pt-2">15.630.000</dd>
+      </dl>
+      <p class="text-xs text-slate-500">Sau khi xác nhận: hợp đồng chuyển sang "Đã chuộc", quỹ két ghi khoản thu 15.630.000 đ.</p>
+      <div class="flex gap-2 justify-end"><button value="cancel" class="btn btn-outline">Huỷ</button><button class="btn btn-primary">Xác nhận chuộc đồ</button></div>
+    </form>
+  </dialog>
+
+</div>
+<script src="assets/layout.js"></script>
+<script>
+  document.querySelectorAll('[data-open]').forEach(b =>
+    b.addEventListener('click', () => document.getElementById(b.dataset.open).showModal()));
+</script>
+</body>
+</html>

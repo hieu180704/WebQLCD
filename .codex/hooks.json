@@ -1,0 +1,51 @@
+{
+  "description": "UniversalAgent shared safety and workflow hooks.",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "apply_patch|Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$(git rev-parse --show-toplevel)/.codex/hooks/language-guard.js\"",
+            "commandWindows": "for /f \"delims=\" %R in ('git rev-parse --show-toplevel') do @node \"%R\\.codex\\hooks\\language-guard.js\"",
+            "statusMessage": "Checking documentation language"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash|apply_patch|Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$(git rev-parse --show-toplevel)/.codex/hooks/safety-guard.js\"",
+            "commandWindows": "for /f \"delims=\" %R in ('git rev-parse --show-toplevel') do @node \"%R\\.codex\\hooks\\safety-guard.js\"",
+            "statusMessage": "Checking UniversalAgent safety policy"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$(git rev-parse --show-toplevel)/.codex/hooks/closeout-trigger.js\"",
+            "commandWindows": "for /f \"delims=\" %R in ('git rev-parse --show-toplevel') do @node \"%R\\.codex\\hooks\\closeout-trigger.js\""
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "apply_patch|Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$(git rev-parse --show-toplevel)/.codex/hooks/doc-budget.js\"",
+            "commandWindows": "for /f \"delims=\" %R in ('git rev-parse --show-toplevel') do @node \"%R\\.codex\\hooks\\doc-budget.js\""
+          }
+        ]
+      }
+    ]
+  }
+}

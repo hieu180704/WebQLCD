@@ -1,0 +1,85 @@
+# ĐẶC TẢ KIẾN TRÚC — MODULAR MONOLITH + CLEAN ARCHITECTURE RÚT GỌN
+
+# Mục lục
+1. Mục Tiêu & Định Nghĩa Cốt Lõi
+2. Quy Chuẩn & Thiết Lập Nền Tảng
+3. Danh Mục Thực Thể & Cấu Trúc
+
+---
+
+# 1. Mục Tiêu & Định Nghĩa Cốt Lõi
+- **Phân hệ:** Kiến trúc tổng thể của ứng dụng.
+- **Mục đích:** Code dễ sửa, dễ thay thế, dễ test; logic tiền và lãi cô lập khỏi framework và DB.
+- **Modular Monolith:** một ứng dụng, một lần deploy; bên trong chia module theo nghiệp vụ.
+- **Clean Architecture rút gọn:** mỗi module gồm 4 lớp, phụ thuộc chỉ hướng vào trong (về `domain`).
+- Lý do chọn và phương án bị loại: `Docs/Decisions/2026-10-19-architecture.txt`.
+
+---
+
+# 2. Quy Chuẩn & Thiết Lập Nền Tảng
+
+## 2.1 Luật phụ thuộc giữa các lớp
+- `domain`: TypeScript thuần. KHÔNG import Next.js, React, Drizzle, Zod, hay bất kỳ lớp nào khác.
+- `application`: chỉ import `domain` và `shared/kernel`. Định nghĩa interface (port) cho repository và dịch vụ ngoài.
+- `infrastructure`: implement các port của `application`. Được import `application`, `domain`.
+- `presentation`: chỉ gọi use case của `application`. Không chứa logic nghiệp vụ, không truy vấn DB.
+- `src/app/` (routes Next.js): mỏng, chỉ render component của `presentation`.
+
+## 2.2 Luật giữa các module
+- Module khác chỉ được import qua `modules/<tên>/index.ts` (public API). Cấm import thẳng vào file bên trong.
+- Thao tác có tiền (giải ngân, đóng lãi, chuộc, đóng hợp đồng, xoá có bút toán đảo) gọi `cashbook` trong CÙNG một DB transaction với thay đổi hợp đồng.
+- Ngoại lệ duy nhất: `reporting` được truy vấn DB trực tiếp, chỉ đọc.
+
+## 2.3 Áp dụng SOLID
+- **S:** mỗi use case một file; tính lãi tách khỏi lưu trữ; giao diện không chứa nghiệp vụ.
+- **O:** hình thức lãi dùng Strategy pattern, mỗi kiểu một class. Thêm kiểu mới = thêm class, không sửa code cũ.
+- **L:** mọi strategy lãi tuân interface `InterestPolicy`; repository thật và giả thay thế được cho nhau.
+- **I:** interface repository nhỏ, theo nhu cầu use case.
+- **D:** use case nhận phụ thuộc qua constructor; ghép ở `composition-root.ts`; không dùng DI container.
+
+## 2.4 Mối lo chung (xử lý một chỗ)
+- **Tách dữ liệu cửa hàng:** `shop_id` lấy từ phiên đăng nhập; repository tự lọc theo `shop_id`.
+- **Phân quyền & thuê bao:** guard dùng chung, gọi ở đầu mỗi use case (KTV không được xoá; hết dùng thử thì chỉ đọc).
+- **Tiền:** value object `Money` bọc số nguyên VND (`bigint` trong DB). Không có phép tính tiền ngoài `Money`.
+- **Validate input:** Zod ở lớp `presentation`.
+
+## 2.5 Cưỡng chế & test
+- dependency-cruiser hoặc eslint-plugin-boundaries chạy trong CI; vi phạm luật 2.1 và 2.2 thì build fail.
+- Test:
+  - Unit test `domain`, bắt buộc cho tính lãi (Vitest).
+  - Test use case với repository giả trong bộ nhớ.
+  - E2E cho các luồng tiền chính (Playwright).
+
+## 2.6 Có chủ đích KHÔNG làm
+- Microservices; CQRS hay event sourcing đầy đủ; DI container.
+- Interface cho thứ chỉ có một implementation và không cần test giả.
+
+---
+
+# 3. Danh Mục Thực Thể & Cấu Trúc
+
+## 3.1 Danh sách module
+- `identity`: đăng ký, đăng nhập, người dùng, vai trò (chủ tiệm, KTV).
+- `shop`: cửa hàng, thuê bao (dùng thử 7 ngày, trả phí, chỉ đọc).
+- `customer`: khách hàng (tên, CCCD, SĐT, địa chỉ).
+- `pawn`: hợp đồng cầm đồ và tín chấp; tạo, sửa, đóng lãi, chuộc, đóng hợp đồng.
+- `installment`: hợp đồng trả góp.
+- `cashbook`: quỹ két và sổ giao dịch thu/chi; nguồn sự thật duy nhất về tiền.
+- `reporting`: báo cáo, tra cứu lịch sử, xuất Excel; chỉ đọc.
+
+## 3.2 Cấu trúc thư mục
+```
+src/
+  app/                     routes Next.js (mỏng)
+  modules/
+    <module>/
+      domain/              entity, quy tắc nghiệp vụ (pawn: interest/ chứa các strategy lãi)
+      application/         use case (mỗi thao tác một file), ports.ts
+      infrastructure/      repository Drizzle, adapter ngoài
+      presentation/        component, form, server action
+      index.ts             public API của module
+  shared/
+    kernel/                Money, Result, lỗi nghiệp vụ dùng chung
+    infrastructure/        kết nối DB, transaction, auth session
+  composition-root.ts      nơi duy nhất ghép implementation vào use case
+```

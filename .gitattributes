@@ -1,0 +1,8 @@
+# Universal Git Attributes
+* text=auto eol=lf
+*.md text
+*.txt text
+*.json text
+*.js text
+*.ps1 text
+*.sh text eol=lf

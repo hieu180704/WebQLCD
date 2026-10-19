@@ -1,0 +1,24 @@
+# MẪU BÀN GIAO PHIÊN LÀM VIỆC (Session Handoff)
+
+# Mục lục
+1. [Trạng Thái Hiện Tại](#1-trạng-thái-hiện-tại)
+2. [Những Việc Đã Xong](#2-những-việc-đã-xong)
+3. [Đầu Việc Tiếp Theo & Lưu Ý](#3-đầu-việc-tiếp-theo--lưu-ý)
+
+---
+
+# 1. Trạng Thái Hiện Tại
+- Nhánh Git / Vị trí làm việc: [Tên nhánh / file]
+- Tiến độ tổng thể: [X%]
+
+---
+
+# 2. Những Việc Đã Xong
+- [x] Đầu việc A
+- [x] Đầu việc B
+
+---
+
+# 3. Đầu Việc Tiếp Theo & Lưu Ý
+- [ ] Đầu việc cần làm ngay ở phiên tới: ...
+- **Lưu ý đặc biệt:** [Bẫy ngầm, quy tắc cần nhớ].

@@ -1,0 +1,23 @@
+# MẪU ĐẶC TẢ TRI THỨC GỐC (Source of Truth)
+
+# Mục lục
+1. [Mục Tiêu & Định Nghĩa Cốt Lõi](#1-mục-tiêu--định-nghĩa-cốt-lõi)
+2. [Quy Chuẩn & Thiết Lập Nền Tảng](#2-quy-chuẩn--thiết-lập-nền-tảng)
+3. [Danh Mục Thực Thể / Cấu Trúc](#3-danh-mục-thực-thể--cấu-trúc)
+
+---
+
+# 1. Mục Tiêu & Định Nghĩa Cốt Lõi
+- **Tên phân hệ / Chủ đề:** [Điền tên]
+- **Mục đích tồn tại:** [Mô tả ngắn gọn]
+
+---
+
+# 2. Quy Chuẩn & Thiết Lập Nền Tảng
+- Các nguyên tắc bất di bất dịch của phân hệ này.
+- Các ràng buộc về logic/nghiệp vụ/bối cảnh.
+
+---
+
+# 3. Danh Mục Thực Thể / Cấu Trúc
+- Liệt kê các thành phần cốt lõi và mối quan hệ giữa chúng.
