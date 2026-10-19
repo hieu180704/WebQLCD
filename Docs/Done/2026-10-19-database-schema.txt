@@ -1,0 +1,10 @@
+# 2026-10-19: Database schema (bước 3) — [verify một phần: đối chiếu core-spec, security-spec, rule web-security; hook doc-budget/language-guard pass; chưa có review độc lập, chưa chạy DDL thật]
+
+- Commit: 1055e58 (data model + core-spec), commit đóng phiên: xem `git log`
+- Đã làm:
+  1. Người dùng duyệt tường minh: schema handoff mục 4, quy tắc "Sửa thông tin", chưa bật RLS, gia hạn theo phương án (a).
+  2. Ghi Docs/SourceOfTruth/Core/data-model.txt (8 bảng, ràng buộc, index, truy vấn đối soát).
+  3. core-spec mục 2: thêm quy tắc "Sửa thông tin" không đổi field tiền; gia hạn chỉ sinh giao dịch khi thu lãi.
+  4. Lệch so với đề xuất cũ: bỏ type redemption/contract_close, thêm operation_id; thêm installment_disbursement; prepaid_interest là boolean; thêm note, UNIQUE (reverses_id), index lịch sử theo hợp đồng.
+- Trạng thái: xong bước 3. Bước 4 (dựng khung Next.js) chưa bắt đầu.
+- Lưu ý cho phiên sau: uuidv7() cần PostgreSQL 18 — hosting chưa chốt, có fallback sinh ở app (data-model mục 5).
