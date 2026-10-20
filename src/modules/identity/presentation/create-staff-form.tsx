@@ -1,7 +1,6 @@
 "use client";
 
 import { useActionState } from "react";
-import { Button } from "@/shared/ui/button";
 import { FormField } from "./form-field";
 import { createStaffAction, type CreateStaffState } from "./staff-actions";
 
@@ -16,17 +15,17 @@ export function CreateStaffForm() {
       <FormField label="Họ tên nhân viên" id="name" defaultValue={v.name} autoComplete="off" required maxLength={100} />
       <FormField label="Tên đăng nhập" id="username" defaultValue={v.username} autoComplete="off" required maxLength={30} />
       <FormField label="Mật khẩu" id="password" type="password" autoComplete="new-password" required maxLength={128} />
-      <p role="alert" aria-live="polite" className="min-h-5 text-sm text-destructive">
+      <p role="alert" aria-live="polite" className="min-h-5 text-sm text-red-700">
         {state.error}
       </p>
       {state.created && (
-        <p role="status" className="text-sm">
+        <p role="status" className="rounded-lg bg-emerald-50 text-emerald-800 px-3 py-2 text-sm">
           Đã tạo nhân viên {state.created}.
         </p>
       )}
-      <Button type="submit" disabled={pending}>
+      <button type="submit" className="btn btn-primary w-full" disabled={pending}>
         {pending ? "Đang tạo…" : "Tạo nhân viên"}
-      </Button>
+      </button>
     </form>
   );
 }

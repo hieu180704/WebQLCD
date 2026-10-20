@@ -17,6 +17,9 @@ export type AccessOptions = {
 
 export type AccessRow = Principal & { isActive: boolean; canWrite: boolean };
 
+/** Tên hiển thị ở khung trang; chỉ để hiển thị, không dùng cho quyền. */
+export type SessionProfile = { userName: string; shopName: string };
+
 export class AccessDeniedError extends Error {
   constructor(readonly reason: "inactive" | "role" | "read_only") {
     super(`Không có quyền: ${reason}`);
@@ -35,13 +38,15 @@ export function checkAccess(row: AccessRow, options: AccessOptions = {}): Princi
 export async function loadAccess(
   db: NodePgDatabase<Record<string, unknown>>,
   userId: string,
-): Promise<AccessRow | undefined> {
+): Promise<(AccessRow & SessionProfile) | undefined> {
   const [row] = await db
     .select({
       userId: users.id,
       shopId: users.shopId,
       role: users.role,
       isActive: users.isActive,
+      userName: users.name,
+      shopName: shops.name,
       canWrite: sql<boolean>`CASE ${shops.subscriptionStatus}
         WHEN 'trial' THEN ${shops.trialEndsAt} > now()
         WHEN 'active' THEN coalesce(${shops.paidUntil} > now(), false)

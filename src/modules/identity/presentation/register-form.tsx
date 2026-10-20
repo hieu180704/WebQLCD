@@ -1,7 +1,6 @@
 "use client";
 
 import { useActionState } from "react";
-import { Button } from "@/shared/ui/button";
 import { FormField } from "./form-field";
 import { registerAction, type RegisterState } from "./register-action";
 
@@ -19,12 +18,12 @@ export function RegisterForm() {
       <FormField label="Tên đăng nhập" id="username" defaultValue={v.username} autoComplete="username" required maxLength={30} />
       <FormField label="Mật khẩu" id="password" type="password" autoComplete="new-password" required maxLength={128} />
       <FormField label="Nhập lại mật khẩu" id="passwordConfirm" type="password" autoComplete="new-password" required maxLength={128} />
-      <p role="alert" aria-live="polite" className="min-h-5 text-sm text-destructive">
+      <p role="alert" aria-live="polite" className="min-h-5 text-sm text-red-700">
         {state.error}
       </p>
-      <Button type="submit" size="lg" disabled={pending}>
+      <button type="submit" className="btn btn-primary w-full" disabled={pending}>
         {pending ? "Đang tạo cửa hàng…" : "Đăng ký dùng thử 7 ngày"}
-      </Button>
+      </button>
     </form>
   );
 }

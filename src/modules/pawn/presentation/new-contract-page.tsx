@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { requireSession } from "@/composition-root";
 import { businessDate } from "@/shared/kernel/local-date";
 import { ContractForm } from "./contract-form";
@@ -6,8 +7,15 @@ import { ContractForm } from "./contract-form";
 export async function NewContractPage() {
   await requireSession();
   return (
-    <div className="max-w-3xl rounded-xl border bg-card p-6 shadow-sm">
+    <>
+      <nav className="text-sm text-slate-500" aria-label="Breadcrumb">
+        <Link href="/cam-do" className="hover:underline">
+          Cầm đồ & Tín chấp
+        </Link>{" "}
+        / Thêm hồ sơ
+      </nav>
+      <h1 className="mt-1 text-2xl font-bold">Thêm hồ sơ</h1>
       <ContractForm today={businessDate(new Date())} />
-    </div>
+    </>
   );
 }

@@ -81,6 +81,6 @@ src/
   shared/
     kernel/                Money, Result, lỗi nghiệp vụ dùng chung
     infrastructure/        kết nối DB, transaction, auth session, guard requireSession
-    ui/                    component shadcn/ui; chỉ presentation và app được import
+    (không còn ui/: theme TP83 là class CSS trong src/app/globals.css; khung trang sidebar/topbar ở src/app/(app)/_shell/)
   composition-root.ts      nơi duy nhất ghép implementation vào use case
 ```

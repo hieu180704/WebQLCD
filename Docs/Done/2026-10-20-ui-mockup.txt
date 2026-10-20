@@ -1,0 +1,15 @@
+# 2026-10-20: Chuyển giao diện mockup vào app (chỉ giao diện, không đổi nghiệp vụ) — [verified: lint, typecheck, vitest 84/84, build, e2e Playwright 15/15 trên bản production, chụp màn hình 1440 + 390 so với Design/mockup/]
+
+- Commit: xem commit "Giao diện theo mockup" ngay sau commit 2a4373f
+- Đã làm:
+  1. Theme: class `.card .btn .input .badge .table .field .nav-link .num` từ `Design/mockup/assets/common.css` vào `src/app/globals.css`; bỏ token shadcn, xoá `src/shared/ui/{button,input,label}.tsx`.
+  2. Khung trang: route group `src/app/(app)/` (URL giữ nguyên) với `layout.tsx` server; sidebar 8 mục + "Nhân viên" (chỉ chủ tiệm), mục chưa có màn hiện mờ; topbar tên cửa hàng, người dùng, vai trò, nút đăng xuất icon. Client chỉ có `_shell/mobile-nav.tsx` (mở/đóng menu, tô mục theo `usePathname`). Không script inline, chụp bản production không có lỗi CSP.
+  3. Guard: `loadAccess` lấy thêm `userName`, `shopName` (cùng truy vấn); phần tra phiên bọc `React.cache` để layout + page chung một lần tra; thêm `requireProfile()` (export qua composition-root).
+  4. Trang: `/cam-do` (bảng + badge hạn đóng lãi tính bằng `diffDays`), `/cam-do/moi` (3 card + khối tóm tắt phải kèm nút lưu), trang chủ (quỹ két hôm nay + giao dịch hôm nay, dùng `CashSummary`/`CashLineList` mới export từ cashbook), `/quy-ket`, `/nhan-vien`, đăng nhập/đăng ký (`src/app/_components/auth-card.tsx`).
+  5. e2e: ô thuê bao dò theo region "Thuê bao" (không còn `role=status` để khỏi trùng thông báo trang); tóm tắt dò theo từng dòng. Label form giữ nguyên.
+  6. `architecture-spec.txt` mục 3.2: bỏ dòng `shared/ui` shadcn.
+- Trạng thái: xong phạm vi handoff mục 3 (việc chuyển giao diện).
+- Lưu ý cho phiên sau:
+  - Không làm (thiếu số liệu/logic thật): ô thống kê hợp đồng, bảng đến hạn ở trang chủ, ô thống kê + bộ lọc + Xuất Excel ở `/cam-do`; tóm tắt form chỉ 3 dòng mà `previewContract` trả; ô Mã HĐ, Khách mới/cũ, chọn KTV; chưa ẩn ô tài sản khi chọn tín chấp; "Loại tài sản" vẫn là select (e2e dùng `selectOption`).
+  - Khối tóm tắt dùng `<section>` thay `<aside>` (aside có role complementary, e2e cần region).
+  - Chạy `next start` tay cần `BETTER_AUTH_SECRET` (`.env` hiện chưa có; e2e tự sinh).

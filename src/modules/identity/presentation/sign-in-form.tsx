@@ -1,10 +1,8 @@
 "use client";
 
 import { useActionState } from "react";
-import { Button } from "@/shared/ui/button";
-import { Input } from "@/shared/ui/input";
-import { Label } from "@/shared/ui/label";
 import { signInAction, type SignInState } from "./actions";
+import { FormField } from "./form-field";
 
 const initialState: SignInState = { error: null };
 
@@ -13,20 +11,14 @@ export function SignInForm() {
 
   return (
     <form action={formAction} className="flex flex-col gap-4">
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="username">Tên đăng nhập</Label>
-        <Input id="username" name="username" autoComplete="username" required maxLength={30} autoFocus />
-      </div>
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="password">Mật khẩu</Label>
-        <Input id="password" name="password" type="password" autoComplete="current-password" required maxLength={128} />
-      </div>
-      <p role="alert" aria-live="polite" className="min-h-5 text-sm text-destructive">
+      <FormField label="Tên đăng nhập" id="username" autoComplete="username" required maxLength={30} autoFocus />
+      <FormField label="Mật khẩu" id="password" type="password" autoComplete="current-password" required maxLength={128} />
+      <p role="alert" aria-live="polite" className="min-h-5 text-sm text-red-700">
         {state.error}
       </p>
-      <Button type="submit" size="lg" disabled={pending}>
+      <button type="submit" className="btn btn-primary w-full" disabled={pending}>
         {pending ? "Đang đăng nhập…" : "Đăng nhập"}
-      </Button>
+      </button>
     </form>
   );
 }

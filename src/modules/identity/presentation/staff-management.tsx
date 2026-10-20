@@ -11,38 +11,53 @@ export async function StaffManagement() {
   const members = await listStaff.execute(principal.shopId);
 
   return (
-    <div className="grid gap-8 md:grid-cols-[20rem_1fr]">
-      <section className="rounded-xl border bg-card p-6 shadow-sm">
-        <h2 className="mb-4 font-semibold">Thêm nhân viên (KTV)</h2>
-        <CreateStaffForm />
-      </section>
-      <section>
-        <h2 className="mb-4 font-semibold">Danh sách nhân viên</h2>
-        {members.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Chưa có nhân viên nào.</p>
-        ) : (
-          <table className="w-full text-sm">
-            <thead className="text-left text-muted-foreground">
-              <tr>
-                <th className="py-2 font-medium">Họ tên</th>
-                <th className="py-2 font-medium">Tên đăng nhập</th>
-                <th className="py-2 font-medium">Trạng thái</th>
-                <th className="py-2 font-medium">Ngày tạo</th>
-              </tr>
-            </thead>
-            <tbody>
-              {members.map((m) => (
-                <tr key={m.id} className="border-t">
-                  <td className="py-2">{m.name}</td>
-                  <td className="py-2">{m.username}</td>
-                  <td className="py-2">{m.isActive ? "Đang hoạt động" : "Đã khoá"}</td>
-                  <td className="py-2">{formatDate(m.createdAt)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </section>
-    </div>
+    <>
+      <h1 className="text-2xl font-bold">Nhân viên</h1>
+      <div className="mt-6 grid gap-6 lg:grid-cols-[22rem_1fr] items-start">
+        <section className="card p-5" aria-labelledby="staff-new">
+          <h2 id="staff-new" className="font-semibold">
+            Thêm nhân viên (KTV)
+          </h2>
+          <div className="mt-4">
+            <CreateStaffForm />
+          </div>
+        </section>
+        <section className="card" aria-labelledby="staff-list">
+          <div className="p-5 pb-3">
+            <h2 id="staff-list" className="font-semibold">
+              Danh sách nhân viên
+            </h2>
+          </div>
+          {members.length === 0 ? (
+            <p className="px-5 pb-5 text-sm text-slate-500">Chưa có nhân viên nào.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Họ tên</th>
+                    <th>Tên đăng nhập</th>
+                    <th>Trạng thái</th>
+                    <th>Ngày tạo</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {members.map((m) => (
+                    <tr key={m.id}>
+                      <td className="font-medium">{m.name}</td>
+                      <td>{m.username}</td>
+                      <td>
+                        <span className={`badge ${m.isActive ? "badge-ok" : "badge-muted"}`}>{m.isActive ? "Đang hoạt động" : "Đã khoá"}</span>
+                      </td>
+                      <td className="num">{formatDate(m.createdAt)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+      </div>
+    </>
   );
 }

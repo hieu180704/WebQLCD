@@ -61,8 +61,9 @@ test("tạo hợp đồng thu lãi trước: cảnh báo lãi suất, giải ng�
   await page.getByLabel("Thu lãi trước").check();
 
   const summary = page.getByRole("region", { name: "Tóm tắt" });
-  await expect(summary).toContainText("Lãi mỗi kỳ (10 ngày): 150.000");
-  await expect(summary).toContainText("Tiền giao khách: 4.850.000");
+  const summaryRow = (term: string) => summary.getByText(term).locator("..");
+  await expect(summaryRow("Lãi mỗi kỳ (10 ngày)")).toContainText("150.000");
+  await expect(summaryRow("Tiền giao khách")).toContainText("4.850.000");
   await expect(summary.getByRole("note")).toContainText("Điều 201 Bộ luật Hình sự");
 
   await page.getByRole("button", { name: "Lưu hợp đồng và giải ngân" }).click();

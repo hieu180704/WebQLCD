@@ -1,133 +1,49 @@
 @import "tailwindcss";
-@import "tw-animate-css";
-@import "shadcn/tailwind.css";
-
-@custom-variant dark (&:is(.dark *));
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-be-vietnam-pro);
-  --font-heading: var(--font-be-vietnam-pro);
-  --color-sidebar-ring: var(--sidebar-ring);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar: var(--sidebar);
-  --color-chart-5: var(--chart-5);
-  --color-chart-4: var(--chart-4);
-  --color-chart-3: var(--chart-3);
-  --color-chart-2: var(--chart-2);
-  --color-chart-1: var(--chart-1);
-  --color-ring: var(--ring);
-  --color-input: var(--input);
-  --color-border: var(--border);
-  --color-destructive: var(--destructive);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-accent: var(--accent);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-muted: var(--muted);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-secondary: var(--secondary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-primary: var(--primary);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-popover: var(--popover);
-  --color-card-foreground: var(--card-foreground);
-  --color-card: var(--card);
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
+  --font-sans: var(--font-be-vietnam-pro), system-ui, sans-serif;
 }
 
-body {
-  font-family: var(--font-be-vietnam-pro), system-ui, sans-serif;
-}
-
-:root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
-}
-
-.dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
-}
-
-@layer base {
-  * {
-    @apply border-border outline-ring/50;
+/* Theme TP83, chép từ Design/mockup/assets/common.css.
+   Bọc trong @layer để utility của Tailwind (lg:hidden, !h-9, ...) được ưu tiên hơn. */
+@layer components {
+  body { background: #f6f7f9; color: #0f172a; }
+  .num { font-variant-numeric: tabular-nums; }
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .field > label, .field-label { font-size: 13px; font-weight: 500; color: #334155; }
+  .req { color: #b91c1c; }
+  .input {
+    height: 40px; padding: 0 12px; border: 1px solid #cbd5e1; border-radius: 8px;
+    background: #fff; font-size: 14px; width: 100%;
   }
-  body {
-    @apply bg-background text-foreground;
+  .input:focus { outline: 2px solid #0f766e; outline-offset: -1px; border-color: #0f766e; }
+  textarea.input { height: auto; padding: 10px 12px; }
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    height: 40px; padding: 0 16px; border-radius: 8px; font-size: 14px; font-weight: 500;
+    border: 1px solid transparent; cursor: pointer; white-space: nowrap;
   }
-  html {
-    @apply font-sans;
-  }
+  .btn:disabled { opacity: .6; cursor: not-allowed; }
+  .btn:focus-visible { outline: 2px solid #0f766e; outline-offset: 2px; }
+  .btn-primary { background: #0f766e; color: #fff; }
+  .btn-primary:hover:not(:disabled) { background: #115e59; }
+  .btn-outline { background: #fff; border-color: #cbd5e1; color: #0f172a; }
+  .btn-outline:hover:not(:disabled) { background: #f1f5f9; }
+  .btn-danger { background: #fff; border-color: #fecaca; color: #b91c1c; }
+  .btn-danger:hover:not(:disabled) { background: #fef2f2; }
+  .card { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; }
+  .badge { display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 999px; font-size: 12px; font-weight: 500; }
+  .badge-ok { background: #ecfdf5; color: #047857; }
+  .badge-warn { background: #fffbeb; color: #b45309; }
+  .badge-late { background: #fef2f2; color: #b91c1c; }
+  .badge-muted { background: #f1f5f9; color: #475569; }
+  .table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .table th { text-align: left; font-size: 12px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: .02em; padding: 10px 12px; border-bottom: 1px solid #e2e8f0; white-space: nowrap; }
+  .table td { padding: 12px; border-bottom: 1px solid #f1f5f9; white-space: nowrap; }
+  .table tbody tr:hover { background: #f8fafc; }
+  .nav-link { display: flex; align-items: center; gap: 12px; height: 40px; padding: 0 12px; border-radius: 8px; font-size: 14px; color: #334155; }
+  a.nav-link:hover { background: #f1f5f9; }
+  .nav-link.active { background: #f0fdfa; color: #0f766e; font-weight: 600; }
+  .nav-link[aria-disabled="true"] { color: #94a3b8; cursor: default; }
+  .icon { width: 18px; height: 18px; flex: none; }
 }

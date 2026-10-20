@@ -1,22 +1,24 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { SignInForm } from "@/modules/identity";
+import { AuthCard } from "../_components/auth-card";
 
 export const metadata: Metadata = { title: "Đăng nhập — TP83" };
 
 export default function SignInPage() {
   return (
-    <main className="flex flex-1 items-center justify-center p-4">
-      <div className="w-full max-w-sm rounded-xl border bg-card p-6 shadow-sm">
-        <h1 className="mb-6 text-center text-xl font-semibold">TP83 — Đăng nhập</h1>
-        <SignInForm />
-        <p className="mt-4 text-center text-sm">
+    <AuthCard
+      title="Đăng nhập"
+      footer={
+        <>
           Chưa có tài khoản?{" "}
-          <Link href="/dang-ky" className="underline underline-offset-4">
+          <Link href="/dang-ky" className="font-medium text-teal-700 hover:underline">
             Đăng ký dùng thử 7 ngày
           </Link>
-        </p>
-      </div>
-    </main>
+        </>
+      }
+    >
+      <SignInForm />
+    </AuthCard>
   );
 }

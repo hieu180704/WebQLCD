@@ -1,23 +1,25 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { RegisterForm } from "@/modules/identity";
+import { AuthCard } from "../_components/auth-card";
 
 export const metadata: Metadata = { title: "Đăng ký dùng thử — TP83" };
 
 export default function RegisterPage() {
   return (
-    <main className="flex flex-1 items-center justify-center p-4">
-      <div className="w-full max-w-sm rounded-xl border bg-card p-6 shadow-sm">
-        <h1 className="mb-1 text-center text-xl font-semibold">TP83 — Đăng ký</h1>
-        <p className="mb-6 text-center text-sm text-muted-foreground">Dùng thử miễn phí 7 ngày.</p>
-        <RegisterForm />
-        <p className="mt-4 text-center text-sm">
+    <AuthCard
+      title="Đăng ký dùng thử"
+      subtitle="Miễn phí 7 ngày. Hết hạn, dữ liệu vẫn được giữ; tài khoản chuyển sang chỉ xem cho tới khi gia hạn."
+      footer={
+        <>
           Đã có tài khoản?{" "}
-          <Link href="/dang-nhap" className="underline underline-offset-4">
+          <Link href="/dang-nhap" className="font-medium text-teal-700 hover:underline">
             Đăng nhập
           </Link>
-        </p>
-      </div>
-    </main>
+        </>
+      }
+    >
+      <RegisterForm />
+    </AuthCard>
   );
 }

@@ -21,7 +21,7 @@ import { DrizzleShopRepository } from "@/modules/shop/infrastructure/drizzle-sho
 import { db } from "@/shared/infrastructure/db/client";
 
 // Lớp presentation không import thẳng shared/infrastructure, nên guard và luật mật khẩu được đưa ra qua đây.
-export { requireSession } from "@/shared/infrastructure/auth/guard";
+export { requireProfile, requireSession } from "@/shared/infrastructure/auth/guard";
 export { AccessDeniedError } from "@/shared/infrastructure/auth/access";
 export { MIN_PASSWORD_LENGTH } from "@/shared/infrastructure/auth/password";
 

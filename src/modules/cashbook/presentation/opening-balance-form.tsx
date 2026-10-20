@@ -1,9 +1,6 @@
 "use client";
 
 import { useActionState } from "react";
-import { Button } from "@/shared/ui/button";
-import { Input } from "@/shared/ui/input";
-import { Label } from "@/shared/ui/label";
 import { setOpeningBalanceAction, type OpeningBalanceState } from "./actions";
 
 const initialState: OpeningBalanceState = { error: null, amount: "" };
@@ -13,17 +10,17 @@ export function OpeningBalanceForm() {
 
   return (
     <form action={formAction} className="flex flex-col gap-3">
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="amount">Quỹ đầu két (đồng)</Label>
-        <Input id="amount" name="amount" inputMode="numeric" autoComplete="off" required maxLength={30} defaultValue={state.amount} />
+      <div className="field">
+        <label htmlFor="amount">Quỹ đầu két (đồng)</label>
+        <input id="amount" name="amount" className="input num" inputMode="numeric" autoComplete="off" required maxLength={30} defaultValue={state.amount} />
       </div>
-      <p className="text-xs text-muted-foreground">Chỉ nhập một lần, ghi vào ngày mở két. Kiểm tra kỹ trước khi lưu.</p>
-      <p role="alert" aria-live="polite" className="min-h-5 text-sm text-destructive">
+      <p className="text-xs text-slate-500">Chỉ nhập một lần, ghi vào ngày mở két. Kiểm tra kỹ trước khi lưu.</p>
+      <p role="alert" aria-live="polite" className="min-h-5 text-sm text-red-700">
         {state.error}
       </p>
-      <Button type="submit" disabled={pending}>
+      <button type="submit" className="btn btn-primary" disabled={pending}>
         {pending ? "Đang lưu…" : "Lưu quỹ đầu két"}
-      </Button>
+      </button>
     </form>
   );
 }

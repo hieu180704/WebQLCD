@@ -29,11 +29,12 @@ async function signIn(page: Page, username: string, password: string) {
 }
 
 const formAlert = (page: Page) => page.locator("form").getByRole("alert");
+const subscription = (page: Page) => page.getByRole("region", { name: "Thuê bao" });
 
 test("đăng ký: tạo cửa hàng dùng thử 7 ngày và đăng nhập luôn", async ({ page }) => {
   await register(page, OWNER.username, OWNER.email);
   await expect(page).toHaveURL("/");
-  await expect(page.getByRole("status")).toContainText("Dùng thử: còn 7 ngày");
+  await expect(subscription(page)).toContainText("Dùng thử: còn 7 ngày");
 });
 
 test("đăng ký trùng tên đăng nhập: báo lỗi, giữ lại giá trị đã nhập", async ({ page }) => {
@@ -65,7 +66,7 @@ test("chủ tiệm tạo KTV; KTV đăng nhập được nhưng không vào đư
 test("hết hạn dùng thử: báo chỉ xem, không tạo thêm KTV được", async ({ page }) => {
   await expireTrial(OWNER.username);
   await signIn(page, OWNER.username, OWNER.password);
-  await expect(page.getByRole("status")).toContainText("hết hạn sử dụng");
+  await expect(subscription(page)).toContainText("hết hạn sử dụng");
   await page.goto("/nhan-vien");
   await page.getByLabel("Họ tên nhân viên").fill("KTV Hết Hạn");
   await page.getByLabel("Tên đăng nhập").fill(`${STAFF.username}_2`);
