@@ -1,0 +1,13 @@
+# 2026-10-20: Bước 4a, 4b, CSP nonce — [verified: lint + typecheck + 10 test (7 trên PostgreSQL 18.6 thật) + build pass; chạy next start + Playwright kiểm header, hydrate, XSS bị chặn]
+
+- Commit: 9c7183d (4a), 144b867 (4b), f1a859c (CSP), commit đóng phiên: xem `git log`
+- Đã làm:
+  1. Chốt Drizzle + Better Auth (Docs/Decisions/2026-10-19-orm-auth.txt).
+  2. 4a: scaffold Next 16.4.2 qua scratchpad (tránh ghi đè AGENTS.md), agentRules: false, 7 module, Money + test, eslint-plugin-boundaries 7 (thử bằng fixture vi phạm: chặn 6/6, không báo nhầm).
+  3. Rule web-security: middleware.ts → proxy.ts (Next 16), đồng bộ 3 engine.
+  4. Docker không làm được (không admin, chưa có WSL, RAM thấp) → người dùng duyệt PostgreSQL 18.6 portable ở .local/.
+  5. 4b: schema 11 bảng, 3 migration, client Pool dùng chung, data-model.txt cập nhật (bảng auth, mật khẩu ở accounts).
+  6. CSP: thử thật 4 phương án; chọn nonce + instant = false ở root layout (Docs/Decisions/2026-10-20-csp-nonce.txt); rule web-performance (cache) + web-security (CSP) sửa, đồng bộ 3 engine.
+  7. Thiết kế 4c auth được duyệt, ghi ở handoff mục 4.
+- Trạng thái: đang dở bước 4, còn 4c.
+- Lưu ý cho phiên sau: bật DB bằng `npm run db:start` trước khi chạy test.

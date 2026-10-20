@@ -5,31 +5,58 @@
 1. Trạng Thái Hiện Tại
 2. Những Việc Đã Xong
 3. Đầu Việc Tiếp Theo & Lưu Ý
+4. Thiết Kế 4c Auth (đã duyệt, chưa làm)
 
 ---
 
 # 1. Trạng Thái Hiện Tại
 - Nhánh Git: `main`. Chưa có remote.
-- Tiến độ: xong giai đoạn nền (docs, quyết định, mockup); xong bước 3/5 (database schema), tiếp theo bước 4.
-- Lộ trình: (1) khách xem mockup → (2) cập nhật core-spec → (3) database schema → (4) dựng khung project → (5) lát cắt dọc đầu tiên.
+- Tiến độ: xong bước 1–3; bước 4 xong 4a, 4b, CSP nonce; đang chờ làm 4c (auth).
+- Lộ trình: (1) khách xem mockup → (2) cập nhật core-spec → (3) database schema → (4) dựng khung project [4a khung, 4b DB, 4c auth] → (5) lát cắt dọc đầu tiên.
+- Dev DB: PostgreSQL 18.6 portable ở `.local/` (gitignore), 127.0.0.1:5433, role `webqlcd_app`, DB `webqlcd`. Bật/tắt: `npm run db:start` / `db:stop`; migrate: `npm run db:migrate`. Mật khẩu superuser ở `.local/pwfile`, DATABASE_URL ở `.env`.
+- Verify chuẩn: `npm run lint`, `npm run typecheck`, `npm test` (cần DB đang chạy cho test DB), `npm run build`.
 
 ---
 
 # 2. Những Việc Đã Xong
-- [x] Docs nền: overview, Core, Architecture, Security, Performance; 2 Decision (techstack, kiến trúc).
+- [x] Docs nền: overview, Core, Architecture, Security, Performance; Decision techstack, kiến trúc.
 - [x] Rule web-security.md, web-performance.md, đồng bộ 3 engine.
 - [x] Playwright MCP (Edge) cài scope local.
 - [x] Mockup 5 màn: `Design/mockup/` (xem bằng `npx -y http-server@14.1.1 Design/mockup -p 5173 -c-1`).
 - [x] Bước 1: khách xem mockup, không có phản hồi (chưa phải xác nhận tường minh từng giả định tạm).
 - [x] Bước 2: cập nhật core-spec (Số tiền vay, Thu lãi trước, cảnh báo lãi suất, hình thức lãi ứng viên).
-- [x] Bước 3: người dùng duyệt schema; ghi `Docs/SourceOfTruth/Core/data-model.txt`, quy tắc "Sửa thông tin" vào core-spec mục 2 (commit 1055e58).
+- [x] Bước 3: duyệt schema; `Docs/SourceOfTruth/Core/data-model.txt`, quy tắc "Sửa thông tin" (commit 1055e58).
+- [x] 4a: Next 16.4.2 + TS strict + Tailwind 4, 7 module, Money, eslint-plugin-boundaries cưỡng chế luật lớp (commit 9c7183d). Decision Drizzle + Better Auth.
+- [x] 4b: schema Drizzle 11 bảng, migration (pg_trgm, trigger append-only, kiểm reversal), 7 test DB trên PG thật (commit 144b867).
+- [x] CSP nonce qua `src/proxy.ts`, mọi trang dynamic (commit f1a859c, Decision 2026-10-20-csp-nonce.txt).
 
 ---
 
 # 3. Đầu Việc Tiếp Theo & Lưu Ý
-- [ ] Bước 4: dựng khung Next.js theo `Docs/SourceOfTruth/Architecture/architecture-spec.txt` (chốt Drizzle/Prisma, Better Auth/Auth.js). Schema theo `Docs/SourceOfTruth/Core/data-model.txt`; `uuidv7()` cần PostgreSQL 18.
+- [ ] 4c: làm theo mục 4 (đã duyệt).
+- [ ] Viết `docker-compose.yml` khi làm deploy (máy dev chưa có Docker, chưa test được).
+- [ ] Production: tách role migrate (sở hữu bảng) và role runtime (chỉ SELECT/INSERT sổ két) — data-model mục 5.
 - **Lưu ý:**
+  - Next 16 khác dữ liệu huấn luyện: đọc `node_modules/next/dist/docs/` trước khi viết code Next.
+  - `npm audit`: 5 high trong chuỗi devDependency `eslint-config-next` (`braces`), không vào bản build; bản fix đề xuất hạ về 14.x nên không áp dụng.
   - Giả định tạm vẫn mang nhãn GIẢ ĐỊNH TẠM; không gỡ nhãn khi chưa có xác nhận tường minh.
   - Người dùng không muốn dùng Artifact tool (đã lưu memory); mockup làm bằng HTML local.
   - Không ghi thông tin đăng nhập 5gold.biz vào bất kỳ file nào.
   - Chưa xác minh luật bảo vệ dữ liệu cá nhân VN về nơi lưu CCCD — ảnh hưởng chọn hosting.
+
+---
+
+# 4. Thiết Kế 4c Auth (đã duyệt, chưa làm)
+- Cấu hình `src/shared/infrastructure/auth/auth.ts`: Better Auth + adapter Drizzle, `advanced.database.generateId: false` (DB sinh uuidv7), plugin `username` + `nextCookies` (`better-auth/next-js`).
+- Mật khẩu: `emailAndPassword.password.hash/verify` dùng argon2id (`@node-rs/argon2`), tối thiểu 8 ký tự.
+- Tắt đăng ký công khai (`disableSignUp`); luồng đăng ký chủ tiệm + tạo cửa hàng + dùng thử 7 ngày để bước 5. Dev dùng `npm run db:seed` tạo 1 cửa hàng + 1 chủ tiệm.
+- Email: chủ tiệm email thật; KTV do chủ tiệm tạo dùng email nội bộ tự sinh (người dùng đã đồng ý).
+- Giới hạn đăng nhập sai, 2 lớp:
+  - Theo IP: rate limit sẵn của Better Auth (khoá theo IP + path), `customRules` 5 lần/phút cho `/sign-in/username`.
+  - Theo tài khoản: hook before/after (`createAuthMiddleware` từ `better-auth/api`) + bảng mới `login_throttles`; sai 5 lần khoá 15 phút, đúng thì reset. Cập nhật data-model + migration.
+- `is_active = false` không tạo được phiên (`databaseHooks`).
+- Cookie: kiểm bằng header thật `HttpOnly`, `SameSite=Lax`, `Secure` ở production.
+- Guard dùng chung `requireSession({ role?, write? })` → `{ userId, shopId, role }`; ghi thì kiểm thuê bao còn hạn, hết hạn chỉ đọc.
+- Trang `/dang-nhap`: form gọi use case `signIn` của module `identity` qua port (đúng 4 lớp), validate Zod. Init shadcn/ui vào `src/shared/ui/`, thêm element `ui` cho boundaries.
+- Verify: test guard + khoá tài khoản; e2e Playwright đăng nhập đúng, sai, sai 6 lần bị khoá; kiểm cờ cookie.
+- Rủi ro đã nêu: khoá theo tài khoản có thể bị lạm dụng để khoá chủ tiệm (DoS); 15 phút là mức cân bằng, chỉnh sau được.
