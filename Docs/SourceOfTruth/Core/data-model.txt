@@ -11,7 +11,7 @@
 
 # 1. Mục Tiêu & Phạm Vi
 - Mô tả schema PostgreSQL cho nghiệp vụ ở `Docs/SourceOfTruth/Core/core-spec.txt`. Nghiệp vụ đổi thì cập nhật file này cùng lúc.
-- Đây là mô hình logic (bảng, cột, ràng buộc, index). Cú pháp ORM chốt ở bước dựng project (Drizzle hoặc Prisma, xem `Docs/Decisions/2026-10-19-techstack.txt`).
+- Đây là mô hình logic (bảng, cột, ràng buộc, index). Hiện thực: Drizzle (`Docs/Decisions/2026-10-19-orm-auth.txt`), schema ở `src/shared/infrastructure/db/schema.ts`, migration ở `drizzle/` (trigger và extension viết SQL tay), test ràng buộc ở `src/shared/infrastructure/db/schema.db.test.ts`.
 - Mọi bảng nghiệp vụ có `shop_id`, `created_at`. Bảng sửa được có thêm `updated_at`.
 
 ---
@@ -36,15 +36,18 @@
 - `name`, `opened_at` (ngày mở két), `subscription_status` (`trial` / `active` / `expired`), `trial_ends_at`, `paid_until`.
 - Quỹ đầu két không lưu trên bảng này: nó là giao dịch `opening_balance` ghi vào ngày `opened_at`.
 
-## 3.2 `users`
-- `shop_id`, `username`, `password_hash`, `full_name`, `role` (`owner` / `staff`), `is_active`.
+## 3.2 `users` và bảng auth
+- `users`: `shop_id`, `username`, `display_username`, `name` (họ tên), `email`, `email_verified`, `image`, `role` (`owner` / `staff`), `is_active`. Hình dạng theo yêu cầu của Better Auth.
 - `UNIQUE (lower(username))` toàn hệ thống, để đăng nhập không phải chọn cửa hàng trước.
-- Bảng phiên và các bảng phụ do thư viện auth sinh.
+- `email` bắt buộc và UNIQUE (Better Auth đòi). Dự kiến: chủ tiệm dùng email thật, KTV dùng email nội bộ sinh tự động; chốt ở bước auth.
+- Mật khẩu KHÔNG nằm ở `users`: Better Auth lưu ở `accounts.password` (dòng có `provider_id = 'credential'`).
+- `sessions`, `accounts`, `verifications`: bảng của Better Auth, khoá ngoại tới `users` có `ON DELETE CASCADE`.
 
 ## 3.3 `customers`
 - `shop_id`, `full_name`, `phone`, `address`, `cccd_encrypted`, `cccd_hash`, `cccd_masked`.
 - `cccd_hash` = HMAC-SHA256 của CCCD đã chuẩn hoá. Khoá HMAC tách riêng khoá mã hoá; cả hai nằm trong biến môi trường, không lưu trong DB.
 - `UNIQUE (shop_id, cccd_hash) WHERE cccd_hash IS NOT NULL`.
+- CHECK: ba cột CCCD cùng có hoặc cùng trống.
 
 ## 3.4 `contracts` (cầm đồ + tín chấp)
 - `shop_id`, `code`, `customer_id`, `kind` (`secured` / `unsecured`), `asset_name`.
@@ -52,14 +55,14 @@
 - `interest_type` (`per_million_per_day` / `percent_per_month` / `percent_per_week`), `interest_rate`, `interest_period_days` (kỳ lãi), `term_days` (số ngày vay).
 - `loan_date`, `interest_paid_until`, `prepaid_interest` (`boolean`, bật "Thu lãi trước"; số tiền nằm ở dòng `interest_payment` lúc giải ngân).
 - `status` (`active` / `closed`), `closed_at`, `note`, `staff_id` (KTV), `deleted_at`, `deleted_by`.
-- CHECK: `kind = 'secured'` thì `asset_name` không rỗng. CHECK: tiền và số ngày > 0.
+- CHECK: `kind = 'secured'` thì `asset_name` không rỗng (bỏ khoảng trắng). CHECK: `principal`, số ngày > 0; `outstanding_principal`, `interest_rate` >= 0; `status = 'closed'` khi và chỉ khi có `closed_at`; `deleted_at` và `deleted_by` cùng có hoặc cùng trống.
 - `UNIQUE (shop_id, code)`.
 - Gia hạn: đổi `term_days` và ghi `audit_logs`. Lãi thu khi gia hạn ghi thành `interest_payment`. Không có loại giao dịch riêng cho gia hạn.
 
 ## 3.5 `installment_contracts` (trả góp)
 - `shop_id`, `code`, `customer_id`, `amount_given` (tiền đưa khách), `total_due` (tổng phải thu), `total_days`, `period_days`, `start_date`.
 - `amount_paid`, `status` (`active` / `closed`), `closed_at`, `note`, `staff_id`, `deleted_at`, `deleted_by`.
-- CHECK: `total_due >= amount_given > 0`. `UNIQUE (shop_id, code)`.
+- CHECK: `total_due >= amount_given > 0`; `0 < period_days <= total_days`; `amount_paid >= 0`; `status`/`closed_at` và `deleted_at`/`deleted_by` như `contracts`. `UNIQUE (shop_id, code)`.
 
 ## 3.6 `cash_transactions` (nguồn sự thật về tiền)
 - `shop_id`, `operation_id`, `occurred_at`, `business_date`, `amount` (có dấu: + thu, − chi), `type`.
@@ -77,12 +80,13 @@
 | `reversal` | Ngược dòng gốc | Như dòng gốc |
 
 - CHECK: `type = 'reversal'` khi và chỉ khi `reverses_id IS NOT NULL`. `UNIQUE (reverses_id)` để không đảo một dòng hai lần.
-- CHECK: `interest_payment` phải có `period_from`, `period_to`.
+- Trigger `check_reversal`: dòng reversal phải có `amount` = số đối dòng gốc, cùng `contract_id`/`installment_contract_id`, và dòng gốc không phải reversal.
+- CHECK: `interest_payment` phải có `period_from <= period_to`; type khác (trừ reversal) để trống hai cột này. `amount <> 0`.
 - Chuộc đồ / đóng hợp đồng không có loại riêng: thao tác sinh các dòng `interest_payment` + `principal_repayment` rồi đặt `status = 'closed'`.
 
 ## 3.7 `audit_logs`
 - `shop_id`, `user_id`, `entity`, `entity_id`, `action` (`create` / `edit` / `extend` / `delete` / ...), `changed_fields` (chỉ tên field, không lưu giá trị), `at`.
-- Append-only, trigger chặn UPDATE/DELETE giống `cash_transactions`.
+- Append-only, trigger chặn UPDATE/DELETE/TRUNCATE giống `cash_transactions`.
 
 ## 3.8 `shop_counters`
 - PK `(shop_id, prefix)`, `next_value`. Prefix: `CD-` (cầm đồ), `TC-` (tín chấp), `TG-` (trả góp).
@@ -92,6 +96,8 @@
 - `contracts (shop_id, status, interest_paid_until)`: danh sách đến hạn đóng lãi.
 - `cash_transactions (shop_id, business_date)`: sổ quỹ theo ngày, quỹ đầu két.
 - `cash_transactions (shop_id, contract_id)`, `(shop_id, installment_contract_id)`: lịch sử giao dịch của một hợp đồng.
+- `cash_transactions (shop_id, operation_id)`: đảo cả một thao tác.
+- `installment_contracts (shop_id, status)`, `audit_logs (shop_id, entity, entity_id)`.
 - `customers (shop_id, cccd_hash)`: tìm khớp chính xác CCCD (đã có qua UNIQUE).
 - `pg_trgm` GIN: `customers.full_name`, `customers.phone`, `contracts.code`, `contracts.asset_name`, `installment_contracts.code`.
 
@@ -110,4 +116,5 @@ Tính trên các dòng chưa bị đảo (loại dòng gốc có reversal trỏ 
 - **PostgreSQL Row-Level Security:** chưa bật. Cách ly dựa vào repository lọc `shop_id`, khoá ngoại kép và test chéo cửa hàng. Bật sau nếu cần, khi đó phải gắn biến session (`SET LOCAL`) cho mỗi transaction.
 - **Bảng chốt ngày `cash_daily_balances`:** chỉ thêm khi đo thấy truy vấn quỹ đầu két chậm.
 - **Phụ thuộc PostgreSQL 18:** `uuidv7()` chỉ có từ PG 18. Hosting chưa hỗ trợ thì sinh UUID v7 ở tầng ứng dụng, schema giữ nguyên.
+- **Quyền DB:** hiện role ứng dụng sở hữu bảng nên về lý thuyết tắt được trigger. Production nên tách role migrate (sở hữu bảng) và role runtime (chỉ SELECT/INSERT trên sổ két).
 - **Hình thức lãi mở rộng** (ứng viên ở `core-spec.txt` mục 2): thêm giá trị enum `interest_type` và strategy tính lãi; có thể cần thêm cột tham số.

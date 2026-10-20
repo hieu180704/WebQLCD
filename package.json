@@ -8,10 +8,18 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "next typegen && tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:start": ".local\\pgsql\\bin\\pg_ctl -D .local/pgdata -l .local/pg.log -w start",
+    "db:stop": ".local\\pgsql\\bin\\pg_ctl -D .local/pgdata -w stop"
   },
   "dependencies": {
+    "@node-rs/argon2": "2.2.2",
+    "better-auth": "1.7.12",
+    "drizzle-orm": "0.45.4",
     "next": "16.4.2",
+    "pg": "8.23.1",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "server-only": "0.0.1",
@@ -20,8 +28,10 @@
   "devDependencies": {
     "@tailwindcss/turbopack": "4.3.3",
     "@types/node": "24.19.2",
+    "@types/pg": "8.23.1",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
+    "drizzle-kit": "0.31.11",
     "eslint": "9.39.5",
     "eslint-config-next": "16.4.2",
     "eslint-plugin-boundaries": "7.2.0",
