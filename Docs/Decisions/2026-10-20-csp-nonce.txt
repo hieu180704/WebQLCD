@@ -1,0 +1,36 @@
+# QUYẾT ĐỊNH: CSP CHẶT BẰNG NONCE, MỌI TRANG RENDER THEO REQUEST
+
+# Mục lục
+1. Bối Cảnh & Vấn Đề
+2. Các Phương Án Đã Cân Nhắc
+3. Quyết Định Đã Chốt & Lý Do
+
+---
+
+# 1. Bối Cảnh & Vấn Đề
+- Ngày ghi nhận: 2026-10-20
+- Vấn đề: CSP tạm ở bước 4a để `script-src 'unsafe-inline'`, nên không chặn được XSS chèn script/handler inline. App giữ CCCD, SĐT, dữ liệu tiền (`Docs/SourceOfTruth/Security/security-spec.txt`).
+- Ràng buộc kỹ thuật (Next.js 16.4, guide `content-security-policy.md` trong `node_modules/next/dist/docs/`):
+  - Nonce chỉ gắn được khi trang render theo request; trang tĩnh không có nonce.
+  - Guide ghi Partial Prerendering không tương thích nonce, mà `cacheComponents: true` bật PPR mặc định.
+- Người dùng giao AI tự đề xuất.
+
+---
+
+# 2. Các Phương Án Đã Cân Nhắc
+Đều chạy thử thật (`next build` + `next start` + Playwright), không chỉ dựa vào docs.
+- **A. Nonce, giữ Cache Components, root layout gọi `connection()`:** build lỗi "blocking-prerender-dynamic" (Cache Components đòi static shell).
+- **A'. Như A, thêm `export const instant = false` ở root layout:** build được, mọi route dynamic; 100% script có nonce; client component hydrate bình thường; console sạch. Đối chứng: chèn `<img onerror>` qua `innerHTML` bị CSP chặn.
+- **B. Nonce, tắt Cache Components:** không thử, vì A' đạt mục tiêu mà vẫn giữ được `use cache` cho sau này.
+- **C. SRI (hash lúc build), giữ trang tĩnh:** loại vì còn experimental và guide ghi không xử lý được script sinh động.
+- **D. Giữ `'unsafe-inline'`:** loại vì CSP gần như vô dụng trước XSS inline.
+
+---
+
+# 3. Quyết Định Đã Chốt & Lý Do
+- Quyết định: **A'**. `src/proxy.ts` sinh nonce mới mỗi request, đặt CSP `script-src 'self' 'nonce-…' 'strict-dynamic'`; `src/app/layout.tsx` đặt `instant = false` và `await connection()`.
+- Lý do: app gần như toàn trang quản lý vốn đã phải đọc dữ liệu mới mỗi request; bảo mật là ưu tiên hàng đầu.
+- Đánh đổi chấp nhận:
+  - Landing page mất render tĩnh, mất static shell; tải đầu chậm hơn và tốn CPU server hơn chút.
+  - Tắt kiểm tra static shell của Cache Components cho toàn app.
+- Xem lại khi: landing page cần SEO/tải nhanh hơn (tách landing thành app/route riêng), hoặc SRI ra bản ổn định.

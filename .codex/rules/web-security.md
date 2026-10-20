@@ -14,7 +14,7 @@ Lý do, threat model, phân loại dữ liệu: `Docs/SourceOfTruth/Security/sec
 - **Đăng nhập:** giới hạn số lần sai theo tài khoản + IP.
 - **Cookie phiên:** `HttpOnly`, `Secure`, `SameSite=Lax` trở lên.
 - **Module chỉ chạy phía server:** `import 'server-only'`.
-- **Header bảo mật:** CSP, HSTS, `frame-ancestors 'none'`, `X-Content-Type-Options: nosniff`, `Referrer-Policy`.
+- **Header bảo mật:** CSP, HSTS, `frame-ancestors 'none'`, `X-Content-Type-Options: nosniff`, `Referrer-Policy`. CSP dùng nonce sinh ở `src/proxy.ts`; `script-src` không có `'unsafe-inline'`.
 - **Xuất Excel:** chỉ chủ tiệm. Ô bắt đầu bằng `=`, `+`, `-`, `@` thì thêm `'` phía trước.
 - **Audit:** thao tác đổi tiền ghi người thực hiện + thời điểm vào sổ giao dịch `cashbook`.
 - **Backup:** mã hoá file backup.

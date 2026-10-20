@@ -18,7 +18,7 @@ Chỉ tiêu, cách đo, quy trình xử lý khi chậm: `Docs/SourceOfTruth/Perf
 - **Báo cáo:** tổng hợp bằng SQL (`SUM`, `COUNT`, `GROUP BY`).
 - **Dữ liệu liên quan:** tải bằng join hoặc một truy vấn `IN (...)`.
 - **Cột:** chỉ chọn cột cần dùng.
-- **Cache:** landing page render tĩnh; trang quản lý luôn đọc dữ liệu mới (`dynamic`, không cache).
+- **Cache:** mọi trang render theo request (CSP nonce, `Docs/Decisions/2026-10-20-csp-nonce.txt`); không dùng `use cache` cho dữ liệu nghiệp vụ; không dùng `export const dynamic` (bị gỡ khi bật Cache Components).
 - **Xuất Excel:** streaming theo lô.
 - **DB:** kết nối qua pool, một pool dùng chung cho toàn ứng dụng.
 - **Tài nguyên tĩnh:** ảnh qua `next/image`, font qua `next/font`.

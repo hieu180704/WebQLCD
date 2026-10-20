@@ -22,7 +22,11 @@ const boundariesConfig = {
       { type: "shared-infra", pattern: "src/shared/infrastructure" },
       { type: "app", pattern: "src/app" },
     ],
-    "boundaries/files": [{ category: "composition", pattern: "src/composition-root.ts" }],
+    "boundaries/files": [
+      { category: "composition", pattern: "src/composition-root.ts" },
+      // Chỉ gắn header CSP, chỉ được dùng thư viện ngoài (policy external ở dưới).
+      { category: "proxy", pattern: "src/proxy.ts" },
+    ],
   },
   rules: {
     "boundaries/dependencies": [
