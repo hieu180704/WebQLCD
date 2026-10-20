@@ -36,7 +36,7 @@ export const auth = betterAuth({
   },
   emailAndPassword: {
     enabled: true,
-    disableSignUp: true, // Luồng đăng ký chủ tiệm làm ở bước 5.
+    disableSignUp: true, // Đăng ký ghi thẳng DB trong một transaction: Docs/Decisions/2026-10-20-signup-direct-insert.txt.
     minPasswordLength: MIN_PASSWORD_LENGTH,
     password: {
       hash: hashPassword,

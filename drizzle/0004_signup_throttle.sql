@@ -1,0 +1,2 @@
+ALTER TABLE "login_throttles" DROP CONSTRAINT "login_throttles_scope";--> statement-breakpoint
+ALTER TABLE "login_throttles" ADD CONSTRAINT "login_throttles_scope" CHECK ("login_throttles"."scope" IN ('ip', 'user', 'signup'));

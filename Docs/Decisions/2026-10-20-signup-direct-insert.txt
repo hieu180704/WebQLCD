@@ -1,0 +1,36 @@
+# QUYẾT ĐỊNH: ĐĂNG KÝ CHỦ TIỆM VÀ TẠO KTV BẰNG GHI THẲNG BẢNG AUTH TRONG MỘT TRANSACTION
+
+# Mục lục
+1. Bối Cảnh & Vấn Đề
+2. Các Phương Án Đã Cân Nhắc
+3. Quyết Định Đã Chốt & Lý Do
+
+---
+
+# 1. Bối Cảnh & Vấn Đề
+- Ngày ghi nhận: 2026-10-20
+- Đăng ký phải tạo cùng lúc cửa hàng (`shops`) và chủ tiệm (`users` + `accounts`). Tạo KTV phải gắn đúng `shop_id` của chủ tiệm và ghi `audit_logs`.
+- `users.shop_id`, `users.role` khai với Better Auth là `additionalFields` có `input: false`, nên `signUpEmail` không nhận được hai trường này từ body.
+- Better Auth tự tạo user trong transaction riêng của nó, không gộp được với việc tạo cửa hàng.
+
+---
+
+# 2. Các Phương Án Đã Cân Nhắc
+- **Phương án A: Drizzle ghi thẳng `shops` + `users` + `accounts` trong một DB transaction, rồi gọi `auth.api.signInUsername` để tạo phiên.**
+  - Ưu: cửa hàng và chủ tiệm cùng có hoặc cùng không. Giữ `disableSignUp: true`, không mở thêm đường đăng ký nào của Better Auth.
+  - Nhược: phụ thuộc hình dạng bảng của Better Auth (dòng `accounts` có `provider_id = 'credential'`, `account_id = user id`, `username` lưu viết thường). Seed dev đã dùng cùng cách.
+- **Phương án B: bật `signUpEmail`, gắn `shopId` qua hook `user.create.before`.**
+  - Ưu: đúng API của Better Auth.
+  - Nhược: cửa hàng tạo trước, ngoài transaction của Better Auth, nên lỗi giữa chừng để lại cửa hàng mồ côi. Phải tắt `disableSignUp`.
+
+---
+
+# 3. Quyết Định Đã Chốt & Lý Do
+- Quyết định: **Phương án A** (người dùng duyệt 2026-10-20).
+- Hiện thực: `src/modules/identity/infrastructure/drizzle-account-repository.ts`. Test DB `drizzle-account-repository.db.test.ts` kiểm hình dạng dòng `accounts` và việc băm mật khẩu. E2E `e2e/onboarding.spec.ts` kiểm đăng ký xong đăng nhập được.
+- Nâng cấp Better Auth: phải chạy lại hai test trên. Đổi hình dạng bảng thì sửa repository và `scripts/seed-dev.mts` cùng lúc.
+- Lỗi DB không phải trùng khoá: chỉ ném lại lỗi gốc của PostgreSQL, không ném `DrizzleQueryError` vì lỗi này mang tham số truy vấn (có hash mật khẩu) vào log.
+- Kèm theo:
+  - Giới hạn đăng ký 5 lần/IP/giờ, đếm ở `login_throttles` với scope `signup`. Mọi lần gửi form hợp lệ đều tính, kể cả lần bị trùng tên đăng nhập. Không xác định được IP thì không đếm, giống lớp IP của khoá đăng nhập.
+  - Đăng nhập ngay sau khi đăng ký mà hụt (vd. username đang bị khoá vì bị dò trước đó): tài khoản vẫn đã tạo, trang chủ chuyển về `/dang-nhap`.
+- Chưa làm: xác minh email, captcha, quên mật khẩu.

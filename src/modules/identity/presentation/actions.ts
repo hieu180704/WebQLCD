@@ -4,12 +4,13 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { signIn, signOut } from "@/composition-root";
 import type { SignInResult } from "../application/ports";
+import { usernameSchema } from "./schemas";
 
 export type SignInState = { error: string | null };
 
-// Cùng luật với plugin username của Better Auth; sai định dạng thì báo chung như sai mật khẩu.
+// Sai định dạng thì báo chung như sai mật khẩu.
 const credentialsSchema = z.object({
-  username: z.string().trim().min(3).max(30).regex(/^[a-zA-Z0-9_.]+$/),
+  username: usernameSchema,
   password: z.string().min(1).max(128),
 });
 

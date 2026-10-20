@@ -7,3 +7,38 @@ export interface Authenticator {
   signIn(credentials: Credentials): Promise<SignInResult>;
   signOut(): Promise<void>;
 }
+
+/** Người thực hiện thao tác, lấy từ guard (session), không bao giờ từ input của client. */
+export type Actor = { userId: string; shopId: string };
+
+export type OwnerRegistration = {
+  shopName: string;
+  ownerName: string;
+  email: string;
+  username: string;
+  password: string;
+};
+
+export type NewStaff = { name: string; username: string; password: string };
+
+export type StaffMember = { id: string; name: string; username: string; isActive: boolean; createdAt: Date };
+
+export type RegisterOwnerResult = "ok" | "rate_limited" | "username_taken" | "email_taken";
+
+export type CreateStaffResult = "ok" | "username_taken";
+
+/** Tạo cửa hàng dùng thử + chủ tiệm trong một transaction. */
+export interface OwnerRegistrar {
+  registerOwner(input: OwnerRegistration, trialDays: number): Promise<Exclude<RegisterOwnerResult, "rate_limited">>;
+}
+
+/** KTV của một cửa hàng; mọi truy vấn lọc theo shopId của người thực hiện. */
+export interface StaffRepository {
+  createStaff(actor: Actor, input: NewStaff): Promise<CreateStaffResult>;
+  listStaff(shopId: string, limit: number): Promise<StaffMember[]>;
+}
+
+/** Giới hạn số lần đăng ký theo nguồn gửi (IP). Trả `false` khi đã hết lượt. */
+export interface SignupLimiter {
+  tryAcquire(): Promise<boolean>;
+}

@@ -1,0 +1,15 @@
+# 2026-10-20: Bước 5a — đăng ký chủ tiệm + dùng thử 7 ngày, chủ tiệm tạo KTV — [verified: lint, typecheck, vitest 31/31, build, e2e Playwright 10/10 trên bản production]
+
+- Commit: xem commit "Bước 5a" ngay sau commit 26573da
+- Đã làm:
+  1. Đăng ký `/dang-ky`: use case `RegisterOwner` (identity) tạo cửa hàng dùng thử `TRIAL_DAYS = 7` (shop/domain) và chủ tiệm trong một transaction, rồi đăng nhập luôn. Ghi thẳng bảng Better Auth thay vì `signUpEmail`: `Docs/Decisions/2026-10-20-signup-direct-insert.txt`.
+  2. Giới hạn đăng ký 5 lần/IP/giờ: `src/shared/infrastructure/auth/signup-throttle.ts`, scope `signup` trong `login_throttles` (migration 0004).
+  3. Trang `/nhan-vien` (chỉ chủ tiệm; KTV vào thì về `/`): danh sách KTV (giới hạn cứng 200 dòng thay cho phân trang), form tạo KTV. Action gọi `requireSession({ role: "owner", write: true })`, ghi `audit_logs`, email nội bộ `staff-<uuid>@tp83.invalid`.
+  4. Trang chủ: banner trạng thái thuê bao (`GetSubscription`, module shop), link "Nhân viên" cho chủ tiệm. Trang đăng nhập có link đăng ký.
+  5. Vitest bật `resolve.tsconfigPaths` để test use case import được `@/modules/...`.
+  6. Docs: data-model 3.2.
+- Trạng thái: xong phần đăng ký + KTV của bước 5. Còn lại của lát cắt dọc: chưa chốt (xem handoff mục 3).
+- Lưu ý cho phiên sau:
+  - Luật boundaries cấm `domain/` import thư viện ngoài, kể cả `vitest` trong file test. Test domain hiện phải đặt ở `application/` hoặc đi qua use case. Viết test tính lãi (bắt buộc ở domain) thì phải sửa `eslint.config.mjs` để bỏ qua `*.test.ts`.
+  - E2E mỗi lần chạy để lại 1 cửa hàng `e2e_*` trong DB dev (không xoá được vì `audit_logs` append-only).
+  - Test `login-throttle.db.test.ts` giả định bảng `login_throttles` rỗng: đăng nhập thử ở `npm run dev` để lại dòng thì test fail. Xoá bảng trước khi chạy test.
