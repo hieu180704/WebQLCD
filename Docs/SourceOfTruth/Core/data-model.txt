@@ -39,9 +39,11 @@
 ## 3.2 `users` và bảng auth
 - `users`: `shop_id`, `username`, `display_username`, `name` (họ tên), `email`, `email_verified`, `image`, `role` (`owner` / `staff`), `is_active`. Hình dạng theo yêu cầu của Better Auth.
 - `UNIQUE (lower(username))` toàn hệ thống, để đăng nhập không phải chọn cửa hàng trước.
-- `email` bắt buộc và UNIQUE (Better Auth đòi). Dự kiến: chủ tiệm dùng email thật, KTV dùng email nội bộ sinh tự động; chốt ở bước auth.
+- `email` bắt buộc và UNIQUE (Better Auth đòi). Chủ tiệm dùng email thật; KTV do chủ tiệm tạo dùng email nội bộ sinh tự động.
 - Mật khẩu KHÔNG nằm ở `users`: Better Auth lưu ở `accounts.password` (dòng có `provider_id = 'credential'`).
 - `sessions`, `accounts`, `verifications`: bảng của Better Auth, khoá ngoại tới `users` có `ON DELETE CASCADE`.
+- `shop_id`, `role` khai với Better Auth là `additionalFields` có `input: false` (client không gửi được). `is_active = false` thì không tạo được phiên.
+- `login_throttles`: đếm lần đăng nhập, PK `(scope, key)`; `scope` là `ip` hoặc `user` (key = username viết thường, kể cả username không tồn tại); `attempts`, `window_started_at`, `locked_until`. Không có `shop_id` vì đếm trước khi biết cửa hàng. Luật đếm: `Docs/Decisions/2026-10-20-login-throttle.txt`.
 
 ## 3.3 `customers`
 - `shop_id`, `full_name`, `phone`, `address`, `cccd_encrypted`, `cccd_hash`, `cccd_masked`.
@@ -116,5 +118,6 @@ Tính trên các dòng chưa bị đảo (loại dòng gốc có reversal trỏ 
 - **PostgreSQL Row-Level Security:** chưa bật. Cách ly dựa vào repository lọc `shop_id`, khoá ngoại kép và test chéo cửa hàng. Bật sau nếu cần, khi đó phải gắn biến session (`SET LOCAL`) cho mỗi transaction.
 - **Bảng chốt ngày `cash_daily_balances`:** chỉ thêm khi đo thấy truy vấn quỹ đầu két chậm.
 - **Phụ thuộc PostgreSQL 18:** `uuidv7()` chỉ có từ PG 18. Hosting chưa hỗ trợ thì sinh UUID v7 ở tầng ứng dụng, schema giữ nguyên.
+- **Dọn `login_throttles`:** dòng cũ (username dò bừa) chưa được xoá định kỳ; số dòng bị chặn trên bởi khoá IP. Thêm job dọn khi deploy.
 - **Quyền DB:** hiện role ứng dụng sở hữu bảng nên về lý thuyết tắt được trigger. Production nên tách role migrate (sở hữu bảng) và role runtime (chỉ SELECT/INSERT trên sổ két).
 - **Hình thức lãi mở rộng** (ứng viên ở `core-spec.txt` mục 2): thêm giá trị enum `interest_type` và strategy tính lãi; có thể cần thêm cột tham số.

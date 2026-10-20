@@ -20,6 +20,8 @@ const boundariesConfig = {
       { type: "module", pattern: "src/modules/*", capture: ["module"] },
       { type: "kernel", pattern: "src/shared/kernel" },
       { type: "shared-infra", pattern: "src/shared/infrastructure" },
+      // Component shadcn/ui: chỉ dùng thư viện ngoài, được presentation và app import.
+      { type: "ui", pattern: "src/shared/ui" },
       { type: "app", pattern: "src/app" },
     ],
     "boundaries/files": [
@@ -72,7 +74,7 @@ const boundariesConfig = {
             allow: [
               moduleFile(SAME_MODULE, [layer("application"), layer("presentation")]),
               moduleFile(OTHER_MODULE, "index.ts"),
-              { to: { element: { type: "kernel" } } },
+              { to: { element: { types: { anyOf: ["kernel", "ui"] } } } },
               { to: { file: { categories: "composition" } } },
             ],
           },
@@ -84,7 +86,7 @@ const boundariesConfig = {
             from: { element: { type: "app" } },
             allow: [
               moduleFile(undefined, "index.ts"),
-              { to: { element: { types: { anyOf: ["app", "kernel", "shared-infra"] } } } },
+              { to: { element: { types: { anyOf: ["app", "kernel", "shared-infra", "ui"] } } } },
               { to: { file: { categories: "composition" } } },
             ],
           },

@@ -28,3 +28,7 @@ next-env.d.ts
 
 # PostgreSQL portable + dữ liệu dev
 /.local/
+
+# Playwright
+/test-results/
+/playwright-report/

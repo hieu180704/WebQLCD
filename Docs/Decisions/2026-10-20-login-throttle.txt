@@ -1,0 +1,40 @@
+# QUYẾT ĐỊNH: KHOÁ ĐĂNG NHẬP THEO IP VÀ TÀI KHOẢN
+
+# Mục lục
+1. Bối Cảnh & Vấn Đề
+2. Các Phương Án Đã Cân Nhắc
+3. Quyết Định Đã Chốt & Lý Do
+
+---
+
+# 1. Bối Cảnh & Vấn Đề
+- Ngày ghi nhận: 2026-10-20
+- Thiết kế 4c ban đầu: lớp IP dùng rate limit sẵn của Better Auth (`customRules` 5 lần/phút cho `/sign-in/username`), lớp tài khoản dùng hook + bảng `login_throttles`.
+- Đọc source Better Auth 1.7.12 thì thấy thiết kế đó không chạy:
+  - Rate limit chỉ chạy trong HTTP router (`node_modules/better-auth/dist/api/index.mjs`, `onRequest` gọi `onRequestRateLimit`).
+  - Form đăng nhập gọi `auth.api.signInUsername()` từ server action, không qua router, nên lớp IP bị bỏ qua hoàn toàn.
+  - Mặc định `rateLimit.enabled` chỉ bật ở production, store mặc định nằm trong bộ nhớ process (mất khi restart, không chia sẻ giữa nhiều instance).
+- Hooks `before`/`after` thì chạy cho cả `auth.api.*`, kể cả khi endpoint ném lỗi (`api/dispatch.mjs`).
+
+---
+
+# 2. Các Phương Án Đã Cân Nhắc
+- **Phương án 1: Hook + bảng `login_throttles` cho cả hai lớp.**
+  - Ưu: một cơ chế, lưu ở DB (chịu được restart, nhiều instance), chạy với mọi đường gọi `auth.api`; test được trên PostgreSQL thật.
+  - Nhược: tự viết SQL đếm; phải tự lấy IP (dùng `getIP` của Better Auth).
+- **Phương án 2: Server action tự dựng `Request` gọi `auth.handler` để đi qua router.**
+  - Ưu: giữ nguyên thiết kế cũ.
+  - Nhược: phải tự chép `Set-Cookie`; store bộ nhớ; dev phải bật `enabled` thủ công; đếm mọi request chứ không chỉ lần sai.
+
+---
+
+# 3. Quyết Định Đã Chốt & Lý Do
+- Quyết định: **Phương án 1** (người dùng duyệt 2026-10-20).
+- Mức chốt (hằng số `THROTTLE_RULES` ở `src/shared/infrastructure/auth/login-throttle.ts`):
+  - Tài khoản (theo username, kể cả username không tồn tại): sai 5 lần trong 15 phút thì khoá 15 phút.
+  - IP: sai 20 lần trong 15 phút thì khoá 15 phút. Rộng hơn vì nhiều nhân viên một tiệm dùng chung IP.
+- Cách đếm: giữ chỗ một lần thử ngay trong hook `before` bằng một câu `INSERT ... ON CONFLICT DO UPDATE` (atomic, request song song không lọt qua). Đăng nhập đúng thì hook `after` xoá bộ đếm username và trả lại chỗ cho IP. Không reset IP khi đúng, để một tài khoản thật không xoá được bộ đếm IP của kẻ dò.
+- Không mount route `/api/auth/[...all]`: không còn đường HTTP nào gọi Better Auth, `rateLimit.enabled = false`.
+- Đánh đổi chấp nhận:
+  - Khoá theo tài khoản có thể bị lạm dụng để khoá chủ tiệm (DoS) — đã nêu ở thiết kế 4c.
+  - IP lấy từ header `x-forwarded-for` theo `getIP`. Khi deploy phải cấu hình `advanced.ipAddress` (header tin cậy, `trustedProxies`) theo hạ tầng thật; không xác định được IP thì bỏ qua lớp IP, lớp tài khoản vẫn chạy.

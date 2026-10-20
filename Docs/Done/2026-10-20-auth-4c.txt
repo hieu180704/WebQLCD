@@ -1,0 +1,12 @@
+# 2026-10-20: Bước 4c — đăng nhập (Better Auth + argon2id, khoá IP + tài khoản, guard) — [verified: lint, typecheck, vitest 18/18, build, e2e Playwright 5/5 trên bản production]
+
+- Commit: xem commit "Bước 4c" ngay sau commit 4d9bf10
+- Đã làm:
+  1. Better Auth (`src/shared/infrastructure/auth/auth.ts`): adapter Drizzle, DB sinh uuidv7, plugin username + nextCookies, tắt đăng ký công khai, băm argon2id (`password.ts`), `is_active = false` không tạo được phiên, `shop_id`/`role` khai `additionalFields` `input: false`.
+  2. Khoá đăng nhập bằng hook + bảng `login_throttles` (migration 0003) cho cả IP và tài khoản: đổi so với thiết kế vì rate limit gốc chỉ chạy qua HTTP router — `Docs/Decisions/2026-10-20-login-throttle.txt`. Không mount `/api/auth`.
+  3. Guard `requireSession({ role?, write? })` (`guard.ts`, `access.ts`): quyền ghi theo thuê bao tính bằng giờ DB.
+  4. Module identity 4 lớp: port `Authenticator`, use case SignIn/SignOut, adapter Better Auth, server action validate Zod, form đăng nhập, nút đăng xuất. Trang `/dang-nhap`; `/` bắt đăng nhập.
+  5. shadcn/ui ở `src/shared/ui/` (element `ui` trong boundaries), dependency ghim bản ≥ ~2 tuần. Seed dev `npm run db:seed` (chutiem / matkhau123). E2E `npm run test:e2e` (Edge, cổng 3100).
+  6. Docs: data-model 3.2/5, architecture-spec 2.4/3.2, security-spec 3.2 (guard gọi ở server action/trang qua composition-root).
+- Trạng thái: xong bước 4c, tức xong bước 4.
+- Lưu ý cho phiên sau: `.env` phải có `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL` (hook chặn AI ghi `.env`; thiếu thì build log lỗi "default secret").

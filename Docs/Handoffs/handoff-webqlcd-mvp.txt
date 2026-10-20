@@ -5,16 +5,17 @@
 1. Trạng Thái Hiện Tại
 2. Những Việc Đã Xong
 3. Đầu Việc Tiếp Theo & Lưu Ý
-4. Thiết Kế 4c Auth (đã duyệt, chưa làm)
+4. Auth Đã Làm (4c)
 
 ---
 
 # 1. Trạng Thái Hiện Tại
 - Nhánh Git: `main`. Chưa có remote.
-- Tiến độ: xong bước 1–3; bước 4 xong 4a, 4b, CSP nonce; đang chờ làm 4c (auth).
+- Tiến độ: xong bước 1–4 (4a khung, 4b DB, CSP nonce, 4c auth); tiếp theo bước 5.
 - Lộ trình: (1) khách xem mockup → (2) cập nhật core-spec → (3) database schema → (4) dựng khung project [4a khung, 4b DB, 4c auth] → (5) lát cắt dọc đầu tiên.
 - Dev DB: PostgreSQL 18.6 portable ở `.local/` (gitignore), 127.0.0.1:5433, role `webqlcd_app`, DB `webqlcd`. Bật/tắt: `npm run db:start` / `db:stop`; migrate: `npm run db:migrate`. Mật khẩu superuser ở `.local/pwfile`, DATABASE_URL ở `.env`.
-- Verify chuẩn: `npm run lint`, `npm run typecheck`, `npm test` (cần DB đang chạy cho test DB), `npm run build`.
+- Verify chuẩn: `npm run lint`, `npm run typecheck`, `npm test` (cần DB đang chạy cho test DB), `npm run build`, `npm run test:e2e` (Edge, tự build, cổng 3100).
+- Dev: `npm run db:seed` tạo cửa hàng dùng thử + chủ tiệm `chutiem` / `matkhau123`. `.env` cần `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL` (mẫu ở `.env.example`).
 
 ---
 
@@ -29,11 +30,13 @@
 - [x] 4a: Next 16.4.2 + TS strict + Tailwind 4, 7 module, Money, eslint-plugin-boundaries cưỡng chế luật lớp (commit 9c7183d). Decision Drizzle + Better Auth.
 - [x] 4b: schema Drizzle 11 bảng, migration (pg_trgm, trigger append-only, kiểm reversal), 7 test DB trên PG thật (commit 144b867).
 - [x] CSP nonce qua `src/proxy.ts`, mọi trang dynamic (commit f1a859c, Decision 2026-10-20-csp-nonce.txt).
+- [x] 4c: auth theo mục 4 (worklog `Docs/Done/2026-10-20-auth-4c.txt`).
 
 ---
 
 # 3. Đầu Việc Tiếp Theo & Lưu Ý
-- [ ] 4c: làm theo mục 4 (đã duyệt).
+- [ ] Bước 5: lát cắt dọc đầu tiên; gồm luồng đăng ký chủ tiệm + tạo cửa hàng + dùng thử 7 ngày (hoãn từ 4c), chủ tiệm tạo KTV (email nội bộ tự sinh).
+- [ ] Deploy: cấu hình `advanced.ipAddress` (header IP tin cậy, trustedProxies) theo hạ tầng thật; job dọn dòng cũ `login_throttles`.
 - [ ] Viết `docker-compose.yml` khi làm deploy (máy dev chưa có Docker, chưa test được).
 - [ ] Production: tách role migrate (sở hữu bảng) và role runtime (chỉ SELECT/INSERT sổ két) — data-model mục 5.
 - **Lưu ý:**
@@ -46,17 +49,8 @@
 
 ---
 
-# 4. Thiết Kế 4c Auth (đã duyệt, chưa làm)
-- Cấu hình `src/shared/infrastructure/auth/auth.ts`: Better Auth + adapter Drizzle, `advanced.database.generateId: false` (DB sinh uuidv7), plugin `username` + `nextCookies` (`better-auth/next-js`).
-- Mật khẩu: `emailAndPassword.password.hash/verify` dùng argon2id (`@node-rs/argon2`), tối thiểu 8 ký tự.
-- Tắt đăng ký công khai (`disableSignUp`); luồng đăng ký chủ tiệm + tạo cửa hàng + dùng thử 7 ngày để bước 5. Dev dùng `npm run db:seed` tạo 1 cửa hàng + 1 chủ tiệm.
-- Email: chủ tiệm email thật; KTV do chủ tiệm tạo dùng email nội bộ tự sinh (người dùng đã đồng ý).
-- Giới hạn đăng nhập sai, 2 lớp:
-  - Theo IP: rate limit sẵn của Better Auth (khoá theo IP + path), `customRules` 5 lần/phút cho `/sign-in/username`.
-  - Theo tài khoản: hook before/after (`createAuthMiddleware` từ `better-auth/api`) + bảng mới `login_throttles`; sai 5 lần khoá 15 phút, đúng thì reset. Cập nhật data-model + migration.
-- `is_active = false` không tạo được phiên (`databaseHooks`).
-- Cookie: kiểm bằng header thật `HttpOnly`, `SameSite=Lax`, `Secure` ở production.
-- Guard dùng chung `requireSession({ role?, write? })` → `{ userId, shopId, role }`; ghi thì kiểm thuê bao còn hạn, hết hạn chỉ đọc.
-- Trang `/dang-nhap`: form gọi use case `signIn` của module `identity` qua port (đúng 4 lớp), validate Zod. Init shadcn/ui vào `src/shared/ui/`, thêm element `ui` cho boundaries.
-- Verify: test guard + khoá tài khoản; e2e Playwright đăng nhập đúng, sai, sai 6 lần bị khoá; kiểm cờ cookie.
-- Rủi ro đã nêu: khoá theo tài khoản có thể bị lạm dụng để khoá chủ tiệm (DoS); 15 phút là mức cân bằng, chỉnh sau được.
+# 4. Auth Đã Làm (4c)
+- Code: `src/shared/infrastructure/auth/` (auth, login-throttle, password, access, guard), module `identity` (port Authenticator, SignIn/SignOut, server action, form), trang `/dang-nhap`, UI shadcn ở `src/shared/ui/`.
+- Khác thiết kế đã duyệt: khoá IP không dùng rate limit gốc của Better Auth (chỉ chạy qua HTTP router, server action gọi `auth.api` bỏ qua). Cả IP và tài khoản đếm ở hook + `login_throttles`; tài khoản sai 5 lần khoá 15 phút, IP sai 20 lần/15 phút khoá 15 phút; không mount `/api/auth`. Lý do: `Docs/Decisions/2026-10-20-login-throttle.txt`.
+- Guard `requireSession({ role?, write? })` gọi ở đầu server action / trang (presentation lấy qua `composition-root.ts`), không gọi trong application.
+- Rủi ro còn: khoá theo tài khoản có thể bị lạm dụng để khoá chủ tiệm (DoS); 15 phút chỉnh được ở `THROTTLE_RULES`.

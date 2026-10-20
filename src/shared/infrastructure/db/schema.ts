@@ -140,6 +140,23 @@ export const verifications = pgTable(
   (t) => [index("verifications_identifier_idx").on(t.identifier)],
 );
 
+// Đếm lần đăng nhập theo IP và theo username (kể cả username không tồn tại), trước khi biết cửa hàng nên không có shop_id.
+export const loginThrottles = pgTable(
+  "login_throttles",
+  {
+    scope: text("scope").notNull(),
+    key: text("key").notNull(),
+    attempts: integer("attempts").notNull(),
+    windowStartedAt: timestamp("window_started_at", { withTimezone: true }).notNull().defaultNow(),
+    lockedUntil: timestamp("locked_until", { withTimezone: true }),
+  },
+  (t) => [
+    primaryKey({ columns: [t.scope, t.key] }),
+    check("login_throttles_scope", sql`${t.scope} IN ('ip', 'user')`),
+    check("login_throttles_attempts_non_negative", sql`${t.attempts} >= 0`),
+  ],
+);
+
 export const customers = pgTable(
   "customers",
   {

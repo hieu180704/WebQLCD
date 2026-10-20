@@ -39,7 +39,7 @@
 
 ## 2.4 Mối lo chung (xử lý một chỗ)
 - **Tách dữ liệu cửa hàng:** `shop_id` lấy từ phiên đăng nhập; repository tự lọc theo `shop_id`.
-- **Phân quyền & thuê bao:** guard dùng chung, gọi ở đầu mỗi use case (KTV không được xoá; hết dùng thử thì chỉ đọc).
+- **Phân quyền & thuê bao:** guard dùng chung `requireSession` (`shared/infrastructure/auth/guard.ts`), gọi ở đầu mỗi server action / trang trước khi chạy use case (KTV không được xoá; hết dùng thử thì chỉ đọc).
 - **Tiền:** value object `Money` bọc số nguyên VND (`bigint` trong DB). Không có phép tính tiền ngoài `Money`.
 - **Validate input:** Zod ở lớp `presentation`.
 
@@ -80,6 +80,7 @@ src/
       index.ts             public API của module
   shared/
     kernel/                Money, Result, lỗi nghiệp vụ dùng chung
-    infrastructure/        kết nối DB, transaction, auth session
+    infrastructure/        kết nối DB, transaction, auth session, guard requireSession
+    ui/                    component shadcn/ui; chỉ presentation và app được import
   composition-root.ts      nơi duy nhất ghép implementation vào use case
 ```

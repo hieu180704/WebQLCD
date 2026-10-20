@@ -54,6 +54,6 @@
 
 ## 3.2 Điểm kiểm soát trong kiến trúc
 - `presentation`: Zod validate input.
-- `application`: guard dùng chung (session, vai trò, thuê bao) ở đầu mỗi use case.
+- `presentation` / `app`: gọi guard dùng chung `requireSession` (session, vai trò, thuê bao; qua `composition-root.ts`) ở đầu mỗi server action / trang. Lớp `application` không import được infrastructure nên không tự gọi guard.
 - `infrastructure`: repository lọc `shop_id`; mã hoá/giải mã CCCD; truy vấn tham số hoá.
 - `shared/infrastructure`: cấu hình cookie phiên, header bảo mật.
