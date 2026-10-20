@@ -26,6 +26,9 @@ export default defineConfig({
     env: {
       BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET ?? randomBytes(32).toString("base64"),
       BETTER_AUTH_URL: baseURL,
+      // Khoá CCCD ngẫu nhiên khi máy chưa cấu hình; dữ liệu e2e là rác, không cần giải mã lại.
+      CCCD_ENCRYPTION_KEY: process.env.CCCD_ENCRYPTION_KEY ?? randomBytes(32).toString("base64"),
+      CCCD_HMAC_KEY: process.env.CCCD_HMAC_KEY ?? randomBytes(32).toString("base64"),
     },
   },
 });

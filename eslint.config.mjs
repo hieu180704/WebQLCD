@@ -28,6 +28,7 @@ const boundariesConfig = {
       { category: "composition", pattern: "src/composition-root.ts" },
       // Chỉ gắn header CSP, chỉ được dùng thư viện ngoài (policy external ở dưới).
       { category: "proxy", pattern: "src/proxy.ts" },
+      { category: "test", pattern: "src/**/*.test.ts" },
     ],
   },
   rules: {
@@ -95,6 +96,11 @@ const boundariesConfig = {
           {
             from: { element: { type: "module", fileInternalPath: layer("domain") } },
             disallow: { to: { module: { origin: "external" } } },
+          },
+          // Ngoại lệ duy nhất: unit test của domain (bắt buộc cho tính lãi) được import vitest.
+          {
+            from: { element: { type: "module", fileInternalPath: layer("domain") }, file: { categories: "test" } },
+            allow: { to: { module: { origin: "external", source: "vitest" } } },
           },
         ],
       },

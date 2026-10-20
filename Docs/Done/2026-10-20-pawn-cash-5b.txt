@@ -1,0 +1,20 @@
+# 2026-10-20: Bước 5b — quỹ đầu két + tạo hợp đồng cầm đồ/tín chấp giải ngân, ghi sổ két cùng transaction — [verified: lint, typecheck, vitest 84/84, build, e2e Playwright 15/15 trên bản production]
+
+- Commit: xem commit "Bước 5b" ngay sau commit 1f843e4
+- Đã làm:
+  1. Lint: `eslint.config.mjs` cho `src/modules/*/domain/**/*.test.ts` import riêng `vitest` (file test domain vẫn bị chặn thư viện khác, file domain thường vẫn bị chặn `vitest`; đã smoke-test cả ba trường hợp).
+  2. Kernel: `Money.mulDiv` (half-up về 1 đồng), `local-date.ts` (ngày nghiệp vụ Asia/Ho_Chi_Minh, cộng/trừ ngày), `vnd.ts` (parse/format "5.000.000").
+  3. `pawn/domain`: strategy lãi 3 hình thức (`interest/interest-policy.ts`), parse lãi suất numeric(9,4) + quy đổi %/năm + cảnh báo vàng/đỏ (`interest/rate.ts`), `planDisbursement`, `accruedInterest`, `nextInterestDue` (`contract.ts`). Các giả định tạm mới ghi ở core-spec mục 2.
+  4. `cashbook`: quỹ đầu két (chỉ chủ tiệm, một lần, migration 0005 partial unique index), sổ quỹ theo ngày `/quy-ket` (đầu ngày, thu, chi, cuối ngày bằng một truy vấn SQL; danh sách keyset 50 dòng), `appendCashEntries` ghi nhiều dòng chung `operation_id`.
+  5. `customer`: CCCD AES-256-GCM (AAD = shop_id) + HMAC (gắn shop_id), che CCCD/SĐT, ghi khách trong transaction của bên gọi; trùng CCCD thì dùng lại khách cũ và báo cho người nhập.
+  6. `pawn`: tạo hợp đồng `/cam-do/moi` (KTV và chủ tiệm; form có xem trước lãi kỳ, tiền giao khách, cảnh báo lãi suất), mã CD-n/TC-n qua upsert `shop_counters`, danh sách `/cam-do` (lãi đến hôm nay, hạn đóng lãi, keyset 50 dòng). Trang chủ có link Cầm đồ, Quỹ két.
+  7. Ghép transaction giữa các module: `Docs/Decisions/2026-10-20-cross-module-transaction.txt` (lần đầu dính vòng import qua index `cashbook`, đã sửa tận gốc).
+  8. `shared/infrastructure/db/errors.ts`: `dbCause`/`uniqueViolation` dùng chung cho code mới (identity vẫn giữ bản riêng, chưa gộp).
+  9. Docs: core-spec mục 2, data-model 3.1/3.3/3.4/3.8/3.9, architecture-spec 2.2.
+  10. Phản biện thiết kế (subagent adversary) và review code (subagent code-reviewer) trước khi chốt. Đã sửa: lãi trước bằng 0 giữ `interest_paid_until` = ngày vay; hạn đóng lãi khác nhau giữa thu lãi trước/sau; `ON CONFLICT` kèm vế WHERE của partial index; CCCD dùng AAD; `parseVnd` từ chối "5.000,50" (trước đó đọc thành 500.050); `isLocalDate` trả false thay vì ném lỗi với "2026-13-45"; quỹ đầu két ngày mở két hiện ở "Quỹ đầu ngày" thay vì "Tổng thu".
+- Kiểm chứng: test DB chạy truy vấn đối soát data-model mục 4, cách ly cửa hàng, lỗi giữa chừng không để lại khách/bộ đếm/sổ két, CCCD lưu dạng mã hoá. E2E `e2e/pawn-cash.spec.ts`: quỹ đầu két → hợp đồng thu lãi trước → sổ quỹ 15.150.000; CCCD trùng; dữ liệu sai; hết hạn dùng thử.
+- Lưu ý cho phiên sau:
+  - Máy dev phải thêm `CCCD_ENCRYPTION_KEY`, `CCCD_HMAC_KEY` (base64 32 byte, khác nhau) vào file biến môi trường thì `npm run dev` mới tạo được hợp đồng có CCCD; e2e tự sinh khoá tạm. Hook safety-guard chặn AI sửa file này, người dùng tự thêm.
+  - Chưa test đồng thời việc cấp mã (cần commit thật, mà audit_logs không xoá được); dựa vào khoá dòng của upsert PostgreSQL.
+  - Sổ quỹ cộng bút toán đảo dương vào "Tổng thu"; khi làm xoá/huỷ thì cân nhắc tách hiển thị.
+  - Mỗi lần chạy e2e để lại thêm 1 cửa hàng `e2e_cd_*` kèm hợp đồng, giao dịch.

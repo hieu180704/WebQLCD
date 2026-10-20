@@ -11,6 +11,14 @@ export default async function Home() {
     <main className="flex flex-1 flex-col items-center justify-center gap-4">
       <h1 className="text-2xl font-semibold">TP83 — Quản lý cầm đồ</h1>
       <SubscriptionBanner view={subscription} />
+      <nav className="flex gap-4">
+        <Link href="/cam-do" className="underline underline-offset-4">
+          Cầm đồ
+        </Link>
+        <Link href="/quy-ket" className="underline underline-offset-4">
+          Quỹ két
+        </Link>
+      </nav>
       {principal.role === "owner" && (
         <Link href="/nhan-vien" className="underline underline-offset-4">
           Nhân viên

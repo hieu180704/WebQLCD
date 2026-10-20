@@ -1,0 +1,39 @@
+# QUYẾT ĐỊNH: GHI CHUNG MỘT DB TRANSACTION GIỮA PAWN, CUSTOMER VÀ CASHBOOK
+
+# Mục lục
+1. Bối Cảnh & Vấn Đề
+2. Các Phương Án Đã Cân Nhắc
+3. Quyết Định Đã Chốt & Lý Do
+
+---
+
+# 1. Bối Cảnh & Vấn Đề
+- Ngày ghi nhận: 2026-10-20
+- Tạo hợp đồng phải ghi khách (`customer`), mã + hợp đồng (`pawn`), sổ két (`cashbook`) và `audit_logs` trong CÙNG một DB transaction (architecture-spec mục 2.2).
+- Luật module: module khác chỉ import qua `index.ts`. Index của `cashbook` cũng xuất component trang (`CashbookPage`), mà component này import `composition-root.ts`.
+- Lần đầu cho `pawn` infrastructure import hàm `appendCashEntries` qua index của `cashbook`: test DB fail với `DrizzleContractRepository is not a constructor`. Nguyên nhân: vòng import `composition-root` → `pawn` infrastructure → index `cashbook` → trang `cashbook` → `composition-root`. Ở app, lỗi có hay không tuỳ file nào được nạp trước, nên đây là lỗi thật chứ không chỉ của test.
+
+---
+
+# 2. Các Phương Án Đã Cân Nhắc
+- **Phương án A: unit of work chung ở `shared/infrastructure`, mọi module đăng ký writer vào đó.**
+  - Ưu: một chỗ quản lý transaction.
+  - Nhược: thêm một lớp trừu tượng chỉ có một cách dùng (architecture-spec mục 2.6), và vẫn phải nối kiểu dữ liệu giữa các module.
+- **Phương án B: tách index thành hai entry (server API và UI).**
+  - Ưu: cắt được vòng import.
+  - Nhược: phá quy ước "một `index.ts` mỗi module", phải sửa luật boundaries.
+- **Phương án C: repository của `pawn` nhận writer/hàm ghi sổ qua constructor, ghép ở `composition-root.ts`; `pawn` chỉ import KIỂU từ index của module khác.**
+  - Ưu: không có vòng import ở runtime (import type bị xoá khi biên dịch). Giữ DI qua constructor như mục 2.3. Test thay được bằng bản giả.
+  - Nhược: `composition-root` phải import đường dẫn nội bộ của `cashbook` (vốn được phép).
+
+---
+
+# 3. Quyết Định Đã Chốt & Lý Do
+- Quyết định: **Phương án C.**
+- Hiện thực:
+  - `cashbook`: `appendCashEntries(tx, operation, entries)` ở `src/modules/cashbook/infrastructure/cash-ledger.ts`. Mỗi lần gọi là một thao tác, các dòng chung `operation_id`, dấu tiền áp theo loại (`domain/cash-entry.ts`). Index chỉ xuất kiểu `AppendCashEntries`, `CashEntry`, `CashOperation`.
+  - `customer`: `DrizzleCustomerWriter.resolve(tx, actor, input)` xuất qua index (index của `customer` không có component trang nên không tạo vòng import).
+  - `pawn`: `DrizzleContractRepository(db, customerWriter, appendCashEntries)` mở transaction và truyền `tx` cho hai bên.
+  - Kiểu `Tx` dùng chung ở `src/shared/infrastructure/db/client.ts`.
+- Luật cho thao tác có tiền về sau (đóng lãi, chuộc, xoá có bút toán đảo): làm theo cùng cách. Module có component trang trong `index.ts` thì không được import giá trị runtime từ index của module khác.
+- Kiểm chứng: `drizzle-contract-repository.db.test.ts` (lỗi giữa chừng thì không còn khách, bộ đếm mã, sổ két), `drizzle-cashbook-repository.db.test.ts`, `e2e/pawn-cash.spec.ts`.

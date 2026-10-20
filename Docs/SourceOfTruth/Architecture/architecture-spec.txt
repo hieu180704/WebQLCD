@@ -27,7 +27,7 @@
 
 ## 2.2 Luật giữa các module
 - Module khác chỉ được import qua `modules/<tên>/index.ts` (public API). Cấm import thẳng vào file bên trong.
-- Thao tác có tiền (giải ngân, đóng lãi, chuộc, đóng hợp đồng, xoá có bút toán đảo) gọi `cashbook` trong CÙNG một DB transaction với thay đổi hợp đồng.
+- Thao tác có tiền (giải ngân, đóng lãi, chuộc, đóng hợp đồng, xoá có bút toán đảo) gọi `cashbook` trong CÙNG một DB transaction với thay đổi hợp đồng. Cách ghép (hàm ghi sổ inject qua `composition-root`, chỉ import kiểu qua index): `Docs/Decisions/2026-10-20-cross-module-transaction.txt`.
 - Ngoại lệ duy nhất: `reporting` được truy vấn DB trực tiếp, chỉ đọc.
 
 ## 2.3 Áp dụng SOLID

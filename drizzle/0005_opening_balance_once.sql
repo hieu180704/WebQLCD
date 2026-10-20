@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "cash_transactions_one_opening_balance_key" ON "cash_transactions" USING btree ("shop_id") WHERE "cash_transactions"."type" = 'opening_balance';

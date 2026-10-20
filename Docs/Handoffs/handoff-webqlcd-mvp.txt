@@ -11,11 +11,11 @@
 
 # 1. Trạng Thái Hiện Tại
 - Nhánh Git: `main`. Chưa có remote.
-- Tiến độ: xong bước 1–4 (4a khung, 4b DB, CSP nonce, 4c auth) và 5a (đăng ký, dùng thử, KTV); bước 5 còn phần nghiệp vụ.
+- Tiến độ: xong bước 1–5 (4a khung, 4b DB, CSP nonce, 4c auth; 5a đăng ký, dùng thử, KTV; 5b quỹ đầu két + hợp đồng cầm đồ/tín chấp giải ngân). Lát cắt dọc đầu tiên đã chạy thông.
 - Lộ trình: (1) khách xem mockup → (2) cập nhật core-spec → (3) database schema → (4) dựng khung project [4a khung, 4b DB, 4c auth] → (5) lát cắt dọc đầu tiên.
 - Dev DB: PostgreSQL 18.6 portable ở `.local/` (gitignore), 127.0.0.1:5433, role `webqlcd_app`, DB `webqlcd`. Bật/tắt: `npm run db:start` / `db:stop`; migrate: `npm run db:migrate`. Mật khẩu superuser ở `.local/pwfile`, DATABASE_URL ở `.env`.
 - Verify chuẩn: `npm run lint`, `npm run typecheck`, `npm test` (cần DB đang chạy cho test DB), `npm run build`, `npm run test:e2e` (Edge, tự build, cổng 3100).
-- Dev: `npm run db:seed` tạo cửa hàng dùng thử + chủ tiệm `chutiem` / `matkhau123`. `.env` cần `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL` (mẫu ở `.env.example`).
+- Dev: `npm run db:seed` tạo cửa hàng dùng thử + chủ tiệm `chutiem` / `matkhau123`. `.env` cần `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `CCCD_ENCRYPTION_KEY`, `CCCD_HMAC_KEY` (mẫu ở `.env.example`; hai khoá CCCD người dùng tự thêm, xem worklog 5b).
 
 ---
 
@@ -32,13 +32,14 @@
 - [x] CSP nonce qua `src/proxy.ts`, mọi trang dynamic (commit f1a859c, Decision 2026-10-20-csp-nonce.txt).
 - [x] 4c: auth theo mục 4 (worklog `Docs/Done/2026-10-20-auth-4c.txt`).
 - [x] 5a: đăng ký chủ tiệm + cửa hàng dùng thử 7 ngày, giới hạn đăng ký 5 lần/IP/giờ, chủ tiệm tạo KTV ở `/nhan-vien` (worklog `Docs/Done/2026-10-20-onboarding-5a.txt`, Decision `2026-10-20-signup-direct-insert.txt`).
+- [x] 5b: tính lãi 3 hình thức + cảnh báo lãi suất, quỹ đầu két `/quy-ket`, tạo hợp đồng `/cam-do/moi` (khách + CCCD mã hoá + mã CD/TC + sổ két + audit cùng transaction), danh sách `/cam-do` (worklog `Docs/Done/2026-10-20-pawn-cash-5b.txt`, Decision `2026-10-20-cross-module-transaction.txt`).
 
 ---
 
 # 3. Đầu Việc Tiếp Theo & Lưu Ý
-- [ ] Bước 5 phần còn lại: chọn lát cắt nghiệp vụ tiếp theo (đề xuất: quỹ đầu két + một hợp đồng cầm đồ giải ngân, ghi sổ két).
+- [ ] Lát cắt tiếp theo (đề xuất): trang chi tiết hợp đồng + đóng lãi + chuộc đồ/đóng hợp đồng; sau đó sửa/xoá có bút toán đảo, thu/chi khác, trả góp.
+- [ ] Hỏi khách xác nhận các GIẢ ĐỊNH TẠM mới ở core-spec mục 2 (công thức lãi, làm tròn, hạn đóng lãi, khách trùng CCCD).
 - [ ] Chưa làm (đã duyệt hoãn ở 5a): khoá/mở và đổi mật khẩu KTV, xác minh email, quên mật khẩu, captcha, thanh toán thuê bao.
-- [ ] Test domain bị luật boundaries chặn import `vitest`: sửa `eslint.config.mjs` trước khi viết test tính lãi (worklog 5a).
 - [ ] Deploy: cấu hình `advanced.ipAddress` (header IP tin cậy, trustedProxies) theo hạ tầng thật; job dọn dòng cũ `login_throttles`.
 - [ ] Viết `docker-compose.yml` khi làm deploy (máy dev chưa có Docker, chưa test được).
 - [ ] Production: tách role migrate (sở hữu bảng) và role runtime (chỉ SELECT/INSERT sổ két) — data-model mục 5.

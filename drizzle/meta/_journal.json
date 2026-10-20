@@ -36,6 +36,13 @@
       "when": 1792507926155,
       "tag": "0004_signup_throttle",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1792509441982,
+      "tag": "0005_opening_balance_once",
+      "breakpoints": true
     }
   ]
 }

@@ -24,6 +24,18 @@ export class Money {
     return new Money(this.amount - other.amount);
   }
 
+  /**
+   * Nhân với phân số `numerator / denominator` (số nguyên), làm tròn half-up về 1 đồng.
+   * Làm tròn đối xứng quanh 0: -0,5 đồng thành -1 đồng.
+   */
+  mulDiv(numerator: bigint, denominator: bigint): Money {
+    if (denominator <= 0n) throw new RangeError("Money.mulDiv: mẫu số phải dương");
+    const product = this.amount * numerator;
+    const magnitude = product < 0n ? -product : product;
+    const rounded = (magnitude * 2n + denominator) / (denominator * 2n);
+    return new Money(product < 0n ? -rounded : rounded);
+  }
+
   negate(): Money {
     return new Money(-this.amount);
   }

@@ -380,6 +380,10 @@ export const cashTransactions = pgTable(
     index("cash_transactions_shop_contract_idx").on(t.shopId, t.contractId),
     index("cash_transactions_shop_installment_contract_idx").on(t.shopId, t.installmentContractId),
     index("cash_transactions_shop_operation_idx").on(t.shopId, t.operationId),
+    // Mỗi cửa hàng một dòng quỹ đầu két; dòng gốc vẫn còn sau khi bị đảo nên nhập lại phải dùng capital_in.
+    uniqueIndex("cash_transactions_one_opening_balance_key")
+      .on(t.shopId)
+      .where(sql`${t.type} = 'opening_balance'`),
   ],
 );
 

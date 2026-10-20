@@ -36,6 +36,18 @@ GIẢ ĐỊNH TẠM (2026-10-19). Khách đã xem mockup ngày 2026-10-19, khôn
 - **Xoá:** soft delete. Giao dịch của hồ sơ bị xoá được ghi bút toán đảo, không xoá bản ghi. Áp dụng cho cả cầm đồ, tín chấp, trả góp.
 - **Cầm đồ và tín chấp** dùng chung model hợp đồng, phân biệt bằng field loại tài sản (thế chấp / tín chấp). Tín chấp không bắt buộc tên tài sản.
 
+GIẢ ĐỊNH TẠM (2026-10-20, bước 5, chưa hỏi khách):
+- **Công thức lãi** cho N ngày trên gốc P: k/triệu/ngày `P / 1.000.000 × lãi × 1.000 × N`; %/tháng `P × lãi% × N / 30`; %/tuần `P × lãi% × N / 7`.
+- **Làm tròn:** half-up về 1 đồng, làm tròn một lần cho cả khoảng ngày (không cộng dồn từng ngày đã làm tròn).
+- **Kỳ lãi** là khoảng nửa mở [từ ngày, đến ngày): "lãi đã trả đến" ngày X nghĩa là từ X trở đi chưa trả. Lãi đến hôm nay tính trên gốc còn lại, từ ngày đã trả đến tới hôm nay.
+- **Hạn đóng lãi:** thu lãi sau thì đóng cuối kỳ (ngày đã trả đến + kỳ lãi); thu lãi trước thì đóng đầu kỳ (bằng ngày đã trả đến).
+- **Thu lãi trước** tính lãi kỳ đầu kể từ ngày vay. Lãi trước phải nhỏ hơn số tiền vay. Lãi suất 0 thì không thu.
+- **Ngày vay** không được sau hôm nay, được lùi về trước. Tiền giải ngân luôn ghi sổ két vào hôm nay. Nhập hồ sơ giấy cũ mà không đụng két là nghiệp vụ riêng, chưa làm.
+- **Kỳ lãi** không dài hơn số ngày vay.
+- **KTV trên hồ sơ** là người đang đăng nhập. Chọn KTV khác (như mockup) chưa làm.
+- **Khách trùng CCCD trong cửa hàng:** hợp đồng gắn với khách cũ, thông tin khách cũ giữ nguyên, màn hình báo cho người nhập. Không nhập CCCD thì luôn tạo khách mới.
+- **Quỹ đầu két** chỉ chủ tiệm nhập, mỗi cửa hàng một lần, ghi vào ngày mở két. Nhập sai thì sửa bằng nghiệp vụ nạp vốn / bút toán đảo (chưa làm). Két được phép âm (không chặn giải ngân khi chưa nhập quỹ).
+
 ---
 
 # 3. Danh Mục Thực Thể & Cấu Trúc

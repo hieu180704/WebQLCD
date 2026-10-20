@@ -17,3 +17,5 @@ if (process.env.NODE_ENV !== "production") globalForDb.pgPool = pool;
 
 export const db = drizzle({ client: pool, schema });
 export type Db = typeof db;
+/** Transaction đang mở, truyền giữa các module khi một thao tác ghi nhiều bảng (architecture-spec mục 2.2). */
+export type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];

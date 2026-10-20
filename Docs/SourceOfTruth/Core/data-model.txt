@@ -34,7 +34,7 @@
 
 ## 3.1 `shops`
 - `name`, `opened_at` (ngày mở két), `subscription_status` (`trial` / `active` / `expired`), `trial_ends_at`, `paid_until`.
-- Quỹ đầu két không lưu trên bảng này: nó là giao dịch `opening_balance` ghi vào ngày `opened_at`.
+- Quỹ đầu két không lưu trên bảng này: nó là giao dịch `opening_balance` ghi vào ngày `opened_at`. Mỗi cửa hàng tối đa một dòng (partial unique index `cash_transactions_one_opening_balance_key`); dòng gốc vẫn còn sau khi bị đảo, nên nhập lại phải dùng `capital_in`.
 
 ## 3.2 `users` và bảng auth
 - `users`: `shop_id`, `username`, `display_username`, `name` (họ tên), `email`, `email_verified`, `image`, `role` (`owner` / `staff`), `is_active`. Hình dạng theo yêu cầu của Better Auth. `username` lưu viết thường (plugin username so khớp viết thường), cách viết gốc ở `display_username`.
@@ -48,7 +48,10 @@
 
 ## 3.3 `customers`
 - `shop_id`, `full_name`, `phone`, `address`, `cccd_encrypted`, `cccd_hash`, `cccd_masked`.
-- `cccd_hash` = HMAC-SHA256 của CCCD đã chuẩn hoá. Khoá HMAC tách riêng khoá mã hoá; cả hai nằm trong biến môi trường, không lưu trong DB.
+- `cccd_hash` = HMAC-SHA256 của `<shop_id>:<CCCD đã chuẩn hoá>` (9 hoặc 12 chữ số): cùng CCCD ở hai cửa hàng cho hai hash khác nhau.
+- `cccd_encrypted` = `v1:` + base64(IV 12 byte | tag 16 byte | bản mã), AES-256-GCM, AAD là `shop_id` (không tráo bản mã sang cửa hàng khác được). `cccd_masked` giữ 4 số cuối.
+- Khoá `CCCD_ENCRYPTION_KEY`, `CCCD_HMAC_KEY` (base64, 32 byte, phải khác nhau) nằm trong biến môi trường, không lưu trong DB, đọc lần đầu cần dùng. Xoay khoá HMAC làm mất khả năng tìm khách trùng (hash chưa có version), cần job băm lại khi xoay.
+- Hiện thực: `src/modules/customer/infrastructure/cccd-cipher.ts`, ghi khách trong transaction của bên gọi: `drizzle-customer-writer.ts` (trùng CCCD thì dùng lại khách cũ, không ghi đè).
 - `UNIQUE (shop_id, cccd_hash) WHERE cccd_hash IS NOT NULL`.
 - CHECK: ba cột CCCD cùng có hoặc cùng trống.
 
@@ -56,7 +59,7 @@
 - `shop_id`, `code`, `customer_id`, `kind` (`secured` / `unsecured`), `asset_name`.
 - `principal` (số tiền vay ban đầu), `outstanding_principal` (gốc còn lại).
 - `interest_type` (`per_million_per_day` / `percent_per_month` / `percent_per_week`), `interest_rate`, `interest_period_days` (kỳ lãi), `term_days` (số ngày vay).
-- `loan_date`, `interest_paid_until`, `prepaid_interest` (`boolean`, bật "Thu lãi trước"; số tiền nằm ở dòng `interest_payment` lúc giải ngân).
+- `loan_date`, `interest_paid_until` (kỳ lãi nửa mở, ngày này chưa trả lãi; core-spec mục 2), `prepaid_interest` (`boolean`, bật "Thu lãi trước"; số tiền nằm ở dòng `interest_payment` lúc giải ngân).
 - `status` (`active` / `closed`), `closed_at`, `note`, `staff_id` (KTV), `deleted_at`, `deleted_by`.
 - CHECK: `kind = 'secured'` thì `asset_name` không rỗng (bỏ khoảng trắng). CHECK: `principal`, số ngày > 0; `outstanding_principal`, `interest_rate` >= 0; `status = 'closed'` khi và chỉ khi có `closed_at`; `deleted_at` và `deleted_by` cùng có hoặc cùng trống.
 - `UNIQUE (shop_id, code)`.
@@ -93,13 +96,14 @@
 
 ## 3.8 `shop_counters`
 - PK `(shop_id, prefix)`, `next_value`. Prefix: `CD-` (cầm đồ), `TC-` (tín chấp), `TG-` (trả góp).
-- Cấp mã bằng `UPDATE ... SET next_value = next_value + 1 RETURNING` trong cùng transaction tạo hợp đồng (khoá dòng, không trùng mã).
+- `next_value` là số sẽ cấp tiếp theo. Cấp mã bằng `INSERT (shop_id, prefix, 2) ON CONFLICT DO UPDATE SET next_value = next_value + 1 RETURNING next_value`, mã = giá trị trả về − 1, trong cùng transaction tạo hợp đồng (khoá dòng, không trùng mã; dòng bộ đếm tự tạo lần đầu).
 
 ## 3.9 Index
 - `contracts (shop_id, status, interest_paid_until)`: danh sách đến hạn đóng lãi.
 - `cash_transactions (shop_id, business_date)`: sổ quỹ theo ngày, quỹ đầu két.
 - `cash_transactions (shop_id, contract_id)`, `(shop_id, installment_contract_id)`: lịch sử giao dịch của một hợp đồng.
 - `cash_transactions (shop_id, operation_id)`: đảo cả một thao tác.
+- `cash_transactions (shop_id) WHERE type = 'opening_balance'` UNIQUE: một quỹ đầu két mỗi cửa hàng.
 - `installment_contracts (shop_id, status)`, `audit_logs (shop_id, entity, entity_id)`.
 - `customers (shop_id, cccd_hash)`: tìm khớp chính xác CCCD (đã có qua UNIQUE).
 - `pg_trgm` GIN: `customers.full_name`, `customers.phone`, `contracts.code`, `contracts.asset_name`, `installment_contracts.code`.
