@@ -5,6 +5,7 @@ import { maskPhone, type DrizzleCustomerWriter } from "@/modules/customer";
 import type { Db, Tx } from "@/shared/infrastructure/db/client";
 import { dbCause } from "@/shared/infrastructure/db/errors";
 import { auditLogs, cashTransactions, contracts, customers, shopCounters, users } from "@/shared/infrastructure/db/schema";
+import { businessDate } from "@/shared/kernel/local-date";
 import { Money } from "@/shared/kernel/money";
 import { CODE_PREFIX, type ContractKind } from "../domain/contract";
 import { formatRate, parseRate } from "../domain/interest/rate";
@@ -19,6 +20,7 @@ import type {
   ContractTransaction,
   CreatedContract,
   InterestPaymentDraft,
+  RedemptionDraft,
 } from "../application/ports";
 
 export class DrizzleContractRepository implements ContractRepository {
@@ -124,6 +126,7 @@ export class DrizzleContractRepository implements ContractRepository {
         termDays: contracts.termDays,
         note: contracts.note,
         staffName: users.name,
+        closedAt: contracts.closedAt,
         phone: customers.phone,
         address: customers.address,
         cccdMasked: customers.cccdMasked,
@@ -139,9 +142,10 @@ export class DrizzleContractRepository implements ContractRepository {
       .innerJoin(users, and(eq(users.shopId, contracts.shopId), eq(users.id, contracts.staffId)))
       .where(and(eq(contracts.shopId, shopId), eq(contracts.id, contractId), isNull(contracts.deletedAt)));
     if (!row) return null;
-    const { phone, address, cccdMasked, interestPaid, ...contract } = row;
+    const { phone, address, cccdMasked, interestPaid, closedAt, ...contract } = row;
     return {
       ...contract,
+      closedOn: closedAt ? businessDate(closedAt) : null,
       principal: Money.of(row.principal),
       outstandingPrincipal: Money.of(row.outstandingPrincipal),
       interestRate: rateFromDb(row.interestRate),
@@ -219,6 +223,55 @@ export class DrizzleContractRepository implements ContractRepository {
           entityId: contractId,
           action: "pay_interest",
           changedFields: ["interest_paid_until"],
+        });
+        return true;
+      });
+    } catch (error) {
+      throw dbCause(error);
+    }
+  }
+
+  async recordRedemption(actor: Actor, draft: RedemptionDraft): Promise<boolean> {
+    const { contractId, redemption } = draft;
+    const { interest, principal } = redemption;
+    try {
+      return await this.db.transaction(async (tx) => {
+        // Như recordInterestPayment: UPDATE có điều kiện khoá dòng, thao tác đồng thời thì lần sau không khớp.
+        const updated = await tx
+          .update(contracts)
+          .set({
+            status: "closed",
+            closedAt: sql`now()`,
+            outstandingPrincipal: 0n,
+            // Khớp đối soát: ngày trả đến = max(period_to) của dòng thu lãi; không thu lãi thì giữ nguyên.
+            ...(interest && { interestPaidUntil: interest.to }),
+          })
+          .where(
+            and(
+              eq(contracts.shopId, actor.shopId),
+              eq(contracts.id, contractId),
+              eq(contracts.status, "active"),
+              isNull(contracts.deletedAt),
+              eq(contracts.interestPaidUntil, draft.expectedPaidUntil),
+              eq(contracts.outstandingPrincipal, principal.toBigInt()),
+            ),
+          )
+          .returning({ id: contracts.id });
+        if (updated.length === 0) return false;
+        const entries: CashEntry[] = [];
+        if (interest) {
+          entries.push({ type: "interest_payment", contractId, amount: interest.amount, periodFrom: interest.from, periodTo: interest.to });
+        }
+        if (principal.isPositive()) entries.push({ type: "principal_repayment", contractId, amount: principal });
+        // Một lần gọi = một operation_id cho cả dòng lãi và dòng gốc (data-model mục 2.5).
+        await this.appendCashEntries(tx, { shopId: actor.shopId, createdBy: actor.userId, businessDate: draft.businessDate }, entries);
+        await tx.insert(auditLogs).values({
+          shopId: actor.shopId,
+          userId: actor.userId,
+          entity: "contract",
+          entityId: contractId,
+          action: "close",
+          changedFields: interest ? ["status", "outstanding_principal", "interest_paid_until"] : ["status", "outstanding_principal"],
         });
         return true;
       });

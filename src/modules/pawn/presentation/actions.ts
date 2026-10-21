@@ -2,12 +2,13 @@
 
 import { refresh } from "next/cache";
 import { redirect } from "next/navigation";
-import { AccessDeniedError, createContract, payInterest, requireSession } from "@/composition-root";
+import { AccessDeniedError, createContract, payInterest, redeemContract, requireSession } from "@/composition-root";
 import { formatVnd } from "@/shared/kernel/vnd";
 import type { ContractRuleViolation } from "../application/create-contract";
 import type { PayInterestError } from "../application/pay-interest";
+import type { RedeemContractError } from "../application/redeem-contract";
 import { formatDay } from "./format";
-import { CONTRACT_FORM_FIELDS, contractFormSchema, payInterestSchema } from "./schemas";
+import { CONTRACT_FORM_FIELDS, contractFormSchema, payInterestSchema, redeemSchema } from "./schemas";
 
 export type CreateContractState = { error: string | null; values: Record<string, string> };
 
@@ -98,4 +99,41 @@ export async function payInterestAction(previous: ContractOperationState, formDa
     message: `Đã thu ${formatVnd(result.amount)} đ tiền lãi, lãi đã trả đến ${formatDay(result.paidUntil)}.`,
     done: previous.done + 1,
   };
+}
+
+const REDEEM_MESSAGE: Record<RedeemContractError, string> = {
+  not_found: "Không tìm thấy hợp đồng.",
+  closed: "Hợp đồng đã đóng.",
+  stale: "Số tiền phải thu đã thay đổi (có thao tác khác hoặc đã sang ngày mới). Số liệu đã tải lại, kiểm tra rồi thử lại.",
+  interest_negative: "Tiền lãi thu không được âm.",
+  interest_exceeds_due: "Tiền lãi thu không được lớn hơn lãi đến hôm nay.",
+};
+
+export async function redeemContractAction(previous: ContractOperationState, formData: FormData): Promise<ContractOperationState> {
+  const fail = (error: string): ContractOperationState => ({ ...previous, error, message: null });
+  let actor;
+  try {
+    actor = await requireSession({ write: true });
+  } catch (error) {
+    if (error instanceof AccessDeniedError) return fail(OPERATION_DENIED[error.reason]);
+    throw error;
+  }
+
+  const parsed = redeemSchema.safeParse({
+    contractId: formData.get("contractId"),
+    expectedPaidUntil: formData.get("expectedPaidUntil"),
+    expectedOutstanding: formData.get("expectedOutstanding"),
+    asOf: formData.get("asOf"),
+    interest: String(formData.get("interest") ?? ""),
+  });
+  if (!parsed.success) return fail(parsed.error.issues[0].message);
+
+  const result = await redeemContract.execute({ userId: actor.userId, shopId: actor.shopId }, parsed.data);
+  if (!result.ok) {
+    if (result.error === "stale") refresh();
+    return fail(REDEEM_MESSAGE[result.error]);
+  }
+  // Hợp đồng đã đóng: trang tải lại không còn hộp thoại; nhãn trạng thái và lịch sử giao dịch cho thấy kết quả.
+  refresh();
+  return { error: null, message: null, done: previous.done + 1 };
 }

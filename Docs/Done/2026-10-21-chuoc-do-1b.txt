@@ -1,0 +1,15 @@
+# 2026-10-21: Lát 1b chuộc đồ / đóng hợp đồng — [verified: lint, typecheck, 105 unit/DB test, 17 e2e]
+
+- Commit: xem commit "Lát 1b: chuộc đồ / đóng hợp đồng" ngay sau 1c32714
+- Đã làm:
+  1. Nghiệp vụ (GIẢ ĐỊNH TẠM, core-spec mục 2): lãi theo ngày đến hôm nay + đủ gốc; được giảm lãi kể cả về 0; lãi đã trả vượt hôm nay thì không hoàn; không phí quá hạn; chủ tiệm và KTV đều làm được.
+  2. Domain `planRedemption` (`src/modules/pawn/domain/contract.ts`); cashbook thêm loại `principal_repayment` (`cash-entry.ts`).
+  3. Use case `RedeemContract` (`application/redeem-contract.ts`): khoá lạc quan theo ngày trả đến + gốc + ngày nghiệp vụ lúc mở trang (`asOf`), sang ngày khác thì báo trang cũ.
+  4. Repository `recordRedemption`: UPDATE có điều kiện (đóng, gốc về 0, ngày trả đến = hôm nay nếu có thu lãi) + dòng lãi/gốc chung `operation_id` + audit `close` trong một transaction. `findDetail` trả thêm `closedOn`.
+  5. Giao diện: hộp thoại `redeem-dialog.tsx` ("Chuộc đồ" với cầm đồ, "Đóng hợp đồng" với tín chấp), nhãn "Đã chuộc dd/mm/yyyy" / "Đã đóng ..." (`DueBadge` nhận `kind`).
+  6. Docs: core-spec mục 2, data-model 3.6 + 3.7 (action `close`).
+- Trạng thái: xong lát 1b; kế tiếp lát 1c (trả bớt gốc, vay thêm, gia hạn).
+- Lưu ý cho phiên sau:
+  - Chuộc xong trang tải lại không còn hộp thoại nên không có thông báo thành công riêng; kết quả hiện qua nhãn trạng thái và lịch sử giao dịch.
+  - `expectedOutstanding` từ form chỉ dùng để so với DB, số tiền thu luôn tính lại ở server.
+  - Huỷ thao tác chuộc (lát 1d) phải mở lại hợp đồng: đảo dòng lãi + gốc, `status = active`, khôi phục gốc và ngày trả đến.

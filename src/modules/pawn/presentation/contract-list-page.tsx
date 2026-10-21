@@ -76,7 +76,7 @@ export async function ContractListPage({ query }: { query: Record<string, string
                     <td>
                       {c.nextInterestDue && <div className="num">{formatDay(c.nextInterestDue)}</div>}
                       <div className={c.nextInterestDue ? "mt-1" : ""}>
-                        <DueBadge due={c.nextInterestDue} today={view.today} />
+                        <DueBadge due={c.nextInterestDue} today={view.today} kind={c.kind} />
                       </div>
                     </td>
                   </tr>

@@ -178,3 +178,35 @@ export function upcomingPeriods(contract: PayableStanding, termEnd: LocalDate, t
   }
   return periods;
 }
+
+export type Redemption = {
+  /** Lãi thu khi chuộc, kỳ [ngày trả đến, hôm nay); null = không thu lãi (không phát sinh, hoặc giảm hết). */
+  interest: InterestPeriod | null;
+  /** Gốc còn lại, thu đủ. */
+  principal: Money;
+};
+
+export type RedemptionViolation = "interest_negative" | "interest_exceeds_due";
+
+/**
+ * Chuộc đồ / đóng hợp đồng (GIẢ ĐỊNH TẠM, core-spec mục 2): thu lãi theo ngày đến hôm nay (`accruedInterest`) và đủ gốc
+ * còn lại. `interest` null = thu đúng lãi tính được; có nhập thì được thu ít hơn, kể cả 0 (giảm lãi), không được thu nhiều
+ * hơn. Lãi đã trả vượt quá hôm nay thì lãi bằng 0, không hoàn phần đã trả.
+ */
+export function planRedemption(
+  contract: InterestStanding,
+  today: LocalDate,
+  interest: Money | null,
+): { ok: true; value: Redemption } | { ok: false; error: RedemptionViolation } {
+  const due = accruedInterest(contract, today);
+  const amount = interest ?? due;
+  if (amount.isNegative()) return { ok: false, error: "interest_negative" };
+  if (amount.compare(due) > 0) return { ok: false, error: "interest_exceeds_due" };
+  return {
+    ok: true,
+    value: {
+      interest: amount.isZero() ? null : { from: contract.interestPaidUntil, to: today, amount },
+      principal: contract.outstandingPrincipal,
+    },
+  };
+}

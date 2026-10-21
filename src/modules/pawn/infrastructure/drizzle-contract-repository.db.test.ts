@@ -256,6 +256,77 @@ describe.skipIf(!url)("DrizzleContractRepository", () => {
       expect(audits).toEqual([{ action: "pay_interest", changed_fields: ["interest_paid_until"] }]);
     }));
 
+  it("chuộc đồ: dòng lãi + dòng gốc chung operation_id, gốc về 0, đóng hợp đồng, audit; khớp đối soát; lặp lại thì không ghi", () =>
+    inTx(async (db) => {
+      const actor = await seedShop(db);
+      await repo(db).create(actor, draft());
+      const [{ id }] = await rows<{ id: string }>(db, sql`SELECT id FROM contracts WHERE shop_id = ${actor.shopId}`);
+      const redeem = {
+        contractId: id,
+        redemption: {
+          interest: { from: TODAY, to: "2026-10-25", amount: Money.fromNumber(75_000) },
+          principal: Money.fromNumber(5_000_000),
+        },
+        expectedPaidUntil: TODAY,
+        businessDate: "2026-10-25",
+      };
+      // Gốc lúc tính lệch DB: không ghi.
+      const wrongPrincipal = { ...redeem, redemption: { ...redeem.redemption, principal: Money.fromNumber(4_000_000) } };
+      expect(await repo(db).recordRedemption(actor, wrongPrincipal)).toBe(false);
+      expect(await repo(db).recordRedemption(actor, redeem)).toBe(true);
+      expect(await repo(db).recordRedemption(actor, redeem)).toBe(false);
+
+      const [contract] = await rows<{ status: string; outstanding_principal: string; interest_paid_until: string; closed: boolean }>(
+        db,
+        sql`SELECT status, outstanding_principal::text, interest_paid_until::text, closed_at IS NOT NULL AS closed FROM contracts WHERE id = ${id}`,
+      );
+      expect(contract).toEqual({ status: "closed", outstanding_principal: "0", interest_paid_until: "2026-10-25", closed: true });
+      const cash = await rows<{ type: string; amount: string; business_date: string; operation_id: string }>(
+        db,
+        sql`SELECT type, amount::text, business_date::text, operation_id FROM cash_transactions
+            WHERE shop_id = ${actor.shopId} AND type IN ('interest_payment', 'principal_repayment') ORDER BY type`,
+      );
+      expect(cash.map((row) => ({ type: row.type, amount: row.amount, business_date: row.business_date }))).toEqual([
+        { type: "interest_payment", amount: "75000", business_date: "2026-10-25" },
+        { type: "principal_repayment", amount: "5000000", business_date: "2026-10-25" },
+      ]);
+      expect(cash[0].operation_id).toBe(cash[1].operation_id);
+      const [reconcile] = await rows<{ outstanding: string; paid_until: string }>(
+        db,
+        sql`SELECT (c.principal - coalesce(sum(t.amount) FILTER (WHERE t.type = 'principal_repayment'), 0))::text AS outstanding,
+                   coalesce(max(t.period_to) FILTER (WHERE t.type = 'interest_payment'), c.loan_date)::text AS paid_until
+            FROM contracts c LEFT JOIN cash_transactions t ON t.shop_id = c.shop_id AND t.contract_id = c.id
+            WHERE c.id = ${id} GROUP BY c.id`,
+      );
+      expect(reconcile).toEqual({ outstanding: "0", paid_until: "2026-10-25" });
+      const audits = await rows<{ changed_fields: string[] }>(
+        db,
+        sql`SELECT changed_fields FROM audit_logs WHERE entity_id = ${id} AND action = 'close'`,
+      );
+      expect(audits).toEqual([{ changed_fields: ["status", "outstanding_principal", "interest_paid_until"] }]);
+      expect((await repo(db).findDetail(actor.shopId, id))?.closedOn).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    }));
+
+  it("chuộc đồ không thu lãi (giảm hết): chỉ dòng gốc, ngày trả đến giữ nguyên", () =>
+    inTx(async (db) => {
+      const actor = await seedShop(db);
+      await repo(db).create(actor, draft());
+      const [{ id }] = await rows<{ id: string }>(db, sql`SELECT id FROM contracts WHERE shop_id = ${actor.shopId}`);
+      const redeem = {
+        contractId: id,
+        redemption: { interest: null, principal: Money.fromNumber(5_000_000) },
+        expectedPaidUntil: TODAY,
+        businessDate: TODAY,
+      };
+      expect(await repo(db).recordRedemption(actor, redeem)).toBe(true);
+      expect(await repo(db).findStanding(actor.shopId, id)).toMatchObject({ status: "closed", interestPaidUntil: TODAY });
+      const cash = await rows<{ type: string }>(
+        db,
+        sql`SELECT type FROM cash_transactions WHERE contract_id = ${id} AND type <> 'disbursement'`,
+      );
+      expect(cash).toEqual([{ type: "principal_repayment" }]);
+    }));
+
   it("chi tiết: khách, KTV, lãi đã thu không tính dòng đã đảo; lịch sử mới nhất trước", () =>
     inTx(async (db) => {
       const actor = await seedShop(db);
@@ -294,7 +365,7 @@ describe.skipIf(!url)("DrizzleContractRepository", () => {
       expect(history[0].createdByName).toBe("Chủ Test");
     }));
 
-  it("cách ly cửa hàng: B không đọc, không đóng lãi được hợp đồng của A", () =>
+  it("cách ly cửa hàng: B không đọc, không đóng lãi, không chuộc được hợp đồng của A", () =>
     inTx(async (db) => {
       const a = await seedShop(db);
       const b = await seedShop(db);
@@ -310,6 +381,13 @@ describe.skipIf(!url)("DrizzleContractRepository", () => {
         businessDate: TODAY,
       };
       expect(await repo(db).recordInterestPayment(b, pay)).toBe(false);
-      expect((await repo(db).findStanding(a.shopId, id))?.interestPaidUntil).toBe(TODAY);
+      const redeem = {
+        contractId: id,
+        redemption: { interest: null, principal: Money.fromNumber(5_000_000) },
+        expectedPaidUntil: TODAY,
+        businessDate: TODAY,
+      };
+      expect(await repo(db).recordRedemption(b, redeem)).toBe(false);
+      expect(await repo(db).findStanding(a.shopId, id)).toMatchObject({ status: "active", interestPaidUntil: TODAY });
     }));
 });

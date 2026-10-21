@@ -8,6 +8,7 @@ import type { ContractDetailView } from "../application/get-contract-detail";
 import type { ContractCashType, ContractTransaction } from "../application/ports";
 import { DueBadge, INTEREST_UNIT, formatDay } from "./format";
 import { PayInterestDialog } from "./pay-interest-dialog";
+import { RedeemDialog } from "./redeem-dialog";
 
 const TYPE_LABEL: Record<ContractCashType, string> = {
   disbursement: "Giải ngân, tạo hợp đồng",
@@ -22,7 +23,7 @@ const formatTime = new Intl.DateTimeFormat("vi-VN", { timeZone: BUSINESS_TIME_ZO
 /** "05/10/2026 10:15" theo giờ Việt Nam, như mockup. */
 const formatDateTime = (at: Date) => `${formatDay(businessDate(at))} ${formatTime(at)}`;
 
-/** Trang chi tiết hợp đồng cầm đồ/tín chấp (mockup cam-do-chi-tiet.html). Lát này có thao tác đóng lãi. */
+/** Trang chi tiết hợp đồng cầm đồ/tín chấp (mockup cam-do-chi-tiet.html). Thao tác: đóng lãi, chuộc đồ / đóng hợp đồng. */
 export async function ContractDetailPage({ id }: { id: string }) {
   const principal = await requireSession();
   const contractId = z.uuid().safeParse(id);
@@ -41,7 +42,7 @@ export async function ContractDetailPage({ id }: { id: string }) {
       </nav>
       <div className="mt-1 flex flex-wrap items-center gap-3">
         <h1 className="text-2xl font-bold">Hợp đồng {contract.code}</h1>
-        <DueBadge due={open?.nextInterestDue ?? null} today={view.today} />
+        <DueBadge due={open?.nextInterestDue ?? null} today={view.today} kind={contract.kind} closedOn={contract.closedOn} />
       </div>
 
       {open && (
@@ -55,6 +56,16 @@ export async function ContractDetailPage({ id }: { id: string }) {
               toText: formatDay(option.to),
               amountText: formatVnd(option.amount),
             }))}
+          />
+          <RedeemDialog
+            contractId={contract.id}
+            code={contract.code}
+            title={contract.kind === "secured" ? "Chuộc đồ" : "Đóng hợp đồng"}
+            expectedPaidUntil={contract.interestPaidUntil}
+            asOf={view.today}
+            outstanding={contract.outstandingPrincipal.toString()}
+            interestDue={open.accruedInterest.toString()}
+            interestDays={Math.max(0, diffDays(contract.interestPaidUntil, view.today))}
           />
         </section>
       )}

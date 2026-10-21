@@ -1,7 +1,7 @@
 import type { NewCustomer, ResolvedCustomer } from "@/modules/customer";
 import type { LocalDate } from "@/shared/kernel/local-date";
 import type { Money } from "@/shared/kernel/money";
-import type { ContractKind, ContractTerms, Disbursement, InterestPeriod, PayableStanding } from "../domain/contract";
+import type { ContractKind, ContractTerms, Disbursement, InterestPeriod, PayableStanding, Redemption } from "../domain/contract";
 import type { InterestType } from "../domain/interest/interest-policy";
 
 /** Người thực hiện thao tác, lấy từ guard (session), không bao giờ từ input của client. KTV hồ sơ = người này. */
@@ -42,6 +42,8 @@ export type ContractDetailRow = Omit<ContractListRow, "customerPhone"> & {
   termDays: number;
   note: string | null;
   staffName: string;
+  /** Ngày nghiệp vụ lúc chuộc / đóng hợp đồng; null khi còn mở. */
+  closedOn: LocalDate | null;
   /** Trang chi tiết hiện đủ SĐT để gọi khách; CCCD chỉ 4 số cuối (core-spec mục 2). */
   customer: { phone: string | null; address: string | null; cccdMasked: string | null };
   /** Tổng lãi đã thu, không tính lần đã bị huỷ; cộng bằng SQL. */
@@ -73,6 +75,14 @@ export type InterestPaymentDraft = {
   businessDate: LocalDate;
 };
 
+export type RedemptionDraft = {
+  contractId: string;
+  redemption: Redemption;
+  /** Ngày trả đến lúc tính lãi; khoá lạc quan như `InterestPaymentDraft`. */
+  expectedPaidUntil: LocalDate;
+  businessDate: LocalDate;
+};
+
 /** Hợp đồng cầm đồ/tín chấp của một cửa hàng; mọi truy vấn lọc theo shopId của phiên. */
 export interface ContractRepository {
   create(actor: Actor, draft: ContractDraft): Promise<CreatedContract>;
@@ -88,4 +98,9 @@ export interface ContractRepository {
    * ngày trả đến bằng `payment.from` và gốc bằng `expectedOutstanding` (khoá lạc quan); không khớp thì trả false.
    */
   recordInterestPayment(actor: Actor, draft: InterestPaymentDraft): Promise<boolean>;
+  /**
+   * Chuộc đồ / đóng hợp đồng: ghi thu lãi (nếu có) + trả gốc chung một thao tác, gốc còn lại về 0, `status = closed`,
+   * audit trong một transaction. Khoá lạc quan theo ngày trả đến và gốc (`redemption.principal`); không khớp thì trả false.
+   */
+  recordRedemption(actor: Actor, draft: RedemptionDraft): Promise<boolean>;
 }

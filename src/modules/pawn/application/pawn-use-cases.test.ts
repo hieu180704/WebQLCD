@@ -5,8 +5,9 @@ import type { ContractTerms } from "../domain/contract";
 import { CreateContract, type CreateContractInput } from "./create-contract";
 import { CONTRACT_PAGE_SIZE, ListContracts } from "./list-contracts";
 import { PayInterest, type PayInterestInput } from "./pay-interest";
-import type { ContractDraft, ContractListRow, ContractRepository, ContractStanding, InterestPaymentDraft } from "./ports";
+import type { ContractDraft, ContractListRow, ContractRepository, ContractStanding, InterestPaymentDraft, RedemptionDraft } from "./ports";
 import { previewContract } from "./preview";
+import { RedeemContract, type RedeemContractInput } from "./redeem-contract";
 
 // 2026-10-20 23:30 giờ Việt Nam (UTC đã sang 16:30 cùng ngày).
 const now = new Date("2026-10-20T16:30:00Z");
@@ -33,6 +34,7 @@ const input = (overrides: Partial<ContractTerms> = {}): CreateContractInput => (
 function fakeRepo(rows: ContractListRow[] = [], reused = false, standing: ContractStanding | null = null, saves = true) {
   const drafts: ContractDraft[] = [];
   const payments: InterestPaymentDraft[] = [];
+  const redemptions: RedemptionDraft[] = [];
   const repo: ContractRepository = {
     create: async (_actor, draft) => {
       drafts.push(draft);
@@ -46,8 +48,12 @@ function fakeRepo(rows: ContractListRow[] = [], reused = false, standing: Contra
       payments.push(draft);
       return saves;
     },
+    recordRedemption: async (_actor, draft) => {
+      redemptions.push(draft);
+      return saves;
+    },
   };
-  return { repo, drafts, payments };
+  return { repo, drafts, payments, redemptions };
 }
 
 describe("CreateContract", () => {
@@ -159,5 +165,67 @@ describe("PayInterest", () => {
   it("repository không khớp điều kiện (vừa có người đóng): báo trang cũ", async () => {
     const { repo } = fakeRepo([], false, standing, false);
     expect(await new PayInterest(repo).execute(actor, pay(), now)).toEqual({ ok: false, error: "stale" });
+  });
+});
+
+describe("RedeemContract", () => {
+  // 5tr, 3k/triệu/ngày, đã trả đến 01/10: hôm nay 20/10 lãi 19 ngày = 285.000 đ.
+  const standing: ContractStanding = {
+    status: "active",
+    interestType: "per_million_per_day",
+    interestRate: 30_000n,
+    interestPeriodDays: 10,
+    outstandingPrincipal: Money.fromNumber(5_000_000),
+    interestPaidUntil: "2026-10-01",
+    prepaidInterest: false,
+  };
+  const redeem = (overrides: Partial<RedeemContractInput> = {}): RedeemContractInput => ({
+    contractId: "k",
+    expectedPaidUntil: "2026-10-01",
+    expectedOutstanding: Money.fromNumber(5_000_000),
+    asOf: "2026-10-20",
+    interest: null,
+    ...overrides,
+  });
+
+  it("thu lãi đến hôm nay + gốc còn lại, ghi sổ két hôm nay", async () => {
+    const { repo, redemptions } = fakeRepo([], false, standing);
+    const result = await new RedeemContract(repo).execute(actor, redeem(), now);
+    expect(result).toMatchObject({ ok: true });
+    if (result.ok) expect(result.total.toBigInt()).toBe(5_285_000n);
+    expect(redemptions[0]).toMatchObject({ contractId: "k", businessDate: "2026-10-20", expectedPaidUntil: "2026-10-01" });
+    expect(redemptions[0].redemption.interest).toEqual({ from: "2026-10-01", to: "2026-10-20", amount: Money.fromNumber(285_000) });
+  });
+
+  it("giảm lãi về 0: chỉ thu gốc", async () => {
+    const { repo, redemptions } = fakeRepo([], false, standing);
+    const result = await new RedeemContract(repo).execute(actor, redeem({ interest: Money.ZERO }), now);
+    if (!result.ok) throw new Error(result.error);
+    expect(result.total.toBigInt()).toBe(5_000_000n);
+    expect(redemptions[0].redemption.interest).toBeNull();
+  });
+
+  it("không thấy, đã đóng, trang cũ (ngày trả đến, gốc, sang ngày khác), thu quá lãi: không ghi", async () => {
+    expect(await new RedeemContract(fakeRepo().repo).execute(actor, redeem(), now)).toEqual({ ok: false, error: "not_found" });
+    const closed = fakeRepo([], false, { ...standing, status: "closed" });
+    expect(await new RedeemContract(closed.repo).execute(actor, redeem(), now)).toEqual({ ok: false, error: "closed" });
+    const stale = fakeRepo([], false, standing);
+    for (const overrides of [
+      { expectedPaidUntil: "2026-09-21" },
+      { expectedOutstanding: Money.fromNumber(4_000_000) },
+      { asOf: "2026-10-19" },
+    ]) {
+      expect(await new RedeemContract(stale.repo).execute(actor, redeem(overrides), now)).toEqual({ ok: false, error: "stale" });
+    }
+    expect(await new RedeemContract(stale.repo).execute(actor, redeem({ interest: Money.fromNumber(285_001) }), now)).toEqual({
+      ok: false,
+      error: "interest_exceeds_due",
+    });
+    expect([...closed.redemptions, ...stale.redemptions]).toHaveLength(0);
+  });
+
+  it("repository không khớp điều kiện (vừa có người thao tác): báo trang cũ", async () => {
+    const { repo } = fakeRepo([], false, standing, false);
+    expect(await new RedeemContract(repo).execute(actor, redeem(), now)).toEqual({ ok: false, error: "stale" });
   });
 });

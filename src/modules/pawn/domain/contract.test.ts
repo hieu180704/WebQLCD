@@ -6,6 +6,7 @@ import {
   nextInterestDue,
   planDisbursement,
   planInterestPayment,
+  planRedemption,
   upcomingPeriods,
   type ContractTerms,
   type PayableStanding,
@@ -141,5 +142,42 @@ describe("đóng lãi", () => {
     expect(schedule[0].amount.toBigInt()).toBe(150_000n);
     expect(upcomingPeriods(standing({ interestPaidUntil: "2026-09-01" }), "2026-09-11", TODAY)).toHaveLength(5);
     expect(upcomingPeriods(standing({ interestPaidUntil: "2026-11-01" }), "2026-10-31", TODAY)).toHaveLength(1);
+  });
+});
+
+describe("chuộc đồ / đóng hợp đồng", () => {
+  // 5tr, 3k/triệu/ngày: 15.000 đ mỗi ngày.
+  const standing = (overrides: Partial<PayableStanding> = {}): PayableStanding => ({
+    interestType: "per_million_per_day",
+    interestRate: 30_000n,
+    interestPeriodDays: 10,
+    outstandingPrincipal: Money.fromNumber(5_000_000),
+    interestPaidUntil: "2026-10-01",
+    prepaidInterest: false,
+    ...overrides,
+  });
+
+  it("thu lãi theo ngày [ngày trả đến, hôm nay) và đủ gốc còn lại", () => {
+    const result = planRedemption(standing(), TODAY, null);
+    if (!result.ok) throw new Error(result.error);
+    expect(result.value.principal.toBigInt()).toBe(5_000_000n);
+    expect(result.value.interest).toEqual({ from: "2026-10-01", to: TODAY, amount: Money.fromNumber(285_000) });
+  });
+
+  it("được giảm lãi, kể cả về 0; không được thu quá lãi tính được", () => {
+    const less = planRedemption(standing(), TODAY, Money.fromNumber(200_000));
+    expect(less.ok && less.value.interest?.amount.toBigInt()).toBe(200_000n);
+    expect(planRedemption(standing(), TODAY, Money.ZERO)).toMatchObject({ ok: true, value: { interest: null } });
+    expect(planRedemption(standing(), TODAY, Money.fromNumber(285_001))).toEqual({ ok: false, error: "interest_exceeds_due" });
+    expect(planRedemption(standing(), TODAY, Money.fromNumber(-1))).toEqual({ ok: false, error: "interest_negative" });
+  });
+
+  it("lãi đã trả vượt quá hôm nay hoặc lãi suất 0: không thu lãi, không hoàn", () => {
+    expect(planRedemption(standing({ interestPaidUntil: "2026-10-25" }), TODAY, null)).toMatchObject({ ok: true, value: { interest: null } });
+    expect(planRedemption(standing({ interestPaidUntil: "2026-10-25" }), TODAY, Money.fromNumber(1))).toEqual({
+      ok: false,
+      error: "interest_exceeds_due",
+    });
+    expect(planRedemption(standing({ interestRate: 0n }), TODAY, null)).toMatchObject({ ok: true, value: { interest: null } });
   });
 });

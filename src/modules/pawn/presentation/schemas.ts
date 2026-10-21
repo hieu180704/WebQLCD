@@ -2,6 +2,7 @@ import "server-only";
 import { z } from "zod";
 import { normalizeCccd, normalizePhone } from "@/modules/customer";
 import { isLocalDate } from "@/shared/kernel/local-date";
+import { Money } from "@/shared/kernel/money";
 import { parseVnd } from "@/shared/kernel/vnd";
 import { parseRate } from "../application/preview";
 
@@ -106,6 +107,28 @@ export const payInterestSchema = z.object({
       const money = parseVnd(text);
       if (!money || !money.isPositive() || money.toBigInt() > MAX_PRINCIPAL) {
         ctx.addIssue({ code: "custom", message: "Số tiền khách đưa phải lớn hơn 0." });
+        return z.NEVER;
+      }
+      return money;
+    }),
+});
+
+export const redeemSchema = z.object({
+  contractId: z.uuid("Hợp đồng không hợp lệ."),
+  expectedPaidUntil: z.string().refine(isLocalDate, "Hợp đồng không hợp lệ."),
+  // Chỉ dùng để so với DB (khoá lạc quan), không dùng làm số tiền thu.
+  expectedOutstanding: z
+    .string()
+    .regex(/^\d{1,15}$/, "Hợp đồng không hợp lệ.")
+    .transform((text) => Money.of(BigInt(text))),
+  asOf: z.string().refine(isLocalDate, "Hợp đồng không hợp lệ."),
+  interest: z
+    .string()
+    .max(30)
+    .transform((text, ctx) => {
+      const money = parseVnd(text);
+      if (!money) {
+        ctx.addIssue({ code: "custom", message: "Tiền lãi thu là số không âm (nhập 0 nếu miễn lãi)." });
         return z.NEVER;
       }
       return money;

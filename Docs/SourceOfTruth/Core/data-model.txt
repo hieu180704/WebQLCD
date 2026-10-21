@@ -88,10 +88,10 @@
 - CHECK: `type = 'reversal'` khi và chỉ khi `reverses_id IS NOT NULL`. `UNIQUE (reverses_id)` để không đảo một dòng hai lần.
 - Trigger `check_reversal`: dòng reversal phải có `amount` = số đối dòng gốc, cùng `contract_id`/`installment_contract_id`, và dòng gốc không phải reversal.
 - CHECK: `interest_payment` phải có `period_from <= period_to`; type khác (trừ reversal) để trống hai cột này. `amount <> 0`.
-- Chuộc đồ / đóng hợp đồng không có loại riêng: thao tác sinh các dòng `interest_payment` + `principal_repayment` rồi đặt `status = 'closed'`.
+- Chuộc đồ / đóng hợp đồng không có loại riêng: thao tác sinh các dòng `interest_payment` (bỏ qua nếu lãi thu = 0) + `principal_repayment` chung `operation_id`, đặt `outstanding_principal = 0`, `status = 'closed'`; có thu lãi thì `interest_paid_until` = ngày chuộc.
 
 ## 3.7 `audit_logs`
-- `shop_id`, `user_id`, `entity`, `entity_id`, `action` (`create` / `edit` / `extend` / `delete` / `pay_interest` / ...), `changed_fields` (chỉ tên field, không lưu giá trị), `at`.
+- `shop_id`, `user_id`, `entity`, `entity_id`, `action` (`create` / `edit` / `extend` / `delete` / `pay_interest` / `close` / ...), `changed_fields` (chỉ tên field, không lưu giá trị), `at`.
 - Append-only, trigger chặn UPDATE/DELETE/TRUNCATE giống `cash_transactions`.
 
 ## 3.8 `shop_counters`

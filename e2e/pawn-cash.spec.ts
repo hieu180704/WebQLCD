@@ -121,6 +121,42 @@ test("chi tiết hợp đồng: đóng lãi sớm một kỳ, được giảm l�
   await expect(stat(page, "Tổng thu")).toContainText("250.000");
 });
 
+test("chuộc đồ: thu lãi theo ngày + gốc, không thu quá lãi, hợp đồng đã đóng", async ({ page }) => {
+  await signIn(page);
+  // Vay lùi 5 ngày, thu lãi sau: lãi đến hôm nay 5 × 15.000 = 75.000 đ.
+  const loanDate = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh" }).format(Date.now() - 5 * 86_400_000);
+  await fillContract(page, "Khách Chuộc Đồ");
+  await page.getByLabel("Ngày vay *", { exact: true }).fill(loanDate);
+  await page.getByRole("button", { name: "Lưu hợp đồng và giải ngân" }).click();
+  await expect(page).toHaveURL(/moi=CD-2/);
+  await page.getByRole("link", { name: "CD-2" }).click();
+  await expect(page.getByRole("heading", { name: "Hợp đồng CD-2" })).toBeVisible();
+
+  await page.getByRole("button", { name: "Chuộc đồ" }).click();
+  const dialog = page.getByRole("dialog", { name: "Chuộc đồ — CD-2" });
+  await expect(dialog).toContainText("Lãi đến hôm nay (5 ngày)");
+  await expect(dialog.getByLabel("Tiền lãi thu")).toHaveValue("75.000");
+  await expect(dialog.getByText("Tổng cần thu").locator("..")).toContainText("5.075.000");
+  await dialog.getByLabel("Tiền lãi thu").fill("80.000");
+  await dialog.getByRole("button", { name: "Xác nhận chuộc đồ" }).click();
+  await expect(dialog.getByRole("alert")).toHaveText("Tiền lãi thu không được lớn hơn lãi đến hôm nay.");
+  await dialog.getByLabel("Tiền lãi thu").fill("70.000");
+  await expect(dialog.getByText("Tổng cần thu").locator("..")).toContainText("5.070.000");
+  await dialog.getByRole("button", { name: "Xác nhận chuộc đồ" }).click();
+
+  await expect(page.getByText(/^Đã chuộc \d{2}\/\d{2}\/\d{4}$/)).toBeVisible();
+  await expect(page.getByRole("button", { name: "Chuộc đồ" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Đóng lãi" })).toHaveCount(0);
+  const tile = (label: string) => page.getByRole("region", { name: "Số liệu" }).getByText(label).locator("..");
+  await expect(tile("Tiền gốc còn lại")).toContainText("0");
+  await expect(page.getByRole("row", { name: /Trả gốc/ })).toContainText("5.000.000");
+  await expect(page.getByRole("row", { name: /Đóng lãi/ })).toContainText("70.000");
+
+  await page.goto("/quy-ket");
+  await expect(page.getByRole("row", { name: /Trả gốc.*CD-2/ })).toBeVisible();
+  await expect(page.getByRole("row", { name: /Thu lãi.*CD-2/ })).toBeVisible();
+});
+
 test("dữ liệu sai: báo lỗi, giữ lại giá trị đã nhập", async ({ page }) => {
   await signIn(page);
   await fillContract(page, "Khách Lỗi");
