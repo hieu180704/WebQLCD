@@ -2,6 +2,7 @@
 
 import { useActionState, useEffect, useRef, useState } from "react";
 import { payInterestAction, type ContractOperationState } from "./actions";
+import { useReportStatus } from "./operation-status";
 
 /** Một lựa chọn "đóng đến hết kỳ k"; tiền đã định dạng sẵn ở server (Money không qua được ranh giới client). */
 export type InterestChoice = { periods: number; toText: string; amountText: string };
@@ -21,6 +22,7 @@ export function PayInterestDialog({
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [state, formAction, pending] = useActionState(payInterestAction, initialState);
+  const reportStatus = useReportStatus();
   const [periods, setPeriods] = useState(1);
   const [amount, setAmount] = useState(choices[0]?.amountText ?? "");
   // Ngày trả đến đổi (vừa đóng lãi, hoặc tải lại vì trang cũ): lựa chọn cũ không còn đúng, chọn lại kỳ đầu.
@@ -31,11 +33,14 @@ export function PayInterestDialog({
     setAmount(choices[0]?.amountText ?? "");
   }
 
-  // Đóng lãi xong thì đóng hộp thoại.
+  // Thành công thì đóng hộp thoại, báo kết quả; mỗi lần thành công xử lý một lần (`message` đổi về null khi lần sau lỗi thì không đóng lại hộp thoại).
+  const handledDone = useRef(0);
   useEffect(() => {
-    if (state.done === 0) return;
+    if (state.done === handledDone.current) return;
+    handledDone.current = state.done;
     dialog.current?.close();
-  }, [state.done]);
+    reportStatus(state.message);
+  }, [state.done, state.message, reportStatus]);
 
   function open() {
     setPeriods(1);
@@ -53,11 +58,6 @@ export function PayInterestDialog({
       <button type="button" className="btn btn-primary" onClick={open} disabled={choices.length === 0}>
         Đóng lãi
       </button>
-      {state.message && (
-        <p role="status" className="basis-full rounded-lg bg-emerald-50 text-emerald-800 px-4 py-3 text-sm">
-          {state.message}
-        </p>
-      )}
       <dialog ref={dialog} aria-labelledby="pay-title" className="card p-0 m-auto w-[min(92vw,440px)] backdrop:bg-slate-900/40">
         <form action={formAction} className="p-5 flex flex-col gap-4">
           <h2 id="pay-title" className="text-lg font-semibold">

@@ -19,7 +19,9 @@ import type {
   ContractStanding,
   ContractTransaction,
   CreatedContract,
+  ExtensionDraft,
   InterestPaymentDraft,
+  PrincipalChangeDraft,
   RedemptionDraft,
 } from "../application/ports";
 
@@ -186,6 +188,7 @@ export class DrizzleContractRepository implements ContractRepository {
         outstandingPrincipal: contracts.outstandingPrincipal,
         interestPaidUntil: contracts.interestPaidUntil,
         prepaidInterest: contracts.prepaidInterest,
+        termDays: contracts.termDays,
       })
       .from(contracts)
       .where(and(eq(contracts.shopId, shopId), eq(contracts.id, contractId), isNull(contracts.deletedAt)));
@@ -272,6 +275,99 @@ export class DrizzleContractRepository implements ContractRepository {
           entityId: contractId,
           action: "close",
           changedFields: interest ? ["status", "outstanding_principal", "interest_paid_until"] : ["status", "outstanding_principal"],
+        });
+        return true;
+      });
+    } catch (error) {
+      throw dbCause(error);
+    }
+  }
+
+  async recordPrincipalChange(actor: Actor, draft: PrincipalChangeDraft): Promise<boolean> {
+    const { contractId, change } = draft;
+    const { interest } = change;
+    try {
+      return await this.db.transaction(async (tx) => {
+        // Như recordInterestPayment: UPDATE có điều kiện khoá dòng, thao tác đồng thời thì lần sau không khớp.
+        const updated = await tx
+          .update(contracts)
+          .set({
+            outstandingPrincipal: change.outstandingAfter.toBigInt(),
+            // Khớp đối soát: ngày trả đến = max(period_to). Lãi bổ sung khi vay thêm có `to` = ngày trả đến cũ.
+            ...(interest && { interestPaidUntil: interest.to }),
+          })
+          .where(
+            and(
+              eq(contracts.shopId, actor.shopId),
+              eq(contracts.id, contractId),
+              eq(contracts.status, "active"),
+              isNull(contracts.deletedAt),
+              eq(contracts.interestPaidUntil, draft.expectedPaidUntil),
+              eq(contracts.outstandingPrincipal, draft.expectedOutstanding.toBigInt()),
+            ),
+          )
+          .returning({ id: contracts.id });
+        if (updated.length === 0) return false;
+        const entries: CashEntry[] = [];
+        if (interest) {
+          entries.push({ type: "interest_payment", contractId, amount: interest.amount, periodFrom: interest.from, periodTo: interest.to });
+        }
+        entries.push({
+          type: draft.direction === "repayment" ? "principal_repayment" : "additional_loan",
+          contractId,
+          amount: change.amount,
+        });
+        await this.appendCashEntries(tx, { shopId: actor.shopId, createdBy: actor.userId, businessDate: draft.businessDate }, entries);
+        await tx.insert(auditLogs).values({
+          shopId: actor.shopId,
+          userId: actor.userId,
+          entity: "contract",
+          entityId: contractId,
+          action: draft.direction === "repayment" ? "repay_principal" : "additional_loan",
+          changedFields: interest && interest.to !== draft.expectedPaidUntil
+            ? ["outstanding_principal", "interest_paid_until"]
+            : ["outstanding_principal"],
+        });
+        return true;
+      });
+    } catch (error) {
+      throw dbCause(error);
+    }
+  }
+
+  async recordExtension(actor: Actor, draft: ExtensionDraft): Promise<boolean> {
+    const { contractId, extension } = draft;
+    const { interest } = extension;
+    try {
+      return await this.db.transaction(async (tx) => {
+        const updated = await tx
+          .update(contracts)
+          .set({ termDays: extension.termDaysAfter, ...(interest && { interestPaidUntil: interest.to }) })
+          .where(
+            and(
+              eq(contracts.shopId, actor.shopId),
+              eq(contracts.id, contractId),
+              eq(contracts.status, "active"),
+              isNull(contracts.deletedAt),
+              eq(contracts.termDays, draft.expectedTermDays),
+              eq(contracts.interestPaidUntil, draft.expectedPaidUntil),
+              eq(contracts.outstandingPrincipal, draft.expectedOutstanding.toBigInt()),
+            ),
+          )
+          .returning({ id: contracts.id });
+        if (updated.length === 0) return false;
+        if (interest) {
+          await this.appendCashEntries(tx, { shopId: actor.shopId, createdBy: actor.userId, businessDate: draft.businessDate }, [
+            { type: "interest_payment", contractId, amount: interest.amount, periodFrom: interest.from, periodTo: interest.to },
+          ]);
+        }
+        await tx.insert(auditLogs).values({
+          shopId: actor.shopId,
+          userId: actor.userId,
+          entity: "contract",
+          entityId: contractId,
+          action: "extend",
+          changedFields: interest ? ["term_days", "interest_paid_until"] : ["term_days"],
         });
         return true;
       });

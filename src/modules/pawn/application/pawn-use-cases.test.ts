@@ -2,10 +2,21 @@
 import { describe, expect, it } from "vitest";
 import { Money } from "@/shared/kernel/money";
 import type { ContractTerms } from "../domain/contract";
+import { ChangePrincipal, type ChangePrincipalInput } from "./change-principal";
 import { CreateContract, type CreateContractInput } from "./create-contract";
+import { ExtendContract, type ExtendContractInput } from "./extend-contract";
 import { CONTRACT_PAGE_SIZE, ListContracts } from "./list-contracts";
 import { PayInterest, type PayInterestInput } from "./pay-interest";
-import type { ContractDraft, ContractListRow, ContractRepository, ContractStanding, InterestPaymentDraft, RedemptionDraft } from "./ports";
+import type {
+  ContractDraft,
+  ContractListRow,
+  ContractRepository,
+  ContractStanding,
+  ExtensionDraft,
+  InterestPaymentDraft,
+  PrincipalChangeDraft,
+  RedemptionDraft,
+} from "./ports";
 import { previewContract } from "./preview";
 import { RedeemContract, type RedeemContractInput } from "./redeem-contract";
 
@@ -35,6 +46,8 @@ function fakeRepo(rows: ContractListRow[] = [], reused = false, standing: Contra
   const drafts: ContractDraft[] = [];
   const payments: InterestPaymentDraft[] = [];
   const redemptions: RedemptionDraft[] = [];
+  const principalChanges: PrincipalChangeDraft[] = [];
+  const extensions: ExtensionDraft[] = [];
   const repo: ContractRepository = {
     create: async (_actor, draft) => {
       drafts.push(draft);
@@ -52,8 +65,16 @@ function fakeRepo(rows: ContractListRow[] = [], reused = false, standing: Contra
       redemptions.push(draft);
       return saves;
     },
+    recordPrincipalChange: async (_actor, draft) => {
+      principalChanges.push(draft);
+      return saves;
+    },
+    recordExtension: async (_actor, draft) => {
+      extensions.push(draft);
+      return saves;
+    },
   };
-  return { repo, drafts, payments, redemptions };
+  return { repo, drafts, payments, redemptions, principalChanges, extensions };
 }
 
 describe("CreateContract", () => {
@@ -135,6 +156,7 @@ describe("PayInterest", () => {
     outstandingPrincipal: Money.fromNumber(5_000_000),
     interestPaidUntil: "2026-10-01",
     prepaidInterest: false,
+    termDays: 30,
   };
   const pay = (overrides: Partial<PayInterestInput> = {}): PayInterestInput => ({
     contractId: "k",
@@ -178,6 +200,7 @@ describe("RedeemContract", () => {
     outstandingPrincipal: Money.fromNumber(5_000_000),
     interestPaidUntil: "2026-10-01",
     prepaidInterest: false,
+    termDays: 30,
   };
   const redeem = (overrides: Partial<RedeemContractInput> = {}): RedeemContractInput => ({
     contractId: "k",
@@ -227,5 +250,112 @@ describe("RedeemContract", () => {
   it("repository không khớp điều kiện (vừa có người thao tác): báo trang cũ", async () => {
     const { repo } = fakeRepo([], false, standing, false);
     expect(await new RedeemContract(repo).execute(actor, redeem(), now)).toEqual({ ok: false, error: "stale" });
+  });
+});
+
+describe("ChangePrincipal", () => {
+  // 5tr, 3k/triệu/ngày, đã trả đến 01/10: hôm nay 20/10 lãi 19 ngày = 285.000 đ.
+  const standing: ContractStanding = {
+    status: "active",
+    interestType: "per_million_per_day",
+    interestRate: 30_000n,
+    interestPeriodDays: 10,
+    outstandingPrincipal: Money.fromNumber(5_000_000),
+    interestPaidUntil: "2026-10-01",
+    prepaidInterest: false,
+    termDays: 30,
+  };
+  const change = (overrides: Partial<ChangePrincipalInput> = {}): ChangePrincipalInput => ({
+    contractId: "k",
+    direction: "repayment",
+    expectedPaidUntil: "2026-10-01",
+    expectedOutstanding: Money.fromNumber(5_000_000),
+    asOf: "2026-10-20",
+    amount: Money.fromNumber(2_000_000),
+    interest: null,
+    ...overrides,
+  });
+
+  it("trả bớt gốc: lãi đến hôm nay + gốc mới, ghi sổ két hôm nay, khoá lạc quan theo số liệu DB", async () => {
+    const { repo, principalChanges } = fakeRepo([], false, standing);
+    const result = await new ChangePrincipal(repo).execute(actor, change(), now);
+    expect(result).toEqual({ ok: true, outstandingAfter: Money.fromNumber(3_000_000), interest: Money.fromNumber(285_000) });
+    expect(principalChanges[0]).toMatchObject({
+      contractId: "k",
+      direction: "repayment",
+      businessDate: "2026-10-20",
+      expectedPaidUntil: "2026-10-01",
+    });
+    expect(principalChanges[0].change.interest).toEqual({ from: "2026-10-01", to: "2026-10-20", amount: Money.fromNumber(285_000) });
+  });
+
+  it("vay thêm: gốc tăng", async () => {
+    const { repo, principalChanges } = fakeRepo([], false, standing);
+    const result = await new ChangePrincipal(repo).execute(actor, change({ direction: "additional_loan" }), now);
+    expect(result).toMatchObject({ ok: true, outstandingAfter: Money.fromNumber(7_000_000) });
+    expect(principalChanges[0].direction).toBe("additional_loan");
+  });
+
+  it("không thấy, đã đóng, trang cũ, vi phạm quy tắc, repository không khớp: không ghi", async () => {
+    expect(await new ChangePrincipal(fakeRepo().repo).execute(actor, change(), now)).toEqual({ ok: false, error: "not_found" });
+    const closed = fakeRepo([], false, { ...standing, status: "closed" });
+    expect(await new ChangePrincipal(closed.repo).execute(actor, change(), now)).toEqual({ ok: false, error: "closed" });
+    const stale = fakeRepo([], false, standing);
+    for (const overrides of [
+      { expectedPaidUntil: "2026-09-21" },
+      { expectedOutstanding: Money.fromNumber(4_000_000) },
+      { asOf: "2026-10-19" },
+    ]) {
+      expect(await new ChangePrincipal(stale.repo).execute(actor, change(overrides), now)).toEqual({ ok: false, error: "stale" });
+    }
+    expect(await new ChangePrincipal(stale.repo).execute(actor, change({ amount: Money.fromNumber(5_000_000) }), now)).toEqual({
+      ok: false,
+      error: "amount_not_less_than_outstanding",
+    });
+    expect([...closed.principalChanges, ...stale.principalChanges]).toHaveLength(0);
+    const conflict = fakeRepo([], false, standing, false);
+    expect(await new ChangePrincipal(conflict.repo).execute(actor, change(), now)).toEqual({ ok: false, error: "stale" });
+  });
+});
+
+describe("ExtendContract", () => {
+  const standing: ContractStanding = {
+    status: "active",
+    interestType: "per_million_per_day",
+    interestRate: 30_000n,
+    interestPeriodDays: 10,
+    outstandingPrincipal: Money.fromNumber(5_000_000),
+    interestPaidUntil: "2026-10-01",
+    prepaidInterest: false,
+    termDays: 30,
+  };
+  const extend = (overrides: Partial<ExtendContractInput> = {}): ExtendContractInput => ({
+    contractId: "k",
+    extraDays: 15,
+    expectedTermDays: 30,
+    expectedPaidUntil: "2026-10-01",
+    expectedOutstanding: Money.fromNumber(5_000_000),
+    asOf: "2026-10-20",
+    interest: null,
+    ...overrides,
+  });
+
+  it("cộng số ngày vay; có thu lãi thì kèm kỳ [ngày trả đến, hôm nay)", async () => {
+    const { repo, extensions } = fakeRepo([], false, standing);
+    expect(await new ExtendContract(repo).execute(actor, extend(), now)).toEqual({ ok: true, termDays: 45, interest: null });
+    const paid = await new ExtendContract(repo).execute(actor, extend({ interest: Money.fromNumber(100_000) }), now);
+    expect(paid).toEqual({ ok: true, termDays: 45, interest: Money.fromNumber(100_000) });
+    expect(extensions[1]).toMatchObject({ expectedTermDays: 30, businessDate: "2026-10-20" });
+    expect(extensions[1].extension.interest).toEqual({ from: "2026-10-01", to: "2026-10-20", amount: Money.fromNumber(100_000) });
+  });
+
+  it("số ngày vay đã đổi, đã đóng, repository không khớp: không ghi", async () => {
+    const stale = fakeRepo([], false, standing);
+    expect(await new ExtendContract(stale.repo).execute(actor, extend({ expectedTermDays: 20 }), now)).toEqual({ ok: false, error: "stale" });
+    expect(stale.extensions).toHaveLength(0);
+    const closed = fakeRepo([], false, { ...standing, status: "closed" });
+    expect(await new ExtendContract(closed.repo).execute(actor, extend(), now)).toEqual({ ok: false, error: "closed" });
+    const conflict = fakeRepo([], false, standing, false);
+    expect(await new ExtendContract(conflict.repo).execute(actor, extend(), now)).toEqual({ ok: false, error: "stale" });
   });
 });

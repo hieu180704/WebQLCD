@@ -14,7 +14,9 @@ import { BetterAuthAuthenticator } from "@/modules/identity/infrastructure/bette
 import { DrizzleAccountRepository } from "@/modules/identity/infrastructure/drizzle-account-repository";
 import { IpSignupLimiter } from "@/modules/identity/infrastructure/ip-signup-limiter";
 import { GetSubscription } from "@/modules/shop/application/get-subscription";
+import { ChangePrincipal } from "@/modules/pawn/application/change-principal";
 import { CreateContract } from "@/modules/pawn/application/create-contract";
+import { ExtendContract } from "@/modules/pawn/application/extend-contract";
 import { GetContractDetail } from "@/modules/pawn/application/get-contract-detail";
 import { ListContracts } from "@/modules/pawn/application/list-contracts";
 import { PayInterest } from "@/modules/pawn/application/pay-interest";
@@ -52,3 +54,5 @@ export const listContracts = new ListContracts(contracts);
 export const getContractDetail = new GetContractDetail(contracts);
 export const payInterest = new PayInterest(contracts);
 export const redeemContract = new RedeemContract(contracts);
+export const changePrincipal = new ChangePrincipal(contracts);
+export const extendContract = new ExtendContract(contracts);

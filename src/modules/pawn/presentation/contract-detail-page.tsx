@@ -6,8 +6,11 @@ import { BUSINESS_TIME_ZONE, businessDate, diffDays } from "@/shared/kernel/loca
 import { formatVnd } from "@/shared/kernel/vnd";
 import type { ContractDetailView } from "../application/get-contract-detail";
 import type { ContractCashType, ContractTransaction } from "../application/ports";
+import { ExtendDialog } from "./extend-dialog";
 import { DueBadge, INTEREST_UNIT, formatDay } from "./format";
+import { OperationStatus } from "./operation-status";
 import { PayInterestDialog } from "./pay-interest-dialog";
+import { PrincipalDialog } from "./principal-dialog";
 import { RedeemDialog } from "./redeem-dialog";
 
 const TYPE_LABEL: Record<ContractCashType, string> = {
@@ -23,7 +26,7 @@ const formatTime = new Intl.DateTimeFormat("vi-VN", { timeZone: BUSINESS_TIME_ZO
 /** "05/10/2026 10:15" theo giờ Việt Nam, như mockup. */
 const formatDateTime = (at: Date) => `${formatDay(businessDate(at))} ${formatTime(at)}`;
 
-/** Trang chi tiết hợp đồng cầm đồ/tín chấp (mockup cam-do-chi-tiet.html). Thao tác: đóng lãi, chuộc đồ / đóng hợp đồng. */
+/** Trang chi tiết hợp đồng cầm đồ/tín chấp (mockup cam-do-chi-tiet.html). Thao tác: đóng lãi, trả bớt gốc, vay thêm, gia hạn, chuộc đồ / đóng hợp đồng. */
 export async function ContractDetailPage({ id }: { id: string }) {
   const principal = await requireSession();
   const contractId = z.uuid().safeParse(id);
@@ -31,6 +34,14 @@ export async function ContractDetailPage({ id }: { id: string }) {
   const view = await getContractDetail.execute(principal.shopId, contractId.data);
   if (!view) notFound();
   const { contract, open } = view;
+  const interestDays = Math.max(0, diffDays(contract.interestPaidUntil, view.today));
+  const lock = {
+    contractId: contract.id,
+    code: contract.code,
+    expectedPaidUntil: contract.interestPaidUntil,
+    asOf: view.today,
+    outstanding: contract.outstandingPrincipal.toString(),
+  };
 
   return (
     <>
@@ -47,26 +58,44 @@ export async function ContractDetailPage({ id }: { id: string }) {
 
       {open && (
         <section className="card mt-6 p-4 flex flex-wrap gap-2" aria-label="Thao tác">
-          <PayInterestDialog
-            contractId={contract.id}
-            code={contract.code}
-            expectedPaidUntil={contract.interestPaidUntil}
-            choices={open.interestOptions.map((option, i) => ({
-              periods: i + 1,
-              toText: formatDay(option.to),
-              amountText: formatVnd(option.amount),
-            }))}
-          />
-          <RedeemDialog
-            contractId={contract.id}
-            code={contract.code}
-            title={contract.kind === "secured" ? "Chuộc đồ" : "Đóng hợp đồng"}
-            expectedPaidUntil={contract.interestPaidUntil}
-            asOf={view.today}
-            outstanding={contract.outstandingPrincipal.toString()}
-            interestDue={open.accruedInterest.toString()}
-            interestDays={Math.max(0, diffDays(contract.interestPaidUntil, view.today))}
-          />
+          <OperationStatus>
+            <PayInterestDialog
+              contractId={contract.id}
+              code={contract.code}
+              expectedPaidUntil={contract.interestPaidUntil}
+              choices={open.interestOptions.map((option, i) => ({
+                periods: i + 1,
+                toText: formatDay(option.to),
+                amountText: formatVnd(option.amount),
+              }))}
+            />
+            {(["repayment", "additional_loan"] as const).map((direction) => (
+              <PrincipalDialog
+                key={direction}
+                direction={direction}
+                {...lock}
+                interestDue={open.accruedInterest.toString()}
+                interestDays={interestDays}
+                aheadDays={Math.max(0, diffDays(view.today, contract.interestPaidUntil))}
+                interestType={contract.interestType}
+                rate={contract.interestRate.toString()}
+              />
+            ))}
+            <ExtendDialog
+              {...lock}
+              loanDate={contract.loanDate}
+              termDays={contract.termDays}
+              defaultDays={contract.interestPeriodDays}
+              interestDue={open.accruedInterest.toString()}
+              interestDays={interestDays}
+            />
+            <RedeemDialog
+              {...lock}
+              title={contract.kind === "secured" ? "Chuộc đồ" : "Đóng hợp đồng"}
+              interestDue={open.accruedInterest.toString()}
+              interestDays={interestDays}
+            />
+          </OperationStatus>
         </section>
       )}
 

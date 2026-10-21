@@ -210,3 +210,103 @@ export function planRedemption(
     },
   };
 }
+
+export type InterestSettlementViolation = "interest_not_positive" | "interest_exceeds_due";
+
+/**
+ * Lãi thu kèm một thao tác: `entered` null = thu đúng `due.amount`; có nhập thì được giảm nhưng phải > 0 (sổ két cấm
+ * amount = 0, nên giảm về 0 thì không dời được ngày trả đến). `due` null = không có lãi để thu, chỉ nhận null hoặc 0.
+ */
+function settleInterest(
+  due: InterestPeriod | null,
+  entered: Money | null,
+): { ok: true; value: InterestPeriod | null } | { ok: false; error: InterestSettlementViolation } {
+  if (!due) {
+    if (entered === null || entered.isZero()) return { ok: true, value: null };
+    return { ok: false, error: "interest_exceeds_due" };
+  }
+  if (entered === null) return { ok: true, value: due };
+  if (!entered.isPositive()) return { ok: false, error: "interest_not_positive" };
+  if (entered.compare(due.amount) > 0) return { ok: false, error: "interest_exceeds_due" };
+  return { ok: true, value: { ...due, amount: entered } };
+}
+
+/** Lãi theo ngày [ngày trả đến, hôm nay) trên gốc còn lại; null khi bằng 0. */
+function interestToToday(contract: InterestStanding, today: LocalDate): InterestPeriod | null {
+  const amount = accruedInterest(contract, today);
+  return amount.isZero() ? null : { from: contract.interestPaidUntil, to: today, amount };
+}
+
+export type PrincipalChange = {
+  /** Lãi thu kèm, chung thao tác với dòng gốc; null = không thu. */
+  interest: InterestPeriod | null;
+  /** Số tiền trả bớt / vay thêm (dương). */
+  amount: Money;
+  outstandingAfter: Money;
+};
+
+export type PrincipalChangeViolation = InterestSettlementViolation | "amount_not_positive" | "amount_not_less_than_outstanding";
+
+/**
+ * Trả bớt gốc (GIẢ ĐỊNH TẠM, core-spec mục 2): 0 < tiền < gốc còn lại (trả hết thì dùng chuộc đồ). Lãi đến hôm nay trên
+ * gốc cũ bắt buộc thu kèm để ngày trả đến về hôm nay, lãi từ hôm nay tính trên gốc mới. Lãi đã trả vượt hôm nay: không hoàn.
+ */
+export function planPrincipalRepayment(
+  contract: InterestStanding,
+  today: LocalDate,
+  amount: Money,
+  interest: Money | null,
+): { ok: true; value: PrincipalChange } | { ok: false; error: PrincipalChangeViolation } {
+  if (!amount.isPositive()) return { ok: false, error: "amount_not_positive" };
+  if (amount.compare(contract.outstandingPrincipal) >= 0) return { ok: false, error: "amount_not_less_than_outstanding" };
+  const settled = settleInterest(interestToToday(contract, today), interest);
+  if (!settled.ok) return settled;
+  return { ok: true, value: { interest: settled.value, amount, outstandingAfter: contract.outstandingPrincipal.subtract(amount) } };
+}
+
+/**
+ * Vay thêm (GIẢ ĐỊNH TẠM, core-spec mục 2): lãi từ hôm nay tính trên gốc mới. Ngày trả đến trước hôm nay: thu kèm lãi
+ * [ngày trả đến, hôm nay) trên gốc cũ. Ngày trả đến sau hôm nay (thu lãi trước, đóng sớm): thu lãi bổ sung trên phần vay
+ * thêm cho [hôm nay, ngày trả đến), ngày trả đến giữ nguyên.
+ */
+export function planAdditionalLoan(
+  contract: InterestStanding,
+  today: LocalDate,
+  amount: Money,
+  interest: Money | null,
+): { ok: true; value: PrincipalChange } | { ok: false; error: PrincipalChangeViolation } {
+  if (!amount.isPositive()) return { ok: false, error: "amount_not_positive" };
+  let due = interestToToday(contract, today);
+  const ahead = diffDays(today, contract.interestPaidUntil);
+  if (ahead > 0) {
+    const extra = interestPolicy(contract.interestType).interestFor(amount, contract.interestRate, ahead);
+    due = extra.isZero() ? null : { from: today, to: contract.interestPaidUntil, amount: extra };
+  }
+  const settled = settleInterest(due, interest);
+  if (!settled.ok) return settled;
+  return { ok: true, value: { interest: settled.value, amount, outstandingAfter: contract.outstandingPrincipal.add(amount) } };
+}
+
+export type Extension = { termDaysAfter: number; interest: InterestPeriod | null };
+
+export type ExtensionViolation = InterestSettlementViolation | "invalid_days" | "no_interest_due";
+
+/**
+ * Gia hạn (GIẢ ĐỊNH TẠM, core-spec mục 2): cộng thêm số ngày vay, không đổi tiền két. `interest` null = không thu lãi;
+ * có nhập thì thu lãi theo ngày đến hôm nay (được giảm, phải > 0), ghi một dòng đóng lãi.
+ */
+export function planExtension(
+  contract: InterestStanding & { termDays: number },
+  today: LocalDate,
+  extraDays: number,
+  interest: Money | null,
+): { ok: true; value: Extension } | { ok: false; error: ExtensionViolation } {
+  if (!Number.isSafeInteger(extraDays) || extraDays < 1) return { ok: false, error: "invalid_days" };
+  const termDaysAfter = contract.termDays + extraDays;
+  if (interest === null) return { ok: true, value: { termDaysAfter, interest: null } };
+  const due = interestToToday(contract, today);
+  if (!due) return { ok: false, error: "no_interest_due" };
+  const settled = settleInterest(due, interest);
+  if (!settled.ok) return settled;
+  return { ok: true, value: { termDaysAfter, interest: settled.value } };
+}

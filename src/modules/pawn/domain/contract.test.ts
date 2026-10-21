@@ -4,8 +4,11 @@ import {
   accruedInterest,
   interestOptions,
   nextInterestDue,
+  planAdditionalLoan,
   planDisbursement,
+  planExtension,
   planInterestPayment,
+  planPrincipalRepayment,
   planRedemption,
   upcomingPeriods,
   type ContractTerms,
@@ -179,5 +182,78 @@ describe("chuộc đồ / đóng hợp đồng", () => {
       error: "interest_exceeds_due",
     });
     expect(planRedemption(standing({ interestRate: 0n }), TODAY, null)).toMatchObject({ ok: true, value: { interest: null } });
+  });
+});
+
+describe("trả bớt gốc, vay thêm, gia hạn", () => {
+  // 5tr, 3k/triệu/ngày: 15.000 đ mỗi ngày; 19 ngày từ 01/10 tới hôm nay = 285.000 đ.
+  const standing = (overrides: Partial<PayableStanding> = {}): PayableStanding => ({
+    interestType: "per_million_per_day",
+    interestRate: 30_000n,
+    interestPeriodDays: 10,
+    outstandingPrincipal: Money.fromNumber(5_000_000),
+    interestPaidUntil: "2026-10-01",
+    prepaidInterest: false,
+    ...overrides,
+  });
+  const toToday = { from: "2026-10-01", to: TODAY, amount: Money.fromNumber(285_000) };
+
+  it("trả bớt gốc: thu kèm lãi đến hôm nay trên gốc cũ, gốc giảm", () => {
+    const result = planPrincipalRepayment(standing(), TODAY, Money.fromNumber(2_000_000), null);
+    if (!result.ok) throw new Error(result.error);
+    expect(result.value.interest).toEqual(toToday);
+    expect(result.value.outstandingAfter.toBigInt()).toBe(3_000_000n);
+  });
+
+  it("trả bớt gốc: số tiền phải dương và nhỏ hơn gốc còn lại", () => {
+    expect(planPrincipalRepayment(standing(), TODAY, Money.ZERO, null)).toEqual({ ok: false, error: "amount_not_positive" });
+    expect(planPrincipalRepayment(standing(), TODAY, Money.fromNumber(5_000_000), null)).toEqual({
+      ok: false,
+      error: "amount_not_less_than_outstanding",
+    });
+  });
+
+  it("lãi thu kèm được giảm nhưng phải > 0; không có lãi thì chỉ nhận 0", () => {
+    const two = Money.fromNumber(2_000_000);
+    const less = planPrincipalRepayment(standing(), TODAY, two, Money.fromNumber(200_000));
+    expect(less.ok && less.value.interest?.amount.toBigInt()).toBe(200_000n);
+    expect(planPrincipalRepayment(standing(), TODAY, two, Money.ZERO)).toEqual({ ok: false, error: "interest_not_positive" });
+    expect(planPrincipalRepayment(standing(), TODAY, two, Money.fromNumber(285_001))).toEqual({ ok: false, error: "interest_exceeds_due" });
+    const ahead = standing({ interestPaidUntil: "2026-10-25" });
+    expect(planPrincipalRepayment(ahead, TODAY, two, Money.ZERO)).toMatchObject({ ok: true, value: { interest: null } });
+    expect(planPrincipalRepayment(ahead, TODAY, two, Money.fromNumber(1))).toEqual({ ok: false, error: "interest_exceeds_due" });
+  });
+
+  it("vay thêm: thu kèm lãi đến hôm nay trên gốc cũ, gốc tăng", () => {
+    const result = planAdditionalLoan(standing(), TODAY, Money.fromNumber(2_000_000), null);
+    if (!result.ok) throw new Error(result.error);
+    expect(result.value.interest).toEqual(toToday);
+    expect(result.value.outstandingAfter.toBigInt()).toBe(7_000_000n);
+    expect(planAdditionalLoan(standing(), TODAY, Money.ZERO, null)).toEqual({ ok: false, error: "amount_not_positive" });
+  });
+
+  it("vay thêm khi lãi đã trả vượt hôm nay: lãi bổ sung trên phần vay thêm [hôm nay, ngày trả đến)", () => {
+    const result = planAdditionalLoan(standing({ interestPaidUntil: "2026-10-25" }), TODAY, Money.fromNumber(2_000_000), null);
+    if (!result.ok) throw new Error(result.error);
+    expect(result.value.interest).toEqual({ from: TODAY, to: "2026-10-25", amount: Money.fromNumber(30_000) });
+  });
+
+  it("vay thêm đúng ngày trả đến hoặc lãi suất 0: không thu lãi", () => {
+    const two = Money.fromNumber(2_000_000);
+    expect(planAdditionalLoan(standing({ interestPaidUntil: TODAY }), TODAY, two, null)).toMatchObject({ ok: true, value: { interest: null } });
+    expect(planAdditionalLoan(standing({ interestRate: 0n }), TODAY, two, null)).toMatchObject({ ok: true, value: { interest: null } });
+  });
+
+  it("gia hạn: cộng số ngày vay, thu lãi tuỳ chọn", () => {
+    const contract = { ...standing(), termDays: 30 };
+    expect(planExtension(contract, TODAY, 15, null)).toEqual({ ok: true, value: { termDaysAfter: 45, interest: null } });
+    const paid = planExtension(contract, TODAY, 15, Money.fromNumber(285_000));
+    expect(paid.ok && paid.value.interest).toEqual(toToday);
+    expect(planExtension(contract, TODAY, 0, null)).toEqual({ ok: false, error: "invalid_days" });
+    expect(planExtension(contract, TODAY, 15, Money.ZERO)).toEqual({ ok: false, error: "interest_not_positive" });
+    expect(planExtension({ ...contract, interestPaidUntil: "2026-10-25" }, TODAY, 15, Money.fromNumber(1))).toEqual({
+      ok: false,
+      error: "no_interest_due",
+    });
   });
 });

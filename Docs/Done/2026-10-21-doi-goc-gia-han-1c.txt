@@ -1,0 +1,16 @@
+# 2026-10-21: Lát 1c trả bớt gốc, vay thêm, gia hạn — [verified: lint, typecheck, 119 unit/DB test, 18 e2e]
+
+- Commit: xem commit "Lát 1c: trả bớt gốc, vay thêm, gia hạn" ngay sau 6d99b7b
+- Đã làm:
+  1. Nghiệp vụ (GIẢ ĐỊNH TẠM, core-spec mục 2, người dùng duyệt 2026-10-21): đổi gốc thì bắt buộc thu kèm lãi đến hôm nay trên gốc cũ (được giảm, phải > 0) để lãi từ hôm nay tính trên gốc mới; vay thêm khi lãi đã trả vượt hôm nay thì thu lãi bổ sung trên phần vay thêm cho [hôm nay, ngày trả đến) (phương án A1); gia hạn tuỳ chọn thu lãi đến hôm nay.
+  2. Domain `planPrincipalRepayment`, `planAdditionalLoan`, `planExtension` (`src/modules/pawn/domain/contract.ts`); cashbook thêm loại `additional_loan` (chi) ở `cash-entry.ts`.
+  3. Use case `ChangePrincipal` (gộp trả bớt / vay thêm theo `direction`, `application/change-principal.ts`) và `ExtendContract` (`application/extend-contract.ts`); khoá lạc quan như 1b, gia hạn khoá thêm số ngày vay. `ContractStanding` có thêm `termDays`.
+  4. Repository `recordPrincipalChange`, `recordExtension`: UPDATE có điều kiện + dòng sổ két chung `operation_id` + audit (`repay_principal`, `additional_loan`, `extend`) trong một transaction. DB test có đối soát gốc / ngày trả đến (data-model mục 4) và cách ly cửa hàng.
+  5. Giao diện: `principal-dialog.tsx` (trả bớt gốc, vay thêm), `extend-dialog.tsx`; xem trước lãi bổ sung qua `previewAdditionalLoanInterest` (`application/preview.ts`).
+  6. Sửa lỗi phát hiện khi viết e2e: mỗi hộp thoại giữ thông báo thành công riêng nên sau hai thao tác trang hiện hai thông báo. Gom về `operation-status.tsx` (context), chỉ hiện kết quả mới nhất; `pay-interest-dialog.tsx` dùng chung.
+  7. Docs: core-spec mục 2, data-model 3.4 / 3.6 / 3.7.
+- Trạng thái: xong lát 1c; kế tiếp lát 1d (huỷ giao dịch + xoá hợp đồng).
+- Lưu ý cho phiên sau:
+  - Ô "Ghi chú" trong hộp thoại mockup chưa làm (`appendCashEntries` chưa nhận `note`).
+  - Lát 1d: gia hạn không thu lãi không sinh dòng sổ két, nên luật "huỷ = đảo các dòng chung `operation_id`" không huỷ được nó. Cần chốt cách huỷ gia hạn (theo audit, hay gia hạn nhầm thì sửa / không cho huỷ).
+  - Lát 1d: huỷ trả bớt gốc / vay thêm phải khôi phục gốc và ngày trả đến (đối soát data-model mục 4 tính lại được từ các dòng chưa đảo).

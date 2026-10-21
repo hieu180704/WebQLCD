@@ -31,3 +31,11 @@ export function previewContract(input: {
     cashToCustomer: input.prepaidInterest ? input.principal.subtract(periodInterest) : input.principal,
   };
 }
+
+/**
+ * Lãi bổ sung khi vay thêm lúc lãi đã trả vượt hôm nay (xem `planAdditionalLoan`): lãi trên phần vay thêm cho `days` ngày
+ * từ hôm nay tới ngày trả đến. Chỉ để hiển thị trong hộp thoại; server tính lại khi lưu.
+ */
+export function previewAdditionalLoanInterest(input: { amount: Money; interestType: InterestType; rate: bigint; days: number }): Money {
+  return interestPolicy(input.interestType).interestFor(input.amount, input.rate, input.days);
+}

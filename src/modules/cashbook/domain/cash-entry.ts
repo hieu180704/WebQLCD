@@ -2,16 +2,17 @@ import type { LocalDate } from "@/shared/kernel/local-date";
 import { Money } from "@/shared/kernel/money";
 
 /** Loại giao dịch két đang dùng. Dấu tiền theo bảng data-model mục 3.6. */
-export type CashEntryType = "opening_balance" | "disbursement" | "interest_payment" | "principal_repayment";
+export type CashEntryType = "opening_balance" | "disbursement" | "additional_loan" | "interest_payment" | "principal_repayment";
 
 /** Bút toán chờ ghi; `amount` là độ lớn (dương), dấu do `signedAmount` áp theo loại. */
 export type CashEntry =
   | { type: "opening_balance"; amount: Money }
   | { type: "disbursement"; contractId: string; amount: Money }
+  | { type: "additional_loan"; contractId: string; amount: Money }
   | { type: "interest_payment"; contractId: string; amount: Money; periodFrom: LocalDate; periodTo: LocalDate }
   | { type: "principal_repayment"; contractId: string; amount: Money };
 
-const OUTFLOW: ReadonlySet<CashEntryType> = new Set(["disbursement"]);
+const OUTFLOW: ReadonlySet<CashEntryType> = new Set(["disbursement", "additional_loan"]);
 
 /** Số tiền có dấu ghi sổ: + thu vào két, − chi ra két. Độ lớn phải dương (sổ két cấm amount = 0). */
 export function signedAmount(entry: CashEntry): Money {

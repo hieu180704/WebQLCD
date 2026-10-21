@@ -1,7 +1,16 @@
 import type { NewCustomer, ResolvedCustomer } from "@/modules/customer";
 import type { LocalDate } from "@/shared/kernel/local-date";
 import type { Money } from "@/shared/kernel/money";
-import type { ContractKind, ContractTerms, Disbursement, InterestPeriod, PayableStanding, Redemption } from "../domain/contract";
+import type {
+  ContractKind,
+  ContractTerms,
+  Disbursement,
+  Extension,
+  InterestPeriod,
+  PayableStanding,
+  PrincipalChange,
+  Redemption,
+} from "../domain/contract";
 import type { InterestType } from "../domain/interest/interest-policy";
 
 /** Người thực hiện thao tác, lấy từ guard (session), không bao giờ từ input của client. KTV hồ sơ = người này. */
@@ -65,7 +74,7 @@ export type ContractTransaction = {
   reversed: boolean;
 };
 
-export type ContractStanding = PayableStanding & { status: "active" | "closed" };
+export type ContractStanding = PayableStanding & { status: "active" | "closed"; termDays: number };
 
 export type InterestPaymentDraft = {
   contractId: string;
@@ -80,6 +89,27 @@ export type RedemptionDraft = {
   redemption: Redemption;
   /** Ngày trả đến lúc tính lãi; khoá lạc quan như `InterestPaymentDraft`. */
   expectedPaidUntil: LocalDate;
+  businessDate: LocalDate;
+};
+
+export type PrincipalChangeDraft = {
+  contractId: string;
+  /** Trả bớt gốc (thu) hay vay thêm (chi). */
+  direction: "repayment" | "additional_loan";
+  change: PrincipalChange;
+  /** Khoá lạc quan như `RedemptionDraft`. */
+  expectedPaidUntil: LocalDate;
+  expectedOutstanding: Money;
+  businessDate: LocalDate;
+};
+
+export type ExtensionDraft = {
+  contractId: string;
+  extension: Extension;
+  /** Khoá lạc quan: số ngày vay, ngày trả đến, gốc lúc mở trang. */
+  expectedTermDays: number;
+  expectedPaidUntil: LocalDate;
+  expectedOutstanding: Money;
   businessDate: LocalDate;
 };
 
@@ -103,4 +133,11 @@ export interface ContractRepository {
    * audit trong một transaction. Khoá lạc quan theo ngày trả đến và gốc (`redemption.principal`); không khớp thì trả false.
    */
   recordRedemption(actor: Actor, draft: RedemptionDraft): Promise<boolean>;
+  /**
+   * Trả bớt gốc / vay thêm: ghi lãi thu kèm (nếu có) + dòng gốc chung một thao tác, đặt gốc còn lại mới, dời ngày trả đến
+   * tới `interest.to`, audit trong một transaction. Khoá lạc quan theo ngày trả đến và gốc; không khớp thì trả false.
+   */
+  recordPrincipalChange(actor: Actor, draft: PrincipalChangeDraft): Promise<boolean>;
+  /** Gia hạn: đổi số ngày vay, ghi lãi thu kèm (nếu có), audit trong một transaction. Khoá lạc quan như trên. */
+  recordExtension(actor: Actor, draft: ExtensionDraft): Promise<boolean>;
 }

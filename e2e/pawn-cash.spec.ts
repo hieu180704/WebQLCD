@@ -157,6 +157,70 @@ test("chuộc đồ: thu lãi theo ngày + gốc, không thu quá lãi, hợp đ
   await expect(page.getByRole("row", { name: /Thu lãi.*CD-2/ })).toBeVisible();
 });
 
+test("trả bớt gốc, vay thêm, gia hạn: lãi đến hôm nay thu kèm khi đổi gốc, ghi sổ quỹ", async ({ page }) => {
+  await signIn(page);
+  // Vay lùi 5 ngày, thu lãi sau: lãi đến hôm nay 5 × 15.000 = 75.000 đ.
+  const loanDate = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh" }).format(Date.now() - 5 * 86_400_000);
+  await fillContract(page, "Khách Đổi Gốc");
+  await page.getByLabel("Ngày vay *", { exact: true }).fill(loanDate);
+  await page.getByRole("button", { name: "Lưu hợp đồng và giải ngân" }).click();
+  await expect(page).toHaveURL(/moi=CD-3/);
+  await page.getByRole("link", { name: "CD-3" }).click();
+  const tile = (label: string) => page.getByRole("region", { name: "Số liệu" }).getByText(label).locator("..");
+
+  await page.getByRole("button", { name: "Trả bớt gốc" }).click();
+  const repay = page.getByRole("dialog", { name: "Trả bớt gốc — CD-3" });
+  await expect(repay).toContainText("Lãi đến hôm nay 75.000 đ (5 ngày) thu kèm");
+  await expect(repay.getByLabel("Tiền lãi thu kèm")).toHaveValue("75.000");
+  await repay.getByLabel("Số tiền trả bớt gốc").fill("2.000.000");
+  await expect(repay.getByText("Gốc sau khi trả").locator("..")).toContainText("3.000.000");
+  await repay.getByLabel("Tiền lãi thu kèm").fill("0");
+  await repay.getByRole("button", { name: "Xác nhận trả gốc" }).click();
+  await expect(repay.getByRole("alert")).toHaveText("Tiền lãi thu kèm phải lớn hơn 0 (được giảm, không miễn hết).");
+  await repay.getByLabel("Tiền lãi thu kèm").fill("70.000");
+  await repay.getByRole("button", { name: "Xác nhận trả gốc" }).click();
+  await expect(repay).toBeHidden();
+  await expect(page.getByRole("status")).toHaveText("Đã trả bớt 2.000.000 đ, thu 70.000 đ tiền lãi. Gốc còn lại 3.000.000 đ.");
+  await expect(tile("Tiền gốc còn lại")).toContainText("3.000.000");
+  await expect(tile("Lãi đến hôm nay")).toContainText("0");
+
+  // Lãi đã trả đến hôm nay: vay thêm không có lãi thu kèm.
+  await page.getByRole("button", { name: "Vay thêm" }).click();
+  const borrow = page.getByRole("dialog", { name: "Vay thêm — CD-3" });
+  await expect(borrow.getByLabel("Tiền lãi thu kèm")).toHaveCount(0);
+  await borrow.getByLabel("Số tiền vay thêm").fill("1.000.000");
+  await borrow.getByRole("button", { name: "Xác nhận giải ngân" }).click();
+  await expect(borrow).toBeHidden();
+  await expect(page.getByRole("status")).toHaveText("Đã vay thêm 1.000.000 đ. Gốc còn lại 4.000.000 đ.");
+  await expect(page.getByRole("row", { name: /Vay thêm/ })).toContainText("1.000.000");
+
+  await page.getByRole("button", { name: "Gia hạn" }).click();
+  const extend = page.getByRole("dialog", { name: "Gia hạn — CD-3" });
+  await expect(extend).toContainText("(30 ngày)");
+  await expect(extend.getByLabel(/Thu lãi đến hôm nay/)).toHaveCount(0);
+  await extend.getByLabel("Gia hạn thêm (ngày)").fill("15");
+  await expect(extend.getByText("Hạn mới").locator("..")).toContainText("(45 ngày)");
+  await extend.getByRole("button", { name: "Xác nhận gia hạn" }).click();
+  await expect(extend).toBeHidden();
+  await expect(page.getByRole("status")).toHaveText("Đã gia hạn thêm 15 ngày (số ngày vay 45).");
+  await expect(page.getByText(/^45 ngày \(đến/)).toBeVisible();
+
+  // CD-1 thu lãi trước và đã đóng sớm: vay thêm thu lãi bổ sung trên phần vay thêm, 20 ngày × 3.000 = 60.000 đ.
+  await page.goto("/cam-do");
+  await page.getByRole("link", { name: "CD-1" }).click();
+  await page.getByRole("button", { name: "Vay thêm" }).click();
+  const more = page.getByRole("dialog", { name: "Vay thêm — CD-1" });
+  await more.getByLabel("Số tiền vay thêm").fill("1.000.000");
+  await expect(more.getByLabel("Tiền lãi thu kèm")).toHaveValue("60.000");
+  await expect(more).toContainText("giao khách 940.000 đ");
+  await more.getByRole("button", { name: "Xác nhận giải ngân" }).click();
+  await expect(page.getByRole("status")).toHaveText("Đã vay thêm 1.000.000 đ, thu 60.000 đ tiền lãi. Gốc còn lại 6.000.000 đ.");
+
+  await page.goto("/quy-ket");
+  await expect(page.getByRole("row", { name: /Vay thêm.*CD-3/ })).toBeVisible();
+  await expect(page.getByRole("row", { name: /Trả gốc.*CD-3/ })).toBeVisible();
+});
+
 test("dữ liệu sai: báo lỗi, giữ lại giá trị đã nhập", async ({ page }) => {
   await signIn(page);
   await fillContract(page, "Khách Lỗi");

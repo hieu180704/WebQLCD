@@ -134,3 +134,52 @@ export const redeemSchema = z.object({
       return money;
     }),
 });
+
+/** Gốc, ngày trả đến, ngày nghiệp vụ người nhập đang thấy: chỉ dùng để so với DB (khoá lạc quan), không dùng làm số tiền. */
+const standingLock = {
+  contractId: z.uuid("Hợp đồng không hợp lệ."),
+  expectedPaidUntil: z.string().refine(isLocalDate, "Hợp đồng không hợp lệ."),
+  expectedOutstanding: z
+    .string()
+    .regex(/^\d{1,15}$/, "Hợp đồng không hợp lệ.")
+    .transform((text) => Money.of(BigInt(text))),
+  asOf: z.string().refine(isLocalDate, "Hợp đồng không hợp lệ."),
+};
+
+/** Tiền lãi thu kèm: bỏ trống = không có ô (không có lãi để thu / không tích thu lãi) → null. */
+const optionalInterest = z
+  .string()
+  .max(30)
+  .transform((text, ctx) => {
+    if (!text.trim()) return null;
+    const money = parseVnd(text);
+    if (!money) {
+      ctx.addIssue({ code: "custom", message: "Tiền lãi thu là số không âm." });
+      return z.NEVER;
+    }
+    return money;
+  });
+
+export const changePrincipalSchema = z.object({
+  ...standingLock,
+  direction: z.enum(["repayment", "additional_loan"], { error: "Thao tác không hợp lệ." }),
+  amount: z
+    .string()
+    .max(30)
+    .transform((text, ctx) => {
+      const money = parseVnd(text);
+      if (!money || !money.isPositive() || money.toBigInt() > MAX_PRINCIPAL) {
+        ctx.addIssue({ code: "custom", message: "Số tiền phải lớn hơn 0, tối đa 100 tỷ đồng." });
+        return z.NEVER;
+      }
+      return money;
+    }),
+  interest: optionalInterest,
+});
+
+export const extendSchema = z.object({
+  ...standingLock,
+  expectedTermDays: z.coerce.number().int().min(1, "Hợp đồng không hợp lệ."),
+  extraDays: days("Gia hạn thêm"),
+  interest: optionalInterest,
+});
