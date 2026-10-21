@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nhân viên — TP83</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.1.11"></script>
+<link rel="stylesheet" href="assets/common.css">
+</head>
+<body data-page="staff">
+<div id="app-shell">
+
+  <div class="flex flex-wrap items-end gap-3">
+    <div>
+      <h1 class="text-2xl font-bold">Nhân viên</h1>
+      <p class="text-sm text-slate-500">Chỉ chủ tiệm dùng được trang này</p>
+    </div>
+    <div class="ml-auto"><button class="btn btn-primary" data-open="dlg-create">+ Thêm nhân viên</button></div>
+  </div>
+
+  <section class="card mt-6">
+    <div class="overflow-x-auto">
+      <table class="table">
+        <thead><tr><th>Họ tên</th><th>Tên đăng nhập</th><th>Vai trò</th><th class="text-right">HĐ tháng này</th><th>Đăng nhập gần nhất</th><th>Trạng thái</th><th><span class="sr-only">Thao tác</span></th></tr></thead>
+        <tbody>
+          <tr><td class="font-medium">Trần Văn A</td><td class="num">chutiem</td><td>Chủ tiệm</td><td class="text-right num">4</td><td class="num">19/10/2026 07:55</td><td><span class="badge badge-ok">Hoạt động</span></td><td></td></tr>
+          <tr><td class="font-medium">Nguyễn Văn Hùng</td><td class="num">hung</td><td>Nhân viên</td><td class="text-right num">7</td><td class="num">19/10/2026 08:02</td><td><span class="badge badge-ok">Hoạt động</span></td>
+            <td class="flex gap-3"><button class="text-sm text-teal-700 hover:underline" data-open="dlg-reset">Đặt lại mật khẩu</button><button class="text-sm text-red-700 hover:underline" data-open="dlg-lock">Khoá</button></td></tr>
+          <tr><td class="font-medium">Lê Thị Lan</td><td class="num">lan</td><td>Nhân viên</td><td class="text-right num">5</td><td class="num">19/10/2026 08:20</td><td><span class="badge badge-ok">Hoạt động</span></td>
+            <td class="flex gap-3"><button class="text-sm text-teal-700 hover:underline" data-open="dlg-reset">Đặt lại mật khẩu</button><button class="text-sm text-red-700 hover:underline" data-open="dlg-lock">Khoá</button></td></tr>
+          <tr class="text-slate-500"><td class="font-medium">Phạm Minh Đức</td><td class="num">duc</td><td>Nhân viên</td><td class="text-right num">0</td><td class="num">02/09/2026 17:40</td><td><span class="badge badge-muted">Đã khoá</span></td>
+            <td><button class="text-sm text-teal-700 hover:underline">Mở khoá</button></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+  <p class="mt-3 text-xs text-slate-500">Nhân viên bị khoá không đăng nhập được, phiên đang mở bị đăng xuất ngay. Hồ sơ cũ vẫn ghi tên người đó. Không xoá nhân viên để giữ lịch sử.</p>
+
+  <dialog id="dlg-create" class="card p-0 m-auto w-[min(92vw,440px)] backdrop:bg-slate-900/40">
+    <form method="dialog" class="p-5 flex flex-col gap-4">
+      <h2 class="text-lg font-semibold">Thêm nhân viên</h2>
+      <div class="field"><label for="n-name">Họ tên <span class="req">*</span></label><input id="n-name" class="input"></div>
+      <div class="field"><label for="n-user">Tên đăng nhập <span class="req">*</span></label><input id="n-user" class="input" autocomplete="off"></div>
+      <div class="field"><label for="n-pass">Mật khẩu ban đầu <span class="req">*</span></label><input id="n-pass" type="password" class="input" autocomplete="new-password"><span class="text-xs text-slate-500">Tối thiểu 8 ký tự. Nhân viên nên đổi mật khẩu ở lần đăng nhập đầu.</span></div>
+      <div class="flex gap-2 justify-end"><button value="cancel" class="btn btn-outline">Huỷ</button><button class="btn btn-primary">Tạo tài khoản</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="dlg-reset" class="card p-0 m-auto w-[min(92vw,440px)] backdrop:bg-slate-900/40">
+    <form method="dialog" class="p-5 flex flex-col gap-4">
+      <h2 class="text-lg font-semibold">Đặt lại mật khẩu — Nguyễn Văn Hùng</h2>
+      <div class="field"><label for="r-pass">Mật khẩu mới <span class="req">*</span></label><input id="r-pass" type="password" class="input" autocomplete="new-password"></div>
+      <p class="text-xs text-slate-500">Mọi phiên đăng nhập hiện tại của nhân viên này bị đăng xuất.</p>
+      <div class="flex gap-2 justify-end"><button value="cancel" class="btn btn-outline">Huỷ</button><button class="btn btn-primary">Đặt lại</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="dlg-lock" class="card p-0 m-auto w-[min(92vw,440px)] backdrop:bg-slate-900/40">
+    <form method="dialog" class="p-5 flex flex-col gap-4">
+      <h2 class="text-lg font-semibold">Khoá tài khoản Nguyễn Văn Hùng?</h2>
+      <p class="text-sm text-slate-600">Nhân viên sẽ bị đăng xuất ngay và không đăng nhập được cho tới khi mở khoá.</p>
+      <div class="flex gap-2 justify-end"><button value="cancel" class="btn btn-outline">Huỷ</button><button class="btn btn-danger">Khoá tài khoản</button></div>
+    </form>
+  </dialog>
+
+</div>
+<script src="assets/layout.js"></script>
+</body>
+</html>

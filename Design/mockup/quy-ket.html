@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Quỹ két & Thu chi — TP83</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.1.11"></script>
+<link rel="stylesheet" href="assets/common.css">
+</head>
+<body data-page="cash">
+<div id="app-shell">
+
+  <div class="flex flex-wrap items-end gap-3">
+    <div>
+      <h1 class="text-2xl font-bold">Quỹ két & Thu chi</h1>
+      <p class="text-sm text-slate-500">Mở két từ 01/09/2026</p>
+    </div>
+    <div class="ml-auto flex flex-wrap gap-2">
+      <button class="btn btn-outline" data-open="dlg-income">+ Thu khác</button>
+      <button class="btn btn-outline" data-open="dlg-expense">− Chi khác</button>
+      <button class="btn btn-primary" data-open="dlg-capital" title="Chỉ chủ tiệm">Nạp vốn</button>
+    </div>
+  </div>
+
+  <!-- Chọn ngày -->
+  <form class="mt-6 flex flex-wrap items-end gap-2">
+    <a href="#" class="btn btn-outline !px-3" aria-label="Ngày trước">‹</a>
+    <div class="field"><label for="day" class="sr-only">Ngày</label><input id="day" type="date" class="input w-44" value="2026-10-19"></div>
+    <a href="#" class="btn btn-outline !px-3" aria-label="Ngày sau">›</a>
+    <a href="#" class="btn btn-outline">Hôm nay</a>
+  </form>
+
+  <section class="mt-4 grid grid-cols-2 lg:grid-cols-4 gap-4" aria-label="Quỹ két ngày 19/10/2026">
+    <div class="card p-4"><div class="text-sm text-slate-500">Quỹ đầu két</div><div class="mt-1 text-lg font-bold num">182.450.000</div></div>
+    <div class="card p-4"><div class="text-sm text-slate-500">Tổng chi</div><div class="mt-1 text-lg font-bold num text-red-700">16.850.000</div></div>
+    <div class="card p-4"><div class="text-sm text-slate-500">Tổng thu</div><div class="mt-1 text-lg font-bold num text-emerald-700">61.340.000</div></div>
+    <div class="card p-4 !border-teal-700 bg-teal-50/40"><div class="text-sm text-slate-500">Tiền cuối ngày</div><div class="mt-1 text-lg font-bold num">226.940.000</div></div>
+  </section>
+  <p class="mt-2 text-xs text-slate-500">Tiền cuối ngày = Quỹ đầu két − Tổng chi + Tổng thu. Quỹ đầu két của một ngày bằng tiền cuối ngày hôm trước.</p>
+
+  <section class="card mt-6">
+    <form class="p-4 flex flex-wrap gap-3 items-end border-b border-slate-200" role="search">
+      <div class="field w-full sm:w-56">
+        <label for="type">Loại giao dịch</label>
+        <select id="type" class="input">
+          <option>Tất cả</option><option>Giải ngân / vay thêm</option><option>Đóng lãi</option><option>Trả gốc / chuộc đồ</option>
+          <option>Trả góp</option><option>Thu khác</option><option>Chi khác</option><option>Nạp vốn</option><option>Bút toán đảo</option>
+        </select>
+      </div>
+      <div class="field w-full sm:w-44">
+        <label for="who">Người thực hiện</label>
+        <select id="who" class="input"><option>Tất cả</option><option>Trần Văn A</option><option>Hùng</option><option>Lan</option></select>
+      </div>
+      <button class="btn btn-outline">Lọc</button>
+      <a href="sao-luu.html" class="btn btn-outline sm:ml-auto">Xuất Excel</a>
+    </form>
+
+    <div class="overflow-x-auto">
+      <table class="table">
+        <thead><tr><th>Giờ</th><th>Loại</th><th>Nội dung</th><th class="text-right">Thu</th><th class="text-right">Chi</th><th>Người thực hiện</th><th><span class="sr-only">Thao tác</span></th></tr></thead>
+        <tbody>
+          <tr><td class="num">16:00</td><td><span class="badge badge-muted">Nạp vốn</span></td><td>Chủ tiệm bổ sung vốn</td><td class="text-right num text-emerald-700">50.000.000</td><td></td><td>Trần Văn A</td><td></td></tr>
+          <tr><td class="num">15:10</td><td><span class="badge badge-late">Bút toán đảo</span></td><td>Huỷ "Đóng lãi CD-0398" lúc 08:15 — lý do: nhập nhầm hợp đồng</td><td></td><td class="text-right num text-red-700">600.000</td><td>Trần Văn A</td><td></td></tr>
+          <tr><td class="num">14:30</td><td><span class="badge badge-muted">Thu khác</span></td><td>Bán thanh lý điện thoại quá hạn</td><td class="text-right num text-emerald-700">2.500.000</td><td></td><td>Lan</td><td><button class="text-sm text-red-700 hover:underline" title="Chỉ chủ tiệm">Huỷ</button></td></tr>
+          <tr><td class="num">11:05</td><td><span class="badge badge-ok">Chuộc đồ</span></td><td><a href="cam-do-chi-tiet.html" class="text-teal-700">CD-0390</a> · gốc 8.000.000 + lãi 240.000</td><td class="text-right num text-emerald-700">8.240.000</td><td></td><td>Hùng</td><td><button class="text-sm text-red-700 hover:underline" title="Chỉ chủ tiệm">Huỷ</button></td></tr>
+          <tr><td class="num">10:20</td><td><span class="badge badge-muted">Chi khác</span></td><td>Tiền điện tháng 10</td><td></td><td class="text-right num text-red-700">1.250.000</td><td>Trần Văn A</td><td><button class="text-sm text-red-700 hover:underline" title="Chỉ chủ tiệm">Huỷ</button></td></tr>
+          <tr><td class="num">09:02</td><td><span class="badge badge-warn">Giải ngân</span></td><td><a href="cam-do-chi-tiet.html" class="text-teal-700">CD-0441</a> · Trần Thị Mai</td><td></td><td class="text-right num text-red-700">15.000.000</td><td>Lan</td><td><button class="text-sm text-red-700 hover:underline" title="Chỉ chủ tiệm">Huỷ</button></td></tr>
+          <tr class="text-slate-400"><td class="num">08:15</td><td><span class="badge badge-ok opacity-60">Đóng lãi</span></td><td><span class="line-through">CD-0398 · kỳ 2</span> <span class="badge badge-late">Đã huỷ</span></td><td class="text-right num line-through">600.000</td><td></td><td>Hùng</td><td></td></tr>
+        </tbody>
+        <tfoot>
+          <tr class="font-semibold"><td colspan="3" class="p-3 text-right">Cộng ngày 19/10/2026</td><td class="p-3 text-right num text-emerald-700">61.340.000</td><td class="p-3 text-right num text-red-700">16.850.000</td><td colspan="2"></td></tr>
+        </tfoot>
+      </table>
+    </div>
+  </section>
+
+  <!-- Trạng thái lần đầu dùng -->
+  <section class="mt-8">
+    <h2 class="text-sm font-semibold text-slate-500 uppercase tracking-wide">Mockup: trạng thái khi cửa hàng chưa nhập quỹ đầu két</h2>
+    <div class="card mt-3 p-5 flex flex-wrap items-center gap-4 !border-amber-300 bg-amber-50/50">
+      <div class="flex-1 min-w-[240px]">
+        <div class="font-semibold">Chưa nhập quỹ đầu két</div>
+        <p class="text-sm text-slate-600 mt-1">Nhập số tiền mặt đang có trong két để số dư cuối ngày khớp với thực tế. Chỉ chủ tiệm nhập được, mỗi cửa hàng một lần.</p>
+      </div>
+      <button class="btn btn-primary" data-open="dlg-opening">Nhập quỹ đầu két</button>
+    </div>
+  </section>
+
+  <dialog id="dlg-income" class="card p-0 m-auto w-[min(92vw,440px)] backdrop:bg-slate-900/40">
+    <form method="dialog" class="p-5 flex flex-col gap-4">
+      <h2 class="text-lg font-semibold">Phiếu thu khác</h2>
+      <div class="field"><label for="i-amount">Số tiền <span class="req">*</span></label><input id="i-amount" class="input num" inputmode="numeric"></div>
+      <div class="field"><label for="i-note">Nội dung <span class="req">*</span></label><input id="i-note" class="input" placeholder="VD: bán thanh lý tài sản quá hạn"></div>
+      <p class="text-xs text-slate-500">Ghi vào quỹ két hôm nay (19/10/2026), người thực hiện: Trần Văn A.</p>
+      <div class="flex gap-2 justify-end"><button value="cancel" class="btn btn-outline">Huỷ</button><button class="btn btn-primary">Lưu phiếu thu</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="dlg-expense" class="card p-0 m-auto w-[min(92vw,440px)] backdrop:bg-slate-900/40">
+    <form method="dialog" class="p-5 flex flex-col gap-4">
+      <h2 class="text-lg font-semibold">Phiếu chi khác</h2>
+      <div class="field"><label for="e-amount">Số tiền <span class="req">*</span></label><input id="e-amount" class="input num" inputmode="numeric"></div>
+      <div class="field"><label for="e-note">Nội dung <span class="req">*</span></label><input id="e-note" class="input" placeholder="VD: tiền điện, lương nhân viên, chủ tiệm rút tiền"></div>
+      <p class="text-xs text-slate-500">Ghi vào quỹ két hôm nay (19/10/2026), người thực hiện: Trần Văn A. Két được phép âm.</p>
+      <div class="flex gap-2 justify-end"><button value="cancel" class="btn btn-outline">Huỷ</button><button class="btn btn-primary">Lưu phiếu chi</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="dlg-capital" class="card p-0 m-auto w-[min(92vw,440px)] backdrop:bg-slate-900/40">
+    <form method="dialog" class="p-5 flex flex-col gap-4">
+      <h2 class="text-lg font-semibold">Nạp vốn vào két</h2>
+      <div class="field"><label for="c-amount">Số tiền <span class="req">*</span></label><input id="c-amount" class="input num" inputmode="numeric"></div>
+      <div class="field"><label for="c-note">Ghi chú</label><input id="c-note" class="input"></div>
+      <p class="text-xs text-slate-500">Dùng khi chủ tiệm bỏ thêm tiền vào két, hoặc để chỉnh lại quỹ đầu két đã nhập sai.</p>
+      <div class="flex gap-2 justify-end"><button value="cancel" class="btn btn-outline">Huỷ</button><button class="btn btn-primary">Nạp vốn</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="dlg-opening" class="card p-0 m-auto w-[min(92vw,440px)] backdrop:bg-slate-900/40">
+    <form method="dialog" class="p-5 flex flex-col gap-4">
+      <h2 class="text-lg font-semibold">Nhập quỹ đầu két</h2>
+      <div class="field"><label for="o-amount">Tiền mặt đang có trong két <span class="req">*</span></label><input id="o-amount" class="input num" inputmode="numeric"></div>
+      <p class="text-xs text-slate-500">Ghi vào ngày mở két. Chỉ nhập được một lần; nhập sai thì chỉnh bằng Nạp vốn hoặc Chi khác.</p>
+      <div class="flex gap-2 justify-end"><button value="cancel" class="btn btn-outline">Huỷ</button><button class="btn btn-primary">Lưu</button></div>
+    </form>
+  </dialog>
+
+</div>
+<script src="assets/layout.js"></script>
+</body>
+</html>

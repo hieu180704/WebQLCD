@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sao lưu & Xuất Excel — TP83</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.1.11"></script>
+<link rel="stylesheet" href="assets/common.css">
+</head>
+<body data-page="backup">
+<div id="app-shell">
+
+  <h1 class="text-2xl font-bold">Sao lưu & Xuất Excel</h1>
+  <p class="text-sm text-slate-500">Chỉ chủ tiệm dùng được trang này</p>
+
+  <div class="mt-6 grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
+
+    <section class="card p-5" aria-labelledby="s-export">
+      <h2 id="s-export" class="font-semibold">Xuất Excel</h2>
+      <form class="mt-4 flex flex-col gap-4">
+        <fieldset class="field">
+          <legend class="text-[13px] font-medium text-slate-700 mb-1.5">Dữ liệu cần xuất</legend>
+          <div class="grid sm:grid-cols-2 gap-2 text-sm">
+            <label class="flex items-center gap-2"><input type="checkbox" checked> Hợp đồng cầm đồ & tín chấp</label>
+            <label class="flex items-center gap-2"><input type="checkbox" checked> Hợp đồng trả góp</label>
+            <label class="flex items-center gap-2"><input type="checkbox" checked> Sổ quỹ két (giao dịch)</label>
+            <label class="flex items-center gap-2"><input type="checkbox"> Danh sách khách hàng</label>
+          </div>
+        </fieldset>
+        <div class="grid sm:grid-cols-2 gap-4">
+          <div class="field"><label for="from">Từ ngày</label><input id="from" type="date" class="input" value="2026-10-01"></div>
+          <div class="field"><label for="to">Đến ngày</label><input id="to" type="date" class="input" value="2026-10-19"></div>
+        </div>
+        <div class="field"><label for="st">Trạng thái hợp đồng</label>
+          <select id="st" class="input"><option>Tất cả (kể cả đã đóng)</option><option>Chỉ hợp đồng đang mở</option><option>Kể cả hợp đồng đã xoá</option></select>
+        </div>
+        <label class="flex items-start gap-2 text-sm"><input type="checkbox" class="mt-1"> <span>Xuất số CCCD đầy đủ <span class="block text-xs text-slate-500">Mặc định chỉ xuất 4 số cuối. File có CCCD đầy đủ là dữ liệu cá nhân nhạy cảm, cần cất giữ cẩn thận.</span></span></label>
+        <button class="btn btn-primary self-start">Tải file Excel</button>
+      </form>
+    </section>
+
+    <section class="card p-5" aria-labelledby="s-backup">
+      <h2 id="s-backup" class="font-semibold">Sao lưu</h2>
+      <p class="mt-2 text-sm text-slate-600">Hệ thống tự sao lưu toàn bộ dữ liệu cửa hàng mỗi đêm và giữ 30 bản gần nhất. Bạn có thể tải một bản về máy để cất riêng.</p>
+      <div class="mt-4 rounded-lg bg-emerald-50 text-emerald-800 p-3 text-sm">Bản sao lưu gần nhất: <span class="font-semibold num">19/10/2026 02:00</span></div>
+      <div class="mt-4 overflow-x-auto">
+        <table class="table">
+          <thead><tr><th>Thời điểm</th><th class="text-right">Dung lượng</th><th><span class="sr-only">Thao tác</span></th></tr></thead>
+          <tbody>
+            <tr><td class="num">19/10/2026 02:00</td><td class="text-right num">2,4 MB</td><td><button class="text-sm text-teal-700 hover:underline" data-open="dlg-download">Tải về</button></td></tr>
+            <tr><td class="num">18/10/2026 02:00</td><td class="text-right num">2,4 MB</td><td><button class="text-sm text-teal-700 hover:underline" data-open="dlg-download">Tải về</button></td></tr>
+            <tr><td class="num">17/10/2026 02:00</td><td class="text-right num">2,3 MB</td><td><button class="text-sm text-teal-700 hover:underline" data-open="dlg-download">Tải về</button></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="mt-3 text-xs text-slate-500">Cần khôi phục dữ liệu về một bản sao lưu: liên hệ hỗ trợ [SỐ ĐIỆN THOẠI]. Khôi phục không làm trên giao diện để tránh ghi đè nhầm.</p>
+    </section>
+  </div>
+
+  <dialog id="dlg-download" class="card p-0 m-auto w-[min(92vw,440px)] backdrop:bg-slate-900/40">
+    <form method="dialog" class="p-5 flex flex-col gap-4">
+      <h2 class="text-lg font-semibold">Tải bản sao lưu</h2>
+      <p class="text-sm text-slate-600">File chứa toàn bộ dữ liệu cửa hàng, kể cả CCCD đầy đủ. Nhập lại mật khẩu để xác nhận.</p>
+      <div class="field"><label for="pw">Mật khẩu của bạn</label><input id="pw" type="password" class="input" autocomplete="current-password"></div>
+      <div class="flex gap-2 justify-end"><button value="cancel" class="btn btn-outline">Huỷ</button><button class="btn btn-primary">Tải về</button></div>
+    </form>
+  </dialog>
+
+</div>
+<script src="assets/layout.js"></script>
+</body>
+</html>

@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Khách hàng — TP83</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.1.11"></script>
+<link rel="stylesheet" href="assets/common.css">
+</head>
+<body data-page="customer">
+<div id="app-shell">
+
+  <div class="flex flex-wrap items-end gap-3">
+    <div>
+      <h1 class="text-2xl font-bold">Khách hàng</h1>
+      <p class="text-sm text-slate-500">214 khách hàng · 61 khách đang có hợp đồng mở</p>
+    </div>
+    <div class="ml-auto flex flex-wrap gap-2">
+      <a href="sao-luu.html" class="btn btn-outline">Xuất Excel</a>
+    </div>
+  </div>
+
+  <section class="card mt-6">
+    <form class="p-4 flex flex-wrap gap-3 items-end border-b border-slate-200" role="search">
+      <div class="field flex-1 min-w-[240px]">
+        <label for="q">Tìm kiếm</label>
+        <input id="q" class="input" placeholder="Tên khách, SĐT">
+      </div>
+      <div class="field w-full sm:w-52">
+        <label for="cccd">Số CCCD (khớp đủ 12 số)</label>
+        <input id="cccd" class="input" inputmode="numeric" maxlength="12" placeholder="0xxxxxxxxxxx">
+      </div>
+      <div class="field w-full sm:w-48">
+        <label for="f">Lọc</label>
+        <select id="f" class="input"><option>Tất cả</option><option>Đang có hợp đồng mở</option><option>Có hợp đồng quá hạn</option></select>
+      </div>
+      <button class="btn btn-outline">Lọc</button>
+    </form>
+
+    <div class="overflow-x-auto">
+      <table class="table">
+        <thead>
+          <tr><th>Khách hàng</th><th>Số CCCD</th><th>Địa chỉ</th><th class="text-right">HĐ đang mở</th><th class="text-right">Dư nợ hiện tại</th><th>Giao dịch gần nhất</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><a href="khach-hang-chi-tiet.html" class="font-medium text-teal-700">Nguyễn Văn Bình</a><div class="text-xs text-slate-500 num">0912 345 678</div></td>
+            <td class="num">**** **** 3456</td><td class="max-w-[220px] truncate">12 Lê Lợi, P. Bến Thành, TP.HCM</td>
+            <td class="text-right num">2 <span class="badge badge-late ml-1">1 quá hạn</span></td><td class="text-right num">23.000.000</td><td class="num">05/10/2026</td>
+          </tr>
+          <tr>
+            <td><a href="khach-hang-chi-tiet.html" class="font-medium text-teal-700">Lê Thị Hoa</a><div class="text-xs text-slate-500 num">0987 654 112</div></td>
+            <td class="num">**** **** 1027</td><td class="max-w-[220px] truncate">88 Trần Hưng Đạo, Q. 1, TP.HCM</td>
+            <td class="text-right num">1 <span class="badge badge-late ml-1">1 quá hạn</span></td><td class="text-right num">20.000.000</td><td class="num">18/09/2026</td>
+          </tr>
+          <tr>
+            <td><a href="khach-hang-chi-tiet.html" class="font-medium text-teal-700">Đỗ Minh Tâm</a><div class="text-xs text-slate-500 num">0938 214 552</div></td>
+            <td class="num">**** **** 2318</td><td class="max-w-[220px] truncate">45 Nguyễn Trãi, P. 2, Q. 5, TP.HCM</td>
+            <td class="text-right num">1</td><td class="text-right num">3.400.000</td><td class="num">17/10/2026</td>
+          </tr>
+          <tr>
+            <td><a href="khach-hang-chi-tiet.html" class="font-medium text-teal-700">Phạm Quốc Huy</a><div class="text-xs text-slate-500 num">0903 118 455</div></td>
+            <td class="text-slate-400">Chưa có</td><td class="max-w-[220px] truncate">—</td>
+            <td class="text-right num">1</td><td class="text-right num">40.000.000</td><td class="num">09/10/2026</td>
+          </tr>
+          <tr>
+            <td><a href="khach-hang-chi-tiet.html" class="font-medium text-teal-700">Phan Thị Yến</a><div class="text-xs text-slate-500 num">0965 300 140</div></td>
+            <td class="num">**** **** 0905</td><td class="max-w-[220px] truncate">7 Hậu Giang, Q. 6, TP.HCM</td>
+            <td class="text-right num text-slate-400">0</td><td class="text-right num text-slate-400">0</td><td class="num">30/09/2026</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="p-4 flex flex-wrap items-center gap-3 text-sm text-slate-600">
+      <span>Hiển thị 1–20 / 214 khách hàng</span>
+      <nav class="ml-auto flex gap-1" aria-label="Phân trang">
+        <a href="#" class="btn btn-outline !h-9 !px-3" aria-label="Trang trước">‹</a>
+        <a href="#" class="btn btn-primary !h-9 !px-3" aria-current="page">1</a>
+        <a href="#" class="btn btn-outline !h-9 !px-3">2</a>
+        <a href="#" class="btn btn-outline !h-9 !px-3">3</a>
+        <a href="#" class="btn btn-outline !h-9 !px-3" aria-label="Trang sau">›</a>
+      </nav>
+    </div>
+  </section>
+  <p class="mt-3 text-xs text-slate-500">Khách hàng được tạo khi lập hợp đồng. Số CCCD chỉ hiện 4 số cuối; tìm theo CCCD phải nhập đủ số.</p>
+
+</div>
+<script src="assets/layout.js"></script>
+</body>
+</html>

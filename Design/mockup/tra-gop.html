@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trả góp — TP83</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.1.11"></script>
+<link rel="stylesheet" href="assets/common.css">
+</head>
+<body data-page="installment">
+<div id="app-shell">
+
+  <div class="flex flex-wrap items-end gap-3">
+    <div>
+      <h1 class="text-2xl font-bold">Trả góp</h1>
+      <p class="text-sm text-slate-500">18 hợp đồng đang góp</p>
+    </div>
+    <div class="ml-auto flex flex-wrap gap-2">
+      <a href="sao-luu.html" class="btn btn-outline">Xuất Excel</a>
+      <a href="tra-gop-form.html" class="btn btn-primary">+ Thêm hợp đồng</a>
+    </div>
+  </div>
+
+  <section class="mt-6 grid grid-cols-2 lg:grid-cols-4 gap-4" aria-label="Tóm tắt">
+    <div class="card p-4"><div class="text-sm text-slate-500">Tiền đã đưa khách</div><div class="mt-1 text-lg font-bold num">96.000.000</div></div>
+    <div class="card p-4"><div class="text-sm text-slate-500">Còn phải thu</div><div class="mt-1 text-lg font-bold num">71.400.000</div></div>
+    <div class="card p-4"><div class="text-sm text-slate-500">Đã thu tháng này</div><div class="mt-1 text-lg font-bold num text-emerald-700">24.600.000</div></div>
+    <div class="card p-4"><div class="text-sm text-slate-500">Chậm góp</div><div class="mt-1 text-lg font-bold num text-red-700">3</div></div>
+  </section>
+
+  <section class="card mt-6">
+    <form class="p-4 flex flex-wrap gap-3 items-end border-b border-slate-200" role="search">
+      <div class="field flex-1 min-w-[240px]">
+        <label for="q">Tìm kiếm</label>
+        <input id="q" class="input" placeholder="Mã HĐ, tên khách, SĐT">
+      </div>
+      <div class="field w-full sm:w-52">
+        <label for="cccd">Số CCCD (khớp đủ 12 số)</label>
+        <input id="cccd" class="input" inputmode="numeric" maxlength="12" placeholder="0xxxxxxxxxxx">
+      </div>
+      <div class="field w-full sm:w-44">
+        <label for="status">Trạng thái</label>
+        <select id="status" class="input"><option>Đang góp</option><option>Chậm góp</option><option>Đến hạn hôm nay</option><option>Đã đóng</option><option>Đã xoá</option></select>
+      </div>
+      <button class="btn btn-outline">Lọc</button>
+    </form>
+
+    <div class="overflow-x-auto">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Mã HĐ</th><th>Khách hàng</th>
+            <th class="text-right">Tiền đưa khách</th><th class="text-right">Tổng phải thu</th>
+            <th class="text-right">Đã thu</th><th>Tiến độ</th><th class="text-right">Mỗi kỳ</th><th>Kỳ tới</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><a href="tra-gop-chi-tiet.html" class="text-teal-700 font-medium">TG-0017</a></td>
+            <td><div class="font-medium">Ngô Văn Tài</div><div class="text-xs text-slate-500 num">0909 *** 731</div></td>
+            <td class="text-right num">8.000.000</td><td class="text-right num">10.000.000</td>
+            <td class="text-right num">3.200.000</td>
+            <td><div class="w-28 h-2 rounded-full bg-slate-100"><div class="h-2 rounded-full bg-teal-600" style="width:32%"></div></div><div class="text-xs text-slate-500 mt-1">8 / 25 kỳ</div></td>
+            <td class="text-right num">400.000</td>
+            <td><div class="num">13/10/2026</div><div class="mt-1"><span class="badge badge-late">Chậm 3 kỳ</span></div></td>
+          </tr>
+          <tr>
+            <td><a href="tra-gop-chi-tiet.html" class="text-teal-700 font-medium">TG-0021</a></td>
+            <td><div class="font-medium">Đỗ Minh Tâm</div><div class="text-xs text-slate-500 num">0938 *** 552</div></td>
+            <td class="text-right num">4.000.000</td><td class="text-right num">5.000.000</td>
+            <td class="text-right num">1.600.000</td>
+            <td><div class="w-28 h-2 rounded-full bg-slate-100"><div class="h-2 rounded-full bg-teal-600" style="width:32%"></div></div><div class="text-xs text-slate-500 mt-1">8 / 25 kỳ</div></td>
+            <td class="text-right num">200.000</td>
+            <td><div class="num">19/10/2026</div><div class="mt-1"><span class="badge badge-warn">Hôm nay</span></div></td>
+          </tr>
+          <tr>
+            <td><a href="tra-gop-chi-tiet.html" class="text-teal-700 font-medium">TG-0024</a></td>
+            <td><div class="font-medium">Huỳnh Thị Ngọc</div><div class="text-xs text-slate-500 num">0971 *** 208</div></td>
+            <td class="text-right num">9.000.000</td><td class="text-right num">11.000.000</td>
+            <td class="text-right num">4.400.000</td>
+            <td><div class="w-28 h-2 rounded-full bg-slate-100"><div class="h-2 rounded-full bg-teal-600" style="width:40%"></div></div><div class="text-xs text-slate-500 mt-1">4 / 10 kỳ</div></td>
+            <td class="text-right num">1.100.000</td>
+            <td><div class="num">22/10/2026</div><div class="mt-1"><span class="badge badge-ok">Đúng hạn</span></div></td>
+          </tr>
+          <tr>
+            <td><a href="tra-gop-chi-tiet.html" class="text-teal-700 font-medium">TG-0026</a></td>
+            <td><div class="font-medium">Lý Quang Vinh</div><div class="text-xs text-slate-500 num">0918 *** 667</div></td>
+            <td class="text-right num">20.000.000</td><td class="text-right num">24.000.000</td>
+            <td class="text-right num">800.000</td>
+            <td><div class="w-28 h-2 rounded-full bg-slate-100"><div class="h-2 rounded-full bg-teal-600" style="width:3%"></div></div><div class="text-xs text-slate-500 mt-1">1 / 30 kỳ</div></td>
+            <td class="text-right num">800.000</td>
+            <td><div class="num">21/10/2026</div><div class="mt-1"><span class="badge badge-ok">Đúng hạn</span></div></td>
+          </tr>
+          <tr>
+            <td><a href="tra-gop-chi-tiet.html" class="text-teal-700 font-medium">TG-0009</a></td>
+            <td><div class="font-medium">Phan Thị Yến</div><div class="text-xs text-slate-500 num">0965 *** 140</div></td>
+            <td class="text-right num">5.000.000</td><td class="text-right num">6.000.000</td>
+            <td class="text-right num">6.000.000</td>
+            <td><div class="w-28 h-2 rounded-full bg-slate-100"><div class="h-2 rounded-full bg-emerald-600" style="width:100%"></div></div><div class="text-xs text-slate-500 mt-1">20 / 20 kỳ</div></td>
+            <td class="text-right num">300.000</td>
+            <td><span class="badge badge-muted">Đã đóng</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="p-4 flex flex-wrap items-center gap-3 text-sm text-slate-600">
+      <span>Hiển thị 1–5 / 18 hợp đồng</span>
+    </div>
+  </section>
+
+</div>
+<script src="assets/layout.js"></script>
+</body>
+</html>

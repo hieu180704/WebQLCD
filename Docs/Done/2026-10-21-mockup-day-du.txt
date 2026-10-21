@@ -1,0 +1,13 @@
+# 2026-10-21: Mockup HTML đủ các màn còn thiếu — [verified: Playwright quét 15 trang ở 390px và 1440px (không tràn ngang, không link hỏng, không trùng id), 23 hộp thoại mở được; chưa có phản hồi của khách]
+
+- Commit: xem commit "Mockup đủ các màn" ngay sau commit b8d0acc
+- Đã làm:
+  1. Màn mới trong `Design/mockup/`: `tra-gop.html`, `tra-gop-form.html`, `tra-gop-chi-tiet.html`, `quy-ket.html`, `khach-hang.html`, `khach-hang-chi-tiet.html`, `bao-cao.html`, `sao-luu.html`, `nhan-vien.html`, `cai-dat.html`.
+  2. `cam-do-chi-tiet.html`: thêm hộp thoại trả bớt gốc, vay thêm, gia hạn, huỷ giao dịch (bút toán đảo), xoá hợp đồng.
+  3. `assets/layout.js`: menu trỏ trang thật, thêm mục Nhân viên, gom code mở hộp thoại (`data-open`) về một chỗ. `dashboard.html`: nối 3 link `#`.
+  4. CCCD trong mockup chỉ hiện 4 số cuối, khớp data-model (mockup cũ lộ 6 số).
+  5. `assets/common.css`: `.table` thêm `position: relative`, nếu không `<span class="sr-only">` trong `<th>` kéo cả trang tràn ngang trên mobile.
+- Trạng thái: xong mockup. Số liệu mẫu khớp nhau giữa các màn (quỹ két 19/10 = dòng 19/10 của báo cáo, dư nợ = tổng ở danh sách).
+- Lưu ý cho phiên sau:
+  - Khi đưa mockup vào app, mang theo dòng CSS `.table { position: relative }` sang `src/app/globals.css`.
+  - Các nghiệp vụ mới mockup tự đặt (chưa vào core-spec) ghi ở handoff mục 3.

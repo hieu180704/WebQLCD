@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cài đặt cửa hàng — TP83</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.1.11"></script>
+<link rel="stylesheet" href="assets/common.css">
+</head>
+<body data-page="settings">
+<div id="app-shell">
+
+  <h1 class="text-2xl font-bold">Cài đặt cửa hàng</h1>
+
+  <div class="mt-6 grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
+    <div class="flex flex-col gap-6">
+
+      <section class="card p-5" aria-labelledby="s-shop">
+        <h2 id="s-shop" class="font-semibold">Thông tin cửa hàng</h2>
+        <form class="mt-4 grid sm:grid-cols-2 gap-4">
+          <div class="field sm:col-span-2"><label for="s-name">Tên cửa hàng <span class="req">*</span></label><input id="s-name" class="input" value="Cầm đồ Minh Phát"></div>
+          <div class="field"><label for="s-phone">Số điện thoại</label><input id="s-phone" class="input" value="0283 456 789"></div>
+          <div class="field"><label>Ngày mở két</label><input class="input bg-slate-50" value="01/09/2026" readonly></div>
+          <div class="field sm:col-span-2"><label for="s-addr">Địa chỉ</label><input id="s-addr" class="input" value="215 Hai Bà Trưng, Q. 3, TP.HCM"></div>
+          <div class="sm:col-span-2"><button class="btn btn-primary">Lưu thông tin</button></div>
+        </form>
+        <p class="mt-3 text-xs text-slate-500">Chỉ chủ tiệm sửa được. Tên cửa hàng hiện trên đầu trang và trên file Excel xuất ra.</p>
+      </section>
+
+      <section class="card p-5" aria-labelledby="s-default">
+        <h2 id="s-default" class="font-semibold">Mặc định khi tạo hợp đồng</h2>
+        <form class="mt-4 grid sm:grid-cols-2 gap-4">
+          <div class="field"><label for="d-type">Hình thức lãi</label>
+            <select id="d-type" class="input"><option>Lãi ngày (k / triệu / ngày)</option><option>Lãi tháng (% / tháng)</option><option>Lãi tuần (% / tuần)</option></select></div>
+          <div class="field"><label for="d-rate">Lãi</label><input id="d-rate" class="input num" value="3"></div>
+          <div class="field"><label for="d-days">Số ngày vay</label><input id="d-days" class="input num" value="30"></div>
+          <div class="field"><label for="d-period">Kỳ lãi (ngày)</label><input id="d-period" class="input num" value="10"></div>
+          <label class="sm:col-span-2 flex items-center gap-2 text-sm"><input type="checkbox"> Mặc định bật "Thu lãi trước"</label>
+          <div class="sm:col-span-2"><button class="btn btn-primary">Lưu mặc định</button></div>
+        </form>
+        <p class="mt-3 text-xs text-slate-500">Chỉ là giá trị điền sẵn vào form, sửa được trên từng hợp đồng.</p>
+      </section>
+    </div>
+
+    <div class="flex flex-col gap-6">
+      <section class="card p-5" aria-labelledby="s-sub">
+        <h2 id="s-sub" class="font-semibold">Thuê bao</h2>
+        <dl class="mt-4 grid grid-cols-[140px_1fr] gap-y-3 text-sm">
+          <dt class="text-slate-500">Gói</dt><dd><span class="badge badge-warn">Dùng thử</span></dd>
+          <dt class="text-slate-500">Hết hạn</dt><dd class="num">24/10/2026 (còn 5 ngày)</dd>
+          <dt class="text-slate-500">Sau khi hết hạn</dt><dd>Dữ liệu vẫn giữ, tài khoản chỉ xem được cho tới khi gia hạn.</dd>
+        </dl>
+        <div class="mt-4 rounded-lg border border-slate-200 p-4">
+          <div class="text-sm text-slate-500">Gói tiêu chuẩn</div>
+          <div class="mt-1 text-xl font-bold">[GIÁ] <span class="text-sm font-normal text-slate-500">/ tháng</span></div>
+          <button class="btn btn-primary mt-3">Gia hạn gói</button>
+          <p class="mt-2 text-xs text-slate-500">Cách thanh toán chưa chốt (chuyển khoản / cổng thanh toán).</p>
+        </div>
+      </section>
+
+      <section class="card p-5" aria-labelledby="s-me">
+        <h2 id="s-me" class="font-semibold">Tài khoản của tôi</h2>
+        <form class="mt-4 flex flex-col gap-4">
+          <div class="field"><label for="m-old">Mật khẩu hiện tại</label><input id="m-old" type="password" class="input" autocomplete="current-password"></div>
+          <div class="field"><label for="m-new">Mật khẩu mới</label><input id="m-new" type="password" class="input" autocomplete="new-password"></div>
+          <div class="field"><label for="m-new2">Nhập lại mật khẩu mới</label><input id="m-new2" type="password" class="input" autocomplete="new-password"></div>
+          <button class="btn btn-primary self-start">Đổi mật khẩu</button>
+        </form>
+        <p class="mt-3 text-xs text-slate-500">Nhân viên cũng thấy mục này để tự đổi mật khẩu; các mục khác của trang chỉ chủ tiệm thấy.</p>
+      </section>
+    </div>
+  </div>
+
+</div>
+<script src="assets/layout.js"></script>
+</body>
+</html>

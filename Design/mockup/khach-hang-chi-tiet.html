@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nguyễn Văn Bình — TP83</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.1.11"></script>
+<link rel="stylesheet" href="assets/common.css">
+</head>
+<body data-page="customer">
+<div id="app-shell">
+
+  <nav class="text-sm text-slate-500" aria-label="Breadcrumb"><a href="khach-hang.html" class="hover:underline">Khách hàng</a> / Nguyễn Văn Bình</nav>
+  <div class="mt-1 flex flex-wrap items-center gap-3">
+    <h1 class="text-2xl font-bold">Nguyễn Văn Bình</h1>
+    <span class="badge badge-late">1 hợp đồng quá hạn</span>
+    <div class="ml-auto flex flex-wrap gap-2">
+      <button class="btn btn-outline" data-open="dlg-edit">Sửa thông tin</button>
+      <a href="cam-do-form.html" class="btn btn-outline">+ Cầm đồ / Tín chấp</a>
+      <a href="tra-gop-form.html" class="btn btn-primary">+ Trả góp</a>
+    </div>
+  </div>
+
+  <div class="mt-6 grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-6 items-start">
+    <div class="flex flex-col gap-6 min-w-0">
+
+      <section class="grid grid-cols-2 lg:grid-cols-4 gap-4" aria-label="Số liệu">
+        <div class="card p-4"><div class="text-sm text-slate-500">HĐ đang mở</div><div class="mt-1 text-lg font-bold num">2</div></div>
+        <div class="card p-4"><div class="text-sm text-slate-500">Dư nợ hiện tại</div><div class="mt-1 text-lg font-bold num">23.000.000</div></div>
+        <div class="card p-4"><div class="text-sm text-slate-500">Tổng lãi đã đóng</div><div class="mt-1 text-lg font-bold num text-emerald-700">2.870.000</div></div>
+        <div class="card p-4"><div class="text-sm text-slate-500">Khách từ</div><div class="mt-1 text-lg font-bold num">03/2026</div></div>
+      </section>
+
+      <section class="card" aria-labelledby="t-contracts">
+        <h2 id="t-contracts" class="p-5 pb-3 font-semibold">Hợp đồng của khách</h2>
+        <div class="overflow-x-auto">
+          <table class="table">
+            <thead><tr><th>Mã HĐ</th><th>Loại</th><th>Tài sản</th><th class="text-right">Tiền vay</th><th class="text-right">Gốc còn lại</th><th>Ngày vay</th><th>Trạng thái</th></tr></thead>
+            <tbody>
+              <tr><td><a href="cam-do-chi-tiet.html" class="text-teal-700 font-medium">CD-0412</a></td><td>Thế chấp</td><td>Honda Vision 2022</td><td class="text-right num">15.000.000</td><td class="text-right num">15.000.000</td><td class="num">05/09/2026</td><td><span class="badge badge-late">Quá 4 ngày</span></td></tr>
+              <tr><td><a href="cam-do-chi-tiet.html" class="text-teal-700 font-medium">TC-0079</a></td><td>Tín chấp</td><td class="text-slate-400">—</td><td class="text-right num">10.000.000</td><td class="text-right num">8.000.000</td><td class="num">02/08/2026</td><td><span class="badge badge-ok">Đang vay</span></td></tr>
+              <tr><td><a href="cam-do-chi-tiet.html" class="text-teal-700 font-medium">CD-0233</a></td><td>Thế chấp</td><td>Nhẫn vàng 24K 1 chỉ</td><td class="text-right num">6.000.000</td><td class="text-right num text-slate-400">0</td><td class="num">14/03/2026</td><td><span class="badge badge-muted">Đã chuộc 20/05/2026</span></td></tr>
+              <tr class="text-slate-400"><td><span class="line-through">CD-0230</span></td><td>Thế chấp</td><td>Samsung A55</td><td class="text-right num">4.000.000</td><td class="text-right num">0</td><td class="num">12/03/2026</td><td><span class="badge badge-late">Đã xoá</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="card" aria-labelledby="t-history">
+        <div class="p-5 pb-3 flex items-center"><h2 id="t-history" class="font-semibold">Giao dịch gần đây</h2></div>
+        <div class="overflow-x-auto">
+          <table class="table">
+            <thead><tr><th>Thời gian</th><th>Hợp đồng</th><th>Nội dung</th><th class="text-right">Thu</th><th class="text-right">Chi</th></tr></thead>
+            <tbody>
+              <tr><td class="num">05/10/2026 10:15</td><td>CD-0412</td><td>Đóng lãi kỳ 3</td><td class="text-right num text-emerald-700">450.000</td><td></td></tr>
+              <tr><td class="num">02/10/2026 09:00</td><td>TC-0079</td><td>Trả bớt gốc</td><td class="text-right num text-emerald-700">2.000.000</td><td></td></tr>
+              <tr><td class="num">26/09/2026 16:02</td><td>CD-0412</td><td>Đóng lãi kỳ 2</td><td class="text-right num text-emerald-700">450.000</td><td></td></tr>
+              <tr><td class="num">05/09/2026 14:20</td><td>CD-0412</td><td>Giải ngân, tạo hợp đồng</td><td></td><td class="text-right num text-red-700">15.000.000</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+
+    <aside class="flex flex-col gap-6">
+      <section class="card p-5" aria-labelledby="s-cus">
+        <h2 id="s-cus" class="font-semibold">Thông tin khách</h2>
+        <dl class="mt-4 grid grid-cols-[110px_1fr] gap-y-3 text-sm">
+          <dt class="text-slate-500">Họ tên</dt><dd class="font-medium">Nguyễn Văn Bình</dd>
+          <dt class="text-slate-500">Số CCCD</dt><dd class="num">**** **** 3456 <button class="ml-2 text-xs text-teal-700 hover:underline" title="Chỉ chủ tiệm, có ghi nhật ký">Hiện số đầy đủ</button></dd>
+          <dt class="text-slate-500">SĐT</dt><dd class="num">0912 345 678</dd>
+          <dt class="text-slate-500">Địa chỉ</dt><dd>12 Lê Lợi, P. Bến Thành, TP.HCM</dd>
+        </dl>
+      </section>
+    </aside>
+  </div>
+
+  <dialog id="dlg-edit" class="card p-0 m-auto w-[min(92vw,480px)] backdrop:bg-slate-900/40">
+    <form method="dialog" class="p-5 flex flex-col gap-4">
+      <h2 class="text-lg font-semibold">Sửa thông tin khách</h2>
+      <div class="field"><label for="k-name">Tên khách hàng <span class="req">*</span></label><input id="k-name" class="input" value="Nguyễn Văn Bình"></div>
+      <div class="field"><label for="k-cccd">Số CCCD</label><input id="k-cccd" class="input" inputmode="numeric" maxlength="12" placeholder="Để trống nếu không đổi"></div>
+      <div class="field"><label for="k-phone">Số điện thoại</label><input id="k-phone" class="input" value="0912 345 678"></div>
+      <div class="field"><label for="k-addr">Địa chỉ</label><input id="k-addr" class="input" value="12 Lê Lợi, P. Bến Thành, TP.HCM"></div>
+      <p class="text-xs text-slate-500">Sửa thông tin không sinh giao dịch, có ghi nhật ký ai sửa lúc nào.</p>
+      <div class="flex gap-2 justify-end"><button value="cancel" class="btn btn-outline">Huỷ</button><button class="btn btn-primary">Lưu</button></div>
+    </form>
+  </dialog>
+
+</div>
+<script src="assets/layout.js"></script>
+</body>
+</html>

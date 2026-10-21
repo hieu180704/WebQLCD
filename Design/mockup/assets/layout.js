@@ -9,6 +9,7 @@
     customer: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
     report: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
     settings: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>',
+    staff: '<circle cx="9" cy="8" r="3.5"/><path d="M2 20a7 7 0 0 1 14 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M22 20a7 7 0 0 0-4-6.3"/>',
     backup: '<path d="M12 3v12M7 10l5 5 5-5"/><path d="M4 17v3h16v-3"/>',
     menu: '<path d="M3 6h18M3 12h18M3 18h18"/>',
     logout: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/>',
@@ -20,12 +21,13 @@
   const NAV = [
     { id: 'dashboard', label: 'Tổng quan', href: 'dashboard.html', icon: 'home' },
     { id: 'pawn', label: 'Cầm đồ & Tín chấp', href: 'cam-do.html', icon: 'pawn' },
-    { id: 'installment', label: 'Trả góp', href: '#', icon: 'installment' },
-    { id: 'cash', label: 'Quỹ két & Thu chi', href: '#', icon: 'cash' },
-    { id: 'customer', label: 'Khách hàng', href: '#', icon: 'customer' },
-    { id: 'report', label: 'Báo cáo', href: '#', icon: 'report' },
-    { id: 'backup', label: 'Sao lưu & Xuất Excel', href: '#', icon: 'backup' },
-    { id: 'settings', label: 'Cài đặt cửa hàng', href: '#', icon: 'settings' },
+    { id: 'installment', label: 'Trả góp', href: 'tra-gop.html', icon: 'installment' },
+    { id: 'cash', label: 'Quỹ két & Thu chi', href: 'quy-ket.html', icon: 'cash' },
+    { id: 'customer', label: 'Khách hàng', href: 'khach-hang.html', icon: 'customer' },
+    { id: 'report', label: 'Báo cáo', href: 'bao-cao.html', icon: 'report' },
+    { id: 'backup', label: 'Sao lưu & Xuất Excel', href: 'sao-luu.html', icon: 'backup' },
+    { id: 'staff', label: 'Nhân viên', href: 'nhan-vien.html', icon: 'staff' },
+    { id: 'settings', label: 'Cài đặt cửa hàng', href: 'cai-dat.html', icon: 'settings' },
   ];
 
   const page = document.body.dataset.page;
@@ -93,3 +95,9 @@
 
 // Định dạng tiền VND, dùng chung cho các trang
 window.vnd = n => new Intl.NumberFormat('vi-VN').format(Math.round(n));
+
+// Nút có data-open="<id dialog>" mở hộp thoại tương ứng
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-open]');
+  if (b) { e.preventDefault(); document.getElementById(b.dataset.open).showModal(); }
+});

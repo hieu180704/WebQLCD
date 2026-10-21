@@ -18,16 +18,16 @@
     <span class="badge badge-late">Quá hạn đóng lãi 4 ngày</span>
     <div class="ml-auto flex flex-wrap gap-2">
       <a href="cam-do-form.html" class="btn btn-outline">Sửa thông tin</a>
-      <button class="btn btn-danger" title="Chỉ chủ tiệm">Xoá</button>
+      <button class="btn btn-danger" title="Chỉ chủ tiệm" data-open="dlg-delete">Xoá</button>
     </div>
   </div>
 
   <!-- Thao tác có tiền -->
   <section class="card mt-6 p-4 flex flex-wrap gap-2" aria-label="Thao tác">
     <button class="btn btn-primary" data-open="dlg-interest">Đóng lãi</button>
-    <button class="btn btn-outline">Trả bớt gốc</button>
-    <button class="btn btn-outline">Vay thêm</button>
-    <button class="btn btn-outline">Gia hạn</button>
+    <button class="btn btn-outline" data-open="dlg-principal">Trả bớt gốc</button>
+    <button class="btn btn-outline" data-open="dlg-more">Vay thêm</button>
+    <button class="btn btn-outline" data-open="dlg-extend">Gia hạn</button>
     <button class="btn btn-outline sm:ml-auto !border-teal-700 !text-teal-800" data-open="dlg-redeem">Chuộc đồ</button>
   </section>
 
@@ -62,12 +62,12 @@
         <h2 id="t-history" class="p-5 pb-3 font-semibold">Lịch sử giao dịch</h2>
         <div class="overflow-x-auto">
           <table class="table">
-            <thead><tr><th>Thời gian</th><th>Nội dung</th><th class="text-right">Thu</th><th class="text-right">Chi</th><th>Người thực hiện</th></tr></thead>
+            <thead><tr><th>Thời gian</th><th>Nội dung</th><th class="text-right">Thu</th><th class="text-right">Chi</th><th>Người thực hiện</th><th><span class="sr-only">Thao tác</span></th></tr></thead>
             <tbody>
-              <tr><td class="num">05/10/2026 10:15</td><td>Đóng lãi kỳ 3</td><td class="text-right num text-emerald-700">450.000</td><td></td><td>Hùng</td></tr>
-              <tr><td class="num">26/09/2026 16:02</td><td>Đóng lãi kỳ 2</td><td class="text-right num text-emerald-700">450.000</td><td></td><td>Lan</td></tr>
-              <tr><td class="num">15/09/2026 09:40</td><td>Đóng lãi kỳ 1</td><td class="text-right num text-emerald-700">450.000</td><td></td><td>Hùng</td></tr>
-              <tr><td class="num">05/09/2026 14:20</td><td>Giải ngân, tạo hợp đồng</td><td></td><td class="text-right num text-red-700">15.000.000</td><td>Hùng</td></tr>
+              <tr><td class="num">05/10/2026 10:15</td><td>Đóng lãi kỳ 3</td><td class="text-right num text-emerald-700">450.000</td><td></td><td>Hùng</td><td><button class="text-sm text-red-700 hover:underline" data-open="dlg-reverse" title="Chỉ chủ tiệm">Huỷ</button></td></tr>
+              <tr><td class="num">26/09/2026 16:02</td><td>Đóng lãi kỳ 2</td><td class="text-right num text-emerald-700">450.000</td><td></td><td>Lan</td><td></td></tr>
+              <tr><td class="num">15/09/2026 09:40</td><td>Đóng lãi kỳ 1</td><td class="text-right num text-emerald-700">450.000</td><td></td><td>Hùng</td><td></td></tr>
+              <tr><td class="num">05/09/2026 14:20</td><td>Giải ngân, tạo hợp đồng</td><td></td><td class="text-right num text-red-700">15.000.000</td><td>Hùng</td><td></td></tr>
             </tbody>
           </table>
         </div>
@@ -79,7 +79,7 @@
         <h2 id="s-cus" class="font-semibold">Khách hàng</h2>
         <dl class="mt-4 grid grid-cols-[110px_1fr] gap-y-3 text-sm">
           <dt class="text-slate-500">Họ tên</dt><dd class="font-medium">Nguyễn Văn Bình</dd>
-          <dt class="text-slate-500">Số CCCD</dt><dd class="num">079 *** *** 456</dd>
+          <dt class="text-slate-500">Số CCCD</dt><dd class="num">**** **** 3456</dd>
           <dt class="text-slate-500">SĐT</dt><dd class="num">0912 345 678</dd>
           <dt class="text-slate-500">Địa chỉ</dt><dd>12 Lê Lợi, P. Bến Thành, TP.HCM</dd>
         </dl>
@@ -128,11 +128,86 @@
     </form>
   </dialog>
 
+  <!-- Hộp thoại trả bớt gốc -->
+  <dialog id="dlg-principal" class="card p-0 m-auto w-[min(92vw,440px)] backdrop:bg-slate-900/40">
+    <form method="dialog" class="p-5 flex flex-col gap-4">
+      <h2 class="text-lg font-semibold">Trả bớt gốc — CD-0412</h2>
+      <p class="text-sm rounded-lg bg-amber-50 text-amber-800 p-3">Còn nợ lãi 630.000 đ đến hôm nay. Nên đóng lãi trước để lãi kỳ sau tính trên gốc mới.</p>
+      <div class="field"><label for="p-amount">Số tiền trả bớt gốc <span class="req">*</span></label><input id="p-amount" class="input num" inputmode="numeric" value="5.000.000"></div>
+      <div class="field"><label for="p-note">Ghi chú</label><input id="p-note" class="input"></div>
+      <dl class="grid grid-cols-2 gap-y-2 text-sm">
+        <dt class="text-slate-500">Gốc hiện tại</dt><dd class="text-right num">15.000.000</dd>
+        <dt class="font-semibold border-t border-slate-200 pt-2">Gốc sau khi trả</dt><dd class="text-right num font-bold border-t border-slate-200 pt-2">10.000.000</dd>
+      </dl>
+      <p class="text-xs text-slate-500">Quỹ két ghi một khoản thu 5.000.000 đ.</p>
+      <div class="flex gap-2 justify-end"><button value="cancel" class="btn btn-outline">Huỷ</button><button class="btn btn-primary">Xác nhận trả gốc</button></div>
+    </form>
+  </dialog>
+
+  <!-- Hộp thoại vay thêm -->
+  <dialog id="dlg-more" class="card p-0 m-auto w-[min(92vw,440px)] backdrop:bg-slate-900/40">
+    <form method="dialog" class="p-5 flex flex-col gap-4">
+      <h2 class="text-lg font-semibold">Vay thêm — CD-0412</h2>
+      <div class="field"><label for="m-amount">Số tiền vay thêm <span class="req">*</span></label><input id="m-amount" class="input num" inputmode="numeric" value="3.000.000"></div>
+      <div class="field"><label for="m-note">Ghi chú</label><input id="m-note" class="input"></div>
+      <dl class="grid grid-cols-2 gap-y-2 text-sm">
+        <dt class="text-slate-500">Gốc hiện tại</dt><dd class="text-right num">15.000.000</dd>
+        <dt class="font-semibold border-t border-slate-200 pt-2">Gốc sau khi vay thêm</dt><dd class="text-right num font-bold border-t border-slate-200 pt-2">18.000.000</dd>
+      </dl>
+      <p class="text-xs text-slate-500">Quỹ két ghi một khoản chi 3.000.000 đ. Lãi từ hôm nay tính trên gốc mới.</p>
+      <div class="flex gap-2 justify-end"><button value="cancel" class="btn btn-outline">Huỷ</button><button class="btn btn-primary">Xác nhận giải ngân</button></div>
+    </form>
+  </dialog>
+
+  <!-- Hộp thoại gia hạn -->
+  <dialog id="dlg-extend" class="card p-0 m-auto w-[min(92vw,440px)] backdrop:bg-slate-900/40">
+    <form method="dialog" class="p-5 flex flex-col gap-4">
+      <h2 class="text-lg font-semibold">Gia hạn — CD-0412</h2>
+      <dl class="grid grid-cols-2 gap-y-2 text-sm">
+        <dt class="text-slate-500">Hạn hiện tại</dt><dd class="text-right num">04/11/2026 (60 ngày)</dd>
+      </dl>
+      <div class="field"><label for="e-days">Gia hạn thêm (ngày) <span class="req">*</span></label><input id="e-days" class="input num" inputmode="numeric" value="30"></div>
+      <label class="flex items-center gap-2 text-sm"><input type="checkbox" checked> Thu lãi đến hôm nay (630.000 đ)</label>
+      <dl class="grid grid-cols-2 gap-y-2 text-sm">
+        <dt class="font-semibold border-t border-slate-200 pt-2">Hạn mới</dt><dd class="text-right num font-bold border-t border-slate-200 pt-2">04/12/2026 (90 ngày)</dd>
+      </dl>
+      <p class="text-xs text-slate-500">Gia hạn không đổi tiền két. Nếu thu lãi, quỹ két ghi một khoản thu đóng lãi.</p>
+      <div class="flex gap-2 justify-end"><button value="cancel" class="btn btn-outline">Huỷ</button><button class="btn btn-primary">Xác nhận gia hạn</button></div>
+    </form>
+  </dialog>
+
+  <!-- Hộp thoại huỷ một giao dịch -->
+  <dialog id="dlg-reverse" class="card p-0 m-auto w-[min(92vw,440px)] backdrop:bg-slate-900/40">
+    <form method="dialog" class="p-5 flex flex-col gap-4">
+      <h2 class="text-lg font-semibold">Huỷ giao dịch</h2>
+      <dl class="grid grid-cols-[120px_1fr] gap-y-2 text-sm">
+        <dt class="text-slate-500">Giao dịch</dt><dd>Đóng lãi kỳ 3</dd>
+        <dt class="text-slate-500">Thời gian</dt><dd class="num">05/10/2026 10:15 · Hùng</dd>
+        <dt class="text-slate-500">Số tiền</dt><dd class="num font-medium text-emerald-700">+450.000</dd>
+      </dl>
+      <div class="field"><label for="r-reason">Lý do huỷ <span class="req">*</span></label><input id="r-reason" class="input" placeholder="VD: nhập nhầm hợp đồng"></div>
+      <p class="text-xs text-slate-500">Giao dịch gốc vẫn giữ trong lịch sử. Hệ thống ghi thêm một bút toán đảo −450.000 đ vào quỹ két hôm nay; lãi đã trả đến lùi về 25/09/2026.</p>
+      <div class="flex gap-2 justify-end"><button value="cancel" class="btn btn-outline">Đóng</button><button class="btn btn-danger">Huỷ giao dịch</button></div>
+    </form>
+  </dialog>
+
+  <!-- Hộp thoại xoá hợp đồng -->
+  <dialog id="dlg-delete" class="card p-0 m-auto w-[min(92vw,440px)] backdrop:bg-slate-900/40">
+    <form method="dialog" class="p-5 flex flex-col gap-4">
+      <h2 class="text-lg font-semibold text-red-700">Xoá hợp đồng CD-0412</h2>
+      <p class="text-sm">Hợp đồng chuyển sang "Đã xoá", vẫn tra cứu được. Mọi giao dịch của hợp đồng được ghi bút toán đảo vào quỹ két hôm nay:</p>
+      <dl class="grid grid-cols-2 gap-y-2 text-sm">
+        <dt class="text-slate-500">Đảo giải ngân</dt><dd class="text-right num text-emerald-700">+15.000.000</dd>
+        <dt class="text-slate-500">Đảo 3 lần đóng lãi</dt><dd class="text-right num text-red-700">−1.350.000</dd>
+        <dt class="font-semibold border-t border-slate-200 pt-2">Quỹ két thay đổi</dt><dd class="text-right num font-bold border-t border-slate-200 pt-2">+13.650.000</dd>
+      </dl>
+      <div class="field"><label for="x-reason">Lý do xoá <span class="req">*</span></label><input id="x-reason" class="input"></div>
+      <div class="field"><label for="x-confirm">Gõ mã hợp đồng để xác nhận</label><input id="x-confirm" class="input" placeholder="CD-0412"></div>
+      <div class="flex gap-2 justify-end"><button value="cancel" class="btn btn-outline">Đóng</button><button class="btn btn-danger">Xoá hợp đồng</button></div>
+    </form>
+  </dialog>
+
 </div>
 <script src="assets/layout.js"></script>
-<script>
-  document.querySelectorAll('[data-open]').forEach(b =>
-    b.addEventListener('click', () => document.getElementById(b.dataset.open).showModal()));
-</script>
 </body>
 </html>

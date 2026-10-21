@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hợp đồng TG-0021 — TP83</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.1.11"></script>
+<link rel="stylesheet" href="assets/common.css">
+</head>
+<body data-page="installment">
+<div id="app-shell">
+
+  <nav class="text-sm text-slate-500" aria-label="Breadcrumb"><a href="tra-gop.html" class="hover:underline">Trả góp</a> / TG-0021</nav>
+  <div class="mt-1 flex flex-wrap items-center gap-3">
+    <h1 class="text-2xl font-bold">Hợp đồng TG-0021</h1>
+    <span class="badge badge-warn">Đến hạn góp hôm nay</span>
+    <div class="ml-auto flex flex-wrap gap-2">
+      <a href="tra-gop-form.html" class="btn btn-outline">Sửa thông tin</a>
+      <button class="btn btn-danger" title="Chỉ chủ tiệm" data-open="dlg-delete">Xoá</button>
+    </div>
+  </div>
+
+  <section class="card mt-6 p-4 flex flex-wrap gap-2" aria-label="Thao tác">
+    <button class="btn btn-primary" data-open="dlg-pay">Đóng tiền góp</button>
+    <button class="btn btn-outline sm:ml-auto !border-teal-700 !text-teal-800" data-open="dlg-close">Đóng hợp đồng</button>
+  </section>
+
+  <div class="mt-6 grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-6 items-start">
+    <div class="flex flex-col gap-6 min-w-0">
+
+      <section class="grid grid-cols-2 lg:grid-cols-4 gap-4" aria-label="Số liệu">
+        <div class="card p-4"><div class="text-sm text-slate-500">Tổng phải thu</div><div class="mt-1 text-lg font-bold num">5.000.000</div></div>
+        <div class="card p-4"><div class="text-sm text-slate-500">Đã thu</div><div class="mt-1 text-lg font-bold num text-emerald-700">1.600.000</div></div>
+        <div class="card p-4"><div class="text-sm text-slate-500">Còn phải thu</div><div class="mt-1 text-lg font-bold num">3.400.000</div></div>
+        <div class="card p-4"><div class="text-sm text-slate-500">Tiến độ</div><div class="mt-1 text-lg font-bold num">8 / 25 kỳ</div>
+          <div class="mt-2 h-2 rounded-full bg-slate-100"><div class="h-2 rounded-full bg-teal-600" style="width:32%"></div></div></div>
+      </section>
+
+      <section class="card" aria-labelledby="t-schedule">
+        <div class="p-5 pb-3 flex items-center gap-3">
+          <h2 id="t-schedule" class="font-semibold">Lịch góp</h2>
+          <span class="text-sm text-slate-500">Mỗi kỳ 2 ngày · 200.000 đ</span>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="table">
+            <thead><tr><th>Kỳ</th><th>Ngày phải góp</th><th class="text-right">Phải góp</th><th class="text-right">Đã góp</th><th>Ngày góp</th><th>Trạng thái</th></tr></thead>
+            <tbody>
+              <tr><td>6</td><td class="num">13/10/2026</td><td class="text-right num">200.000</td><td class="text-right num">200.000</td><td class="num">13/10/2026</td><td><span class="badge badge-ok">Đã góp</span></td></tr>
+              <tr><td>7</td><td class="num">15/10/2026</td><td class="text-right num">200.000</td><td class="text-right num">200.000</td><td class="num">17/10/2026</td><td><span class="badge badge-ok">Đã góp</span></td></tr>
+              <tr><td>8</td><td class="num">17/10/2026</td><td class="text-right num">200.000</td><td class="text-right num">200.000</td><td class="num">17/10/2026</td><td><span class="badge badge-ok">Đã góp</span></td></tr>
+              <tr class="bg-amber-50/50"><td>9</td><td class="num">19/10/2026</td><td class="text-right num">200.000</td><td class="text-right num text-slate-400">0</td><td class="text-slate-400">—</td><td><span class="badge badge-warn">Hôm nay</span></td></tr>
+              <tr><td>10</td><td class="num">21/10/2026</td><td class="text-right num">200.000</td><td class="text-right num text-slate-400">0</td><td class="text-slate-400">—</td><td><span class="badge badge-muted">Chưa tới</span></td></tr>
+              <tr><td>11</td><td class="num">23/10/2026</td><td class="text-right num">200.000</td><td class="text-right num text-slate-400">0</td><td class="text-slate-400">—</td><td><span class="badge badge-muted">Chưa tới</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="p-4 text-sm"><a href="#" class="text-teal-700 hover:underline">Xem đủ 25 kỳ</a></div>
+      </section>
+
+      <section class="card" aria-labelledby="t-history">
+        <h2 id="t-history" class="p-5 pb-3 font-semibold">Lịch sử giao dịch</h2>
+        <div class="overflow-x-auto">
+          <table class="table">
+            <thead><tr><th>Thời gian</th><th>Nội dung</th><th class="text-right">Thu</th><th class="text-right">Chi</th><th>Người thực hiện</th><th><span class="sr-only">Thao tác</span></th></tr></thead>
+            <tbody>
+              <tr><td class="num">17/10/2026 08:30</td><td>Góp kỳ 7–8</td><td class="text-right num text-emerald-700">400.000</td><td></td><td>Lan</td><td><button class="text-sm text-red-700 hover:underline" data-open="dlg-reverse" title="Chỉ chủ tiệm">Huỷ</button></td></tr>
+              <tr><td class="num">13/10/2026 09:05</td><td>Góp kỳ 6</td><td class="text-right num text-emerald-700">200.000</td><td></td><td>Hùng</td><td></td></tr>
+              <tr><td class="num">11/10/2026 08:50</td><td>Góp kỳ 5</td><td class="text-right num text-emerald-700">200.000</td><td></td><td>Hùng</td><td></td></tr>
+              <tr><td class="text-slate-400" colspan="6">… 4 giao dịch góp kỳ 1–4</td></tr>
+              <tr><td class="num">01/10/2026 15:10</td><td>Giải ngân, tạo hợp đồng</td><td></td><td class="text-right num text-red-700">4.000.000</td><td>Hùng</td><td></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+
+    <aside class="flex flex-col gap-6">
+      <section class="card p-5" aria-labelledby="s-cus">
+        <div class="flex items-center"><h2 id="s-cus" class="font-semibold">Khách hàng</h2><a href="khach-hang-chi-tiet.html" class="ml-auto text-sm text-teal-700 hover:underline">Hồ sơ</a></div>
+        <dl class="mt-4 grid grid-cols-[110px_1fr] gap-y-3 text-sm">
+          <dt class="text-slate-500">Họ tên</dt><dd class="font-medium">Đỗ Minh Tâm</dd>
+          <dt class="text-slate-500">Số CCCD</dt><dd class="num">**** **** 2318</dd>
+          <dt class="text-slate-500">SĐT</dt><dd class="num">0938 214 552</dd>
+          <dt class="text-slate-500">Địa chỉ</dt><dd>45 Nguyễn Trãi, P. 2, Q. 5, TP.HCM</dd>
+        </dl>
+      </section>
+      <section class="card p-5" aria-labelledby="s-loan">
+        <h2 id="s-loan" class="font-semibold">Thông tin góp</h2>
+        <dl class="mt-4 grid grid-cols-[120px_1fr] gap-y-3 text-sm">
+          <dt class="text-slate-500">Tiền đưa khách</dt><dd class="num font-medium">4.000.000</dd>
+          <dt class="text-slate-500">Tổng phải thu</dt><dd class="num">5.000.000</dd>
+          <dt class="text-slate-500">Tiền lời</dt><dd class="num">1.000.000</dd>
+          <dt class="text-slate-500">Số ngày góp</dt><dd>50 ngày (01/10 → 20/11/2026)</dd>
+          <dt class="text-slate-500">Mỗi kỳ</dt><dd>2 ngày · 200.000 đ</dd>
+          <dt class="text-slate-500">KTV</dt><dd>Hùng</dd>
+          <dt class="text-slate-500">Ghi chú</dt><dd>Góp tại tiệm buổi sáng.</dd>
+        </dl>
+      </section>
+    </aside>
+  </div>
+
+  <dialog id="dlg-pay" class="card p-0 m-auto w-[min(92vw,440px)] backdrop:bg-slate-900/40">
+    <form method="dialog" class="p-5 flex flex-col gap-4">
+      <h2 class="text-lg font-semibold">Đóng tiền góp — TG-0021</h2>
+      <div class="field"><label for="p-count">Góp đến hết kỳ</label>
+        <select id="p-count" class="input"><option>Kỳ 9 (19/10/2026) — 200.000 đ</option><option>Kỳ 10 (21/10/2026) — 400.000 đ</option><option>Kỳ 11 (23/10/2026) — 600.000 đ</option></select>
+      </div>
+      <div class="field"><label for="p-amount">Số tiền khách đưa</label><input id="p-amount" class="input num" value="200.000"></div>
+      <p class="text-xs text-slate-500">Khách đưa lẻ (không tròn kỳ) thì phần dư được tính vào kỳ kế tiếp. Quỹ két ghi một khoản thu.</p>
+      <div class="flex gap-2 justify-end"><button value="cancel" class="btn btn-outline">Huỷ</button><button class="btn btn-primary">Xác nhận</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="dlg-close" class="card p-0 m-auto w-[min(92vw,440px)] backdrop:bg-slate-900/40">
+    <form method="dialog" class="p-5 flex flex-col gap-4">
+      <h2 class="text-lg font-semibold">Đóng hợp đồng — TG-0021</h2>
+      <dl class="grid grid-cols-2 gap-y-2 text-sm">
+        <dt class="text-slate-500">Tổng phải thu</dt><dd class="text-right num">5.000.000</dd>
+        <dt class="text-slate-500">Đã thu</dt><dd class="text-right num">1.600.000</dd>
+        <dt class="font-semibold border-t border-slate-200 pt-2">Còn phải thu</dt><dd class="text-right num font-bold border-t border-slate-200 pt-2">3.400.000</dd>
+      </dl>
+      <div class="field"><label for="c-amount">Số tiền thu để tất toán</label><input id="c-amount" class="input num" value="3.400.000"><span class="text-xs text-slate-500">Được nhập thấp hơn nếu tiệm giảm cho khách tất toán sớm.</span></div>
+      <p class="text-xs text-slate-500">Sau khi xác nhận: hợp đồng chuyển sang "Đã đóng", quỹ két ghi khoản thu.</p>
+      <div class="flex gap-2 justify-end"><button value="cancel" class="btn btn-outline">Huỷ</button><button class="btn btn-primary">Xác nhận đóng</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="dlg-reverse" class="card p-0 m-auto w-[min(92vw,440px)] backdrop:bg-slate-900/40">
+    <form method="dialog" class="p-5 flex flex-col gap-4">
+      <h2 class="text-lg font-semibold">Huỷ giao dịch</h2>
+      <dl class="grid grid-cols-[120px_1fr] gap-y-2 text-sm">
+        <dt class="text-slate-500">Giao dịch</dt><dd>Góp kỳ 7–8</dd>
+        <dt class="text-slate-500">Thời gian</dt><dd class="num">17/10/2026 08:30 · Lan</dd>
+        <dt class="text-slate-500">Số tiền</dt><dd class="num font-medium text-emerald-700">+400.000</dd>
+      </dl>
+      <div class="field"><label for="r-reason">Lý do huỷ <span class="req">*</span></label><input id="r-reason" class="input"></div>
+      <p class="text-xs text-slate-500">Giao dịch gốc vẫn giữ trong lịch sử, hệ thống ghi thêm bút toán đảo −400.000 đ vào quỹ két hôm nay.</p>
+      <div class="flex gap-2 justify-end"><button value="cancel" class="btn btn-outline">Đóng</button><button class="btn btn-danger">Huỷ giao dịch</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="dlg-delete" class="card p-0 m-auto w-[min(92vw,440px)] backdrop:bg-slate-900/40">
+    <form method="dialog" class="p-5 flex flex-col gap-4">
+      <h2 class="text-lg font-semibold text-red-700">Xoá hợp đồng TG-0021</h2>
+      <p class="text-sm">Hợp đồng chuyển sang "Đã xoá", vẫn tra cứu được. Mọi giao dịch được ghi bút toán đảo vào quỹ két hôm nay:</p>
+      <dl class="grid grid-cols-2 gap-y-2 text-sm">
+        <dt class="text-slate-500">Đảo giải ngân</dt><dd class="text-right num text-emerald-700">+4.000.000</dd>
+        <dt class="text-slate-500">Đảo 7 lần góp</dt><dd class="text-right num text-red-700">−1.600.000</dd>
+        <dt class="font-semibold border-t border-slate-200 pt-2">Quỹ két thay đổi</dt><dd class="text-right num font-bold border-t border-slate-200 pt-2">+2.400.000</dd>
+      </dl>
+      <div class="field"><label for="x-reason">Lý do xoá <span class="req">*</span></label><input id="x-reason" class="input"></div>
+      <div class="field"><label for="x-confirm">Gõ mã hợp đồng để xác nhận</label><input id="x-confirm" class="input" placeholder="TG-0021"></div>
+      <div class="flex gap-2 justify-end"><button value="cancel" class="btn btn-outline">Đóng</button><button class="btn btn-danger">Xoá hợp đồng</button></div>
+    </form>
+  </dialog>
+
+</div>
+<script src="assets/layout.js"></script>
+</body>
+</html>

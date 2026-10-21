@@ -30,7 +30,7 @@ textarea.input { height: auto; padding: 10px 12px; }
 .badge-warn { background: #fffbeb; color: #b45309; }
 .badge-late { background: #fef2f2; color: #b91c1c; }
 .badge-muted { background: #f1f5f9; color: #475569; }
-.table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.table { width: 100%; border-collapse: collapse; font-size: 14px; position: relative; } /* giữ .sr-only trong vùng cuộn ngang */
 .table th { text-align: left; font-size: 12px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: .02em; padding: 10px 12px; border-bottom: 1px solid #e2e8f0; white-space: nowrap; }
 .table td { padding: 12px; border-bottom: 1px solid #f1f5f9; white-space: nowrap; }
 .table tbody tr:hover { background: #f8fafc; }
