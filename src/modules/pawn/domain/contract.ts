@@ -107,3 +107,74 @@ export function nextInterestDue(
   if (contract.prepaidInterest) return contract.interestPaidUntil;
   return addDays(contract.interestPaidUntil, contract.interestPeriodDays);
 }
+
+export type PayableStanding = InterestStanding & { prepaidInterest: boolean };
+
+/** Hạn đóng của kỳ thứ `k` (đếm từ 1) kể từ ngày đã trả đến; quy ước như `nextInterestDue`. */
+function periodDue(contract: PayableStanding, k: number): LocalDate {
+  const start = addDays(contract.interestPaidUntil, (k - 1) * contract.interestPeriodDays);
+  return contract.prepaidInterest ? start : addDays(start, contract.interestPeriodDays);
+}
+
+/** Số kỳ tối đa chọn được trong một lần đóng lãi. */
+const MAX_PERIODS_PER_PAYMENT = 24;
+
+/**
+ * Các lựa chọn "đóng đến hết kỳ k": mọi kỳ đã tới hạn tính đến hôm nay, thêm một kỳ kế tiếp (đóng sớm).
+ * Lãi tính trên gốc còn lại cho cả k kỳ, làm tròn một lần. Lãi bằng 0 (lãi suất 0) thì không có lựa chọn.
+ */
+export function interestOptions(contract: PayableStanding, today: LocalDate): InterestPeriod[] {
+  let due = 0;
+  while (due < MAX_PERIODS_PER_PAYMENT && diffDays(periodDue(contract, due + 1), today) >= 0) due++;
+  const count = Math.min(due + 1, MAX_PERIODS_PER_PAYMENT);
+  const policy = interestPolicy(contract.interestType);
+  const options: InterestPeriod[] = [];
+  for (let k = 1; k <= count; k++) {
+    const days = k * contract.interestPeriodDays;
+    const amount = policy.interestFor(contract.outstandingPrincipal, contract.interestRate, days);
+    if (amount.isZero()) return [];
+    options.push({ from: contract.interestPaidUntil, to: addDays(contract.interestPaidUntil, days), amount });
+  }
+  return options;
+}
+
+export type InterestPaymentViolation = "no_interest_due" | "invalid_periods" | "amount_not_positive" | "amount_exceeds_due";
+
+/**
+ * Đóng lãi theo kỳ nguyên (GIẢ ĐỊNH TẠM, core-spec mục 2): `periods` là số kỳ đóng, phải nằm trong `interestOptions`.
+ * `amount` null = thu đúng lãi tính được; có nhập thì được thu ít hơn (giảm lãi), không được thu nhiều hơn.
+ */
+export function planInterestPayment(
+  contract: PayableStanding,
+  today: LocalDate,
+  periods: number,
+  amount: Money | null,
+): { ok: true; value: InterestPeriod } | { ok: false; error: InterestPaymentViolation } {
+  const options = interestOptions(contract, today);
+  if (options.length === 0) return { ok: false, error: "no_interest_due" };
+  const option = options[periods - 1];
+  if (!Number.isSafeInteger(periods) || !option) return { ok: false, error: "invalid_periods" };
+  if (amount === null) return { ok: true, value: option };
+  if (!amount.isPositive()) return { ok: false, error: "amount_not_positive" };
+  if (amount.compare(option.amount) > 0) return { ok: false, error: "amount_exceeds_due" };
+  return { ok: true, value: { ...option, amount } };
+}
+
+export type ScheduledPeriod = InterestPeriod & { due: LocalDate };
+
+/** Lịch các kỳ chưa đóng: từ ngày đã trả đến tới hết hạn vay (hoặc hôm nay nếu đã quá hạn), ít nhất 1 kỳ, tối đa `max` kỳ. */
+export function upcomingPeriods(contract: PayableStanding, termEnd: LocalDate, today: LocalDate, max = 12): ScheduledPeriod[] {
+  const until = diffDays(termEnd, today) > 0 ? today : termEnd;
+  const amount = interestPolicy(contract.interestType).interestFor(
+    contract.outstandingPrincipal,
+    contract.interestRate,
+    contract.interestPeriodDays,
+  );
+  const periods: ScheduledPeriod[] = [];
+  for (let k = 1; k <= max; k++) {
+    const from = addDays(contract.interestPaidUntil, (k - 1) * contract.interestPeriodDays);
+    if (k > 1 && diffDays(from, until) <= 0) break;
+    periods.push({ from, to: addDays(from, contract.interestPeriodDays), amount, due: periodDue(contract, k) });
+  }
+  return periods;
+}

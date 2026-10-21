@@ -220,4 +220,96 @@ describe.skipIf(!url)("DrizzleContractRepository", () => {
       const page2 = await repo(db).list(actor.shopId, page1[1].id, 2);
       expect(page2.map((c) => c.code)).toEqual(["CD-1"]);
     }));
+  it("đóng lãi: dời ngày trả đến, một dòng thu lãi, audit; khớp đối soát; lặp lại cùng kỳ thì không ghi", () =>
+    inTx(async (db) => {
+      const actor = await seedShop(db);
+      await repo(db).create(actor, draft());
+      const [{ id }] = await rows<{ id: string }>(db, sql`SELECT id FROM contracts WHERE shop_id = ${actor.shopId}`);
+      const payment = { from: TODAY, to: "2026-10-30", amount: Money.fromNumber(150_000) };
+      const pay = { contractId: id, payment, expectedOutstanding: Money.fromNumber(5_000_000), businessDate: "2026-10-21" };
+
+      expect(await repo(db).recordInterestPayment(actor, pay)).toBe(true);
+      expect(await repo(db).recordInterestPayment(actor, pay)).toBe(false);
+      // Đúng ngày trả đến mới nhưng gốc lúc tính lệch DB: không ghi.
+      const nextPeriod = { ...payment, from: "2026-10-30", to: "2026-11-09" };
+      expect(await repo(db).recordInterestPayment(actor, { ...pay, payment: nextPeriod, expectedOutstanding: Money.fromNumber(4_000_000) })).toBe(false);
+
+      const standing = await repo(db).findStanding(actor.shopId, id);
+      expect(standing).toMatchObject({ status: "active", interestPaidUntil: "2026-10-30" });
+      const cash = await rows<{ type: string; amount: string; business_date: string; period_from: string; period_to: string }>(
+        db,
+        sql`SELECT type, amount::text, business_date::text, period_from::text, period_to::text FROM cash_transactions
+            WHERE shop_id = ${actor.shopId} AND type = 'interest_payment'`,
+      );
+      expect(cash).toEqual([{ type: "interest_payment", amount: "150000", business_date: "2026-10-21", period_from: TODAY, period_to: "2026-10-30" }]);
+      const [reconcile] = await rows<{ paid_until: string }>(
+        db,
+        sql`SELECT coalesce(max(t.period_to) FILTER (WHERE t.type = 'interest_payment'), c.loan_date)::text AS paid_until
+            FROM contracts c LEFT JOIN cash_transactions t ON t.shop_id = c.shop_id AND t.contract_id = c.id
+            WHERE c.id = ${id} GROUP BY c.id`,
+      );
+      expect(reconcile.paid_until).toBe("2026-10-30");
+      const audits = await rows<{ action: string; changed_fields: string[] }>(
+        db,
+        sql`SELECT action, changed_fields FROM audit_logs WHERE entity_id = ${id} AND action = 'pay_interest'`,
+      );
+      expect(audits).toEqual([{ action: "pay_interest", changed_fields: ["interest_paid_until"] }]);
+    }));
+
+  it("chi tiết: khách, KTV, lãi đã thu không tính dòng đã đảo; lịch sử mới nhất trước", () =>
+    inTx(async (db) => {
+      const actor = await seedShop(db);
+      await repo(db).create(actor, draft({ prepaidInterest: true }, { cccd: "001099012345", address: "12 Lê Lợi" }));
+      const [{ id }] = await rows<{ id: string }>(db, sql`SELECT id FROM contracts WHERE shop_id = ${actor.shopId}`);
+      await repo(db).recordInterestPayment(actor, {
+        contractId: id,
+        payment: { from: "2026-10-30", to: "2026-11-09", amount: Money.fromNumber(150_000) },
+        expectedOutstanding: Money.fromNumber(5_000_000),
+        businessDate: TODAY,
+      });
+      // Đảo lần đóng lãi thứ hai bằng SQL (nghiệp vụ huỷ chưa có ở lát này).
+      await db.execute(
+        sql`INSERT INTO cash_transactions (shop_id, operation_id, business_date, amount, type, contract_id, reverses_id, created_by)
+            SELECT shop_id, gen_random_uuid(), business_date, -amount, 'reversal', contract_id, id, created_by
+            FROM cash_transactions WHERE contract_id = ${id} AND period_from = '2026-10-30'`,
+      );
+
+      const detail = await repo(db).findDetail(actor.shopId, id);
+      expect(detail).toMatchObject({
+        code: "CD-1",
+        customerName: "Nguyễn Văn A",
+        staffName: "Chủ Test",
+        termDays: 30,
+        customer: { phone: "0912345678", address: "12 Lê Lợi", cccdMasked: "********2345" },
+      });
+      expect(detail?.interestPaid.toBigInt()).toBe(150_000n);
+
+      const history = await repo(db).listTransactions(actor.shopId, id, 10);
+      expect(history.map((h) => [h.type, h.amount.toBigInt(), h.reversed])).toEqual([
+        ["reversal", -150_000n, false],
+        ["interest_payment", 150_000n, true],
+        ["interest_payment", 150_000n, false],
+        ["disbursement", -5_000_000n, false],
+      ]);
+      expect(history[0].createdByName).toBe("Chủ Test");
+    }));
+
+  it("cách ly cửa hàng: B không đọc, không đóng lãi được hợp đồng của A", () =>
+    inTx(async (db) => {
+      const a = await seedShop(db);
+      const b = await seedShop(db);
+      await repo(db).create(a, draft());
+      const [{ id }] = await rows<{ id: string }>(db, sql`SELECT id FROM contracts WHERE shop_id = ${a.shopId}`);
+      expect(await repo(db).findDetail(b.shopId, id)).toBeNull();
+      expect(await repo(db).findStanding(b.shopId, id)).toBeNull();
+      expect(await repo(db).listTransactions(b.shopId, id, 10)).toEqual([]);
+      const pay = {
+        contractId: id,
+        payment: { from: TODAY, to: "2026-10-30", amount: Money.fromNumber(150_000) },
+        expectedOutstanding: Money.fromNumber(5_000_000),
+        businessDate: TODAY,
+      };
+      expect(await repo(db).recordInterestPayment(b, pay)).toBe(false);
+      expect((await repo(db).findStanding(a.shopId, id))?.interestPaidUntil).toBe(TODAY);
+    }));
 });

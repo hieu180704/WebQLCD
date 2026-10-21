@@ -15,7 +15,9 @@ import { DrizzleAccountRepository } from "@/modules/identity/infrastructure/driz
 import { IpSignupLimiter } from "@/modules/identity/infrastructure/ip-signup-limiter";
 import { GetSubscription } from "@/modules/shop/application/get-subscription";
 import { CreateContract } from "@/modules/pawn/application/create-contract";
+import { GetContractDetail } from "@/modules/pawn/application/get-contract-detail";
 import { ListContracts } from "@/modules/pawn/application/list-contracts";
+import { PayInterest } from "@/modules/pawn/application/pay-interest";
 import { DrizzleContractRepository } from "@/modules/pawn/infrastructure/drizzle-contract-repository";
 import { DrizzleShopRepository } from "@/modules/shop/infrastructure/drizzle-shop-repository";
 import { db } from "@/shared/infrastructure/db/client";
@@ -46,3 +48,5 @@ const customerWriter = new DrizzleCustomerWriter(() => (cccdCipher ??= CccdCiphe
 const contracts = new DrizzleContractRepository(db, customerWriter, appendCashEntries);
 export const createContract = new CreateContract(contracts);
 export const listContracts = new ListContracts(contracts);
+export const getContractDetail = new GetContractDetail(contracts);
+export const payInterest = new PayInterest(contracts);

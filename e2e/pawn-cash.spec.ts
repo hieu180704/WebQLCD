@@ -92,6 +92,35 @@ test("CCCD trùng: hợp đồng mới gắn với khách cũ, báo cho người
   await expect(page.getByRole("row", { name: /TC-1/ })).toContainText("Nguyễn Văn E2E");
 });
 
+test("chi tiết hợp đồng: đóng lãi sớm một kỳ, được giảm lãi, ghi sổ quỹ", async ({ page }) => {
+  await signIn(page);
+  await page.goto("/cam-do");
+  await page.getByRole("link", { name: "CD-1" }).click();
+  await expect(page.getByRole("heading", { name: "Hợp đồng CD-1" })).toBeVisible();
+  const tile = (label: string) => page.getByRole("region", { name: "Số liệu" }).getByText(label).locator("..");
+  await expect(tile("Tiền gốc còn lại")).toContainText("5.000.000");
+  await expect(tile("Lãi đã đóng")).toContainText("150.000");
+  await expect(page.getByRole("row", { name: /Giải ngân, tạo hợp đồng/ })).toContainText("5.000.000");
+
+  // Thu lãi trước, vay hôm nay: kỳ kế tiếp chưa tới hạn, chỉ có một lựa chọn đóng sớm 150.000 đ.
+  await page.getByRole("button", { name: "Đóng lãi" }).click();
+  const dialog = page.getByRole("dialog", { name: "Đóng lãi — CD-1" });
+  await expect(dialog.getByLabel("Đóng đến hết kỳ")).toContainText("150.000 đ");
+  await expect(dialog.getByLabel("Số tiền khách đưa")).toHaveValue("150.000");
+  await dialog.getByLabel("Số tiền khách đưa").fill("200.000");
+  await dialog.getByRole("button", { name: "Xác nhận đóng lãi" }).click();
+  await expect(dialog.getByRole("alert")).toHaveText("Số tiền khách đưa không được lớn hơn tiền lãi của các kỳ đã chọn.");
+  await dialog.getByLabel("Số tiền khách đưa").fill("100.000");
+  await dialog.getByRole("button", { name: "Xác nhận đóng lãi" }).click();
+  await expect(dialog).toBeHidden();
+  await expect(page.getByRole("status")).toContainText("Đã thu 100.000 đ tiền lãi");
+  await expect(tile("Lãi đã đóng")).toContainText("250.000");
+  await expect(page.getByRole("row", { name: /Đóng lãi.*100\.000/ })).toBeVisible();
+
+  await page.goto("/quy-ket");
+  await expect(stat(page, "Tổng thu")).toContainText("250.000");
+});
+
 test("dữ liệu sai: báo lỗi, giữ lại giá trị đã nhập", async ({ page }) => {
   await signIn(page);
   await fillContract(page, "Khách Lỗi");

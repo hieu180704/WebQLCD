@@ -91,7 +91,7 @@
 - Chuộc đồ / đóng hợp đồng không có loại riêng: thao tác sinh các dòng `interest_payment` + `principal_repayment` rồi đặt `status = 'closed'`.
 
 ## 3.7 `audit_logs`
-- `shop_id`, `user_id`, `entity`, `entity_id`, `action` (`create` / `edit` / `extend` / `delete` / ...), `changed_fields` (chỉ tên field, không lưu giá trị), `at`.
+- `shop_id`, `user_id`, `entity`, `entity_id`, `action` (`create` / `edit` / `extend` / `delete` / `pay_interest` / ...), `changed_fields` (chỉ tên field, không lưu giá trị), `at`.
 - Append-only, trigger chặn UPDATE/DELETE/TRUNCATE giống `cash_transactions`.
 
 ## 3.8 `shop_counters`

@@ -94,3 +94,20 @@ export const CONTRACT_FORM_FIELDS = [
   "prepaidInterest",
   "note",
 ] as const;
+
+export const payInterestSchema = z.object({
+  contractId: z.uuid("Hợp đồng không hợp lệ."),
+  periods: z.coerce.number().int().min(1).max(24, "Kỳ đóng lãi không hợp lệ."),
+  expectedPaidUntil: z.string().refine(isLocalDate, "Hợp đồng không hợp lệ."),
+  amount: z
+    .string()
+    .max(30)
+    .transform((text, ctx) => {
+      const money = parseVnd(text);
+      if (!money || !money.isPositive() || money.toBigInt() > MAX_PRINCIPAL) {
+        ctx.addIssue({ code: "custom", message: "Số tiền khách đưa phải lớn hơn 0." });
+        return z.NEVER;
+      }
+      return money;
+    }),
+});

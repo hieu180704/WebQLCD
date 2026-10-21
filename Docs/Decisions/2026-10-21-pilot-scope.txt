@@ -1,0 +1,42 @@
+# QUYẾT ĐỊNH: TỰ CHỐT NGHIỆP VỤ VÀ LÀM BẢN DÙNG THỬ THU GỌN TRƯỚC KHI ĐƯA KHÁCH
+
+# Mục lục
+1. Bối Cảnh & Vấn Đề
+2. Các Phương Án Đã Cân Nhắc
+3. Quyết Định Đã Chốt & Lý Do
+
+---
+
+# 1. Bối Cảnh & Vấn Đề
+- Ngày ghi nhận: 2026-10-21
+- Khách đã xem mockup nhưng không phản hồi; chưa xác nhận tường minh giả định nào (công thức lãi, làm tròn, trả góp, huỷ giao dịch...).
+- Đã xong: đăng nhập, đăng ký + dùng thử, tạo KTV, quỹ đầu két, tạo hợp đồng cầm đồ/tín chấp. Còn trống: vòng đời hợp đồng, quỹ két đầy đủ, trả góp, khách hàng/tìm kiếm, báo cáo/Excel/sao lưu, thu phí thuê bao, deploy.
+- Thu phí thuê bao (chưa có giá, chưa chọn cách thanh toán) và hosting (chưa xác minh luật lưu CCCD) bị chặn bởi quyết định ngoài code.
+
+---
+
+# 2. Các Phương Án Đã Cân Nhắc
+- **Phương án A: chờ khách chốt nghiệp vụ rồi mới code.**
+  - Ưu: ít làm lại.
+  - Nhược: khách không phản hồi, dự án đứng yên.
+- **Phương án B: làm đủ mọi chức năng theo giả định rồi đưa khách.**
+  - Ưu: khách thấy sản phẩm hoàn chỉnh.
+  - Nhược: giả định sai (nhất là công thức lãi) thì phải sửa lan qua trả góp, báo cáo, Excel; thời gian tới lúc có phản hồi dài nhất.
+- **Phương án C: đội dự án tự chốt nghiệp vụ, làm bản dùng thử thu gọn, đưa khách sau.**
+  - Ưu: có sản phẩm dùng được sớm nhất; giả định gom một chỗ để khách gạch.
+  - Nhược: vẫn có thể phải sửa khi khách xem, nhưng phạm vi nhỏ hơn B.
+
+---
+
+# 3. Quyết Định Đã Chốt & Lý Do
+- Quyết định: **Phương án C** (người dùng duyệt 2026-10-21: tạm không liên hệ khách, làm theo đánh giá của đội dự án, xong rồi mới đưa khách sửa).
+- Nghiệp vụ tự chốt ghi ở `Docs/SourceOfTruth/Core/core-spec.txt` mục 2, nhãn GIẢ ĐỊNH TẠM 2026-10-21. Không gỡ nhãn khi khách chưa xác nhận.
+- Thứ tự làm:
+  1. Vòng đời hợp đồng cầm đồ/tín chấp, chia lát: 1a chi tiết + đóng lãi; 1b chuộc đồ / đóng hợp đồng; 1c trả bớt gốc, vay thêm, gia hạn; 1d huỷ giao dịch + xoá hợp đồng; 1e sửa thông tin.
+  2. Quỹ két đầy đủ (thu/chi khác, nạp vốn, lịch sử giao dịch), trang chủ thống kê + hợp đồng đến hạn.
+  3. Khách hàng + tìm kiếm.
+  4. Khoá KTV, đổi/đặt lại mật khẩu.
+  5. Deploy kèm sao lưu tự động.
+- Hoãn đến sau bản dùng thử: trả góp, báo cáo nâng cao, xuất Excel, thu phí thuê bao, quên mật khẩu qua email, cài đặt giá trị mặc định.
+- Không được hoãn: huỷ giao dịch (bút toán đảo) và sao lưu, vì dữ liệu là tiền thật.
+- Điều kiện trước deploy: xác minh luật bảo vệ dữ liệu cá nhân về nơi lưu CCCD (việc của người dùng, không phải code).

@@ -11,7 +11,7 @@
 
 # 1. Trạng Thái Hiện Tại
 - Nhánh Git: `main`. Chưa có remote.
-- Tiến độ: xong bước 1–5 (4a khung, 4b DB, CSP nonce, 4c auth; 5a đăng ký, dùng thử, KTV; 5b quỹ đầu két + hợp đồng cầm đồ/tín chấp giải ngân) và giao diện theo mockup. Lát cắt dọc đầu tiên đã chạy thông. Mockup HTML đã đủ mọi màn trong menu (2026-10-21), chờ duyệt.
+- Tiến độ: xong bước 1–5 (4a khung, 4b DB, CSP nonce, 4c auth; 5a đăng ký, dùng thử, KTV; 5b quỹ đầu két + hợp đồng cầm đồ/tín chấp giải ngân) và giao diện theo mockup. Lát cắt dọc đầu tiên đã chạy thông. Mockup HTML đã đủ mọi màn trong menu (2026-10-21). Đang làm bản dùng thử theo Decision `2026-10-21-pilot-scope.txt`: xong lát 1a (chi tiết hợp đồng + đóng lãi).
 - Lộ trình: (1) khách xem mockup → (2) cập nhật core-spec → (3) database schema → (4) dựng khung project [4a khung, 4b DB, 4c auth] → (5) lát cắt dọc đầu tiên.
 - Dev DB: PostgreSQL 18.6 portable ở `.local/` (gitignore), 127.0.0.1:5433, role `webqlcd_app`, DB `webqlcd`. Bật/tắt: `npm run db:start` / `db:stop`; migrate: `npm run db:migrate`. Mật khẩu superuser ở `.local/pwfile`, DATABASE_URL ở `.env`.
 - Verify chuẩn: `npm run lint`, `npm run typecheck`, `npm test` (cần DB đang chạy cho test DB), `npm run build`, `npm run test:e2e` (Edge, tự build, cổng 3100).
@@ -34,24 +34,17 @@
 - [x] 4c: auth theo mục 4 (worklog `Docs/Done/2026-10-20-auth-4c.txt`).
 - [x] 5a: đăng ký chủ tiệm + cửa hàng dùng thử 7 ngày, giới hạn đăng ký 5 lần/IP/giờ, chủ tiệm tạo KTV ở `/nhan-vien` (worklog `Docs/Done/2026-10-20-onboarding-5a.txt`, Decision `2026-10-20-signup-direct-insert.txt`).
 - [x] 5b: tính lãi 3 hình thức + cảnh báo lãi suất, quỹ đầu két `/quy-ket`, tạo hợp đồng `/cam-do/moi` (khách + CCCD mã hoá + mã CD/TC + sổ két + audit cùng transaction), danh sách `/cam-do` (worklog `Docs/Done/2026-10-20-pawn-cash-5b.txt`, Decision `2026-10-20-cross-module-transaction.txt`).
+- [x] Bước 0 (2026-10-21): tự chốt 7 nghiệp vụ mockup vào core-spec mục 2 (GIẢ ĐỊNH TẠM 2026-10-21), phạm vi bản dùng thử ở `Docs/Decisions/2026-10-21-pilot-scope.txt`. Tạm không liên hệ khách.
+- [x] Lát 1a: trang chi tiết hợp đồng `/cam-do/[id]` + đóng lãi (worklog `Docs/Done/2026-10-21-chi-tiet-dong-lai-1a.txt`).
 - [x] Giao diện theo mockup: theme ở `globals.css`, khung trang `src/app/(app)/` (sidebar/topbar, menu mobile), các trang cầm đồ/quỹ két/trang chủ/nhân viên/đăng nhập/đăng ký; guard thêm `requireProfile` + `React.cache` (worklog `Docs/Done/2026-10-20-ui-mockup.txt`).
 
 ---
 
 # 3. Đầu Việc Tiếp Theo & Lưu Ý
-- [ ] **Việc kế tiếp:** người dùng/khách duyệt mockup đủ màn → ghi các nghiệp vụ mockup tự đặt (dưới) vào core-spec/data-model với nhãn GIẢ ĐỊNH TẠM → code theo lát cắt: chi tiết hợp đồng + đóng lãi + chuộc đồ; sau đó huỷ/xoá có bút toán đảo, thu/chi khác, trả góp.
-- [ ] Nghiệp vụ mockup 2026-10-21 tự đặt, CHƯA vào core-spec, cần chốt:
-  1. Trả góp góp đều: mỗi kỳ = tổng phải thu / số kỳ; góp lẻ dồn sang kỳ sau; tất toán sớm được thu thấp hơn số còn nợ.
-  2. Cảnh báo lãi trả góp quy đổi: (tổng thu − tiền đưa) / tiền đưa × 365 / số ngày góp (mẫu 4tr→5tr/50 ngày ≈ 182%/năm, cảnh báo đỏ).
-  3. Chủ tiệm huỷ được từng giao dịch (bút toán đảo đảo cả `operation_id`); xoá hợp đồng bắt nhập lý do + gõ lại mã.
-  4. Chỉ chủ tiệm: báo cáo, sao lưu, xem CCCD đầy đủ (ghi nhật ký), xuất Excel kèm CCCD đầy đủ (mặc định 4 số cuối).
-  5. Sao lưu tự động hằng đêm giữ 30 bản; tải về phải nhập lại mật khẩu; khôi phục qua hỗ trợ, không có trên giao diện.
-  6. Không xoá nhân viên, chỉ khoá (đăng xuất ngay); chủ tiệm đặt lại mật khẩu nhân viên; ai cũng tự đổi mật khẩu được.
-  7. Cài đặt giá trị mặc định khi tạo hợp đồng (hình thức lãi, lãi, số ngày vay, kỳ lãi, thu lãi trước).
-- [ ] Đưa mockup vào app: mang theo `.table { position: relative }` (Design/mockup/assets/common.css) sang `globals.css`, thiếu nó thì `sr-only` trong `<th>` làm trang tràn ngang trên mobile.
+- [ ] **Việc kế tiếp:** lát 1b chuộc đồ / đóng hợp đồng, rồi 1c (trả bớt gốc, vay thêm, gia hạn), 1d (huỷ giao dịch theo luật mới nhất trước + xoá hợp đồng), 1e (sửa thông tin). Thứ tự sau đó: Decision `2026-10-21-pilot-scope.txt` mục 3.
 - [ ] Phần mockup chưa làm vì thiếu số liệu/logic: thống kê hợp đồng + bảng đến hạn (trang chủ), thống kê + bộ lọc + Xuất Excel (`/cam-do`), ẩn ô tài sản khi chọn tín chấp.
 - [ ] Dọn cấu hình shadcn còn sót (chưa duyệt gỡ): element `ui` trong `eslint.config.mjs`, `components.json`, deps `radix-ui`, `class-variance-authority`, `cn`, `tw-animate-css`, `shadcn`.
-- [ ] Hỏi khách xác nhận các GIẢ ĐỊNH TẠM mới ở core-spec mục 2 (công thức lãi, làm tròn, hạn đóng lãi, khách trùng CCCD).
+- [ ] Hỏi khách xác nhận mọi GIẢ ĐỊNH TẠM ở core-spec mục 2: hoãn tới khi bản dùng thử xong (Decision `2026-10-21-pilot-scope.txt`).
 - [ ] Chưa làm (đã duyệt hoãn ở 5a): khoá/mở và đổi mật khẩu KTV, xác minh email, quên mật khẩu, captcha, thanh toán thuê bao.
 - [ ] Deploy: cấu hình `advanced.ipAddress` (header IP tin cậy, trustedProxies) theo hạ tầng thật; job dọn dòng cũ `login_throttles`.
 - [ ] Viết `docker-compose.yml` khi làm deploy (máy dev chưa có Docker, chưa test được).

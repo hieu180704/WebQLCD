@@ -4,11 +4,22 @@ import type { AppendCashEntries, CashEntry } from "@/modules/cashbook";
 import { maskPhone, type DrizzleCustomerWriter } from "@/modules/customer";
 import type { Db, Tx } from "@/shared/infrastructure/db/client";
 import { dbCause } from "@/shared/infrastructure/db/errors";
-import { auditLogs, contracts, customers, shopCounters } from "@/shared/infrastructure/db/schema";
+import { auditLogs, cashTransactions, contracts, customers, shopCounters, users } from "@/shared/infrastructure/db/schema";
 import { Money } from "@/shared/kernel/money";
 import { CODE_PREFIX, type ContractKind } from "../domain/contract";
 import { formatRate, parseRate } from "../domain/interest/rate";
-import type { Actor, ContractDraft, ContractListRow, ContractRepository, CreatedContract } from "../application/ports";
+import type {
+  Actor,
+  ContractCashType,
+  ContractDetailRow,
+  ContractDraft,
+  ContractListRow,
+  ContractRepository,
+  ContractStanding,
+  ContractTransaction,
+  CreatedContract,
+  InterestPaymentDraft,
+} from "../application/ports";
 
 export class DrizzleContractRepository implements ContractRepository {
   constructor(
@@ -91,6 +102,129 @@ export class DrizzleContractRepository implements ContractRepository {
       outstandingPrincipal: Money.of(row.outstandingPrincipal),
       interestRate: rateFromDb(row.interestRate),
     }));
+  }
+
+  async findDetail(shopId: string, contractId: string): Promise<ContractDetailRow | null> {
+    const [row] = await this.db
+      .select({
+        id: contracts.id,
+        code: contracts.code,
+        customerName: customers.fullName,
+        kind: contracts.kind,
+        assetName: contracts.assetName,
+        principal: contracts.principal,
+        outstandingPrincipal: contracts.outstandingPrincipal,
+        loanDate: contracts.loanDate,
+        interestType: contracts.interestType,
+        interestRate: contracts.interestRate,
+        interestPeriodDays: contracts.interestPeriodDays,
+        interestPaidUntil: contracts.interestPaidUntil,
+        prepaidInterest: contracts.prepaidInterest,
+        status: contracts.status,
+        termDays: contracts.termDays,
+        note: contracts.note,
+        staffName: users.name,
+        phone: customers.phone,
+        address: customers.address,
+        cccdMasked: customers.cccdMasked,
+        // Lãi đã thu trừ dòng đã bị đảo; index (shop_id, contract_id) và UNIQUE (reverses_id).
+        interestPaid: sql<string>`coalesce((
+          SELECT sum(t.amount) FROM cash_transactions t
+          WHERE t.shop_id = ${contracts.shopId} AND t.contract_id = ${contracts.id} AND t.type = 'interest_payment'
+            AND NOT EXISTS (SELECT 1 FROM cash_transactions r WHERE r.reverses_id = t.id)
+        ), 0)`,
+      })
+      .from(contracts)
+      .innerJoin(customers, and(eq(customers.shopId, contracts.shopId), eq(customers.id, contracts.customerId)))
+      .innerJoin(users, and(eq(users.shopId, contracts.shopId), eq(users.id, contracts.staffId)))
+      .where(and(eq(contracts.shopId, shopId), eq(contracts.id, contractId), isNull(contracts.deletedAt)));
+    if (!row) return null;
+    const { phone, address, cccdMasked, interestPaid, ...contract } = row;
+    return {
+      ...contract,
+      principal: Money.of(row.principal),
+      outstandingPrincipal: Money.of(row.outstandingPrincipal),
+      interestRate: rateFromDb(row.interestRate),
+      customer: { phone, address, cccdMasked },
+      interestPaid: Money.of(BigInt(interestPaid)),
+    };
+  }
+
+  async listTransactions(shopId: string, contractId: string, limit: number): Promise<ContractTransaction[]> {
+    const t = cashTransactions;
+    const rows = await this.db
+      .select({
+        id: t.id,
+        occurredAt: t.occurredAt,
+        type: t.type,
+        amount: t.amount,
+        periodFrom: t.periodFrom,
+        periodTo: t.periodTo,
+        createdByName: users.name,
+        reversed: sql<boolean>`EXISTS (SELECT 1 FROM cash_transactions r WHERE r.reverses_id = ${t.id})`,
+      })
+      .from(t)
+      .innerJoin(users, and(eq(users.shopId, t.shopId), eq(users.id, t.createdBy)))
+      .where(and(eq(t.shopId, shopId), eq(t.contractId, contractId)))
+      .orderBy(desc(t.id)) // uuid v7 tăng theo thời gian tạo.
+      .limit(limit);
+    // contract_id chỉ gắn với các loại giao dịch hợp đồng (CHECK cash_transactions_type_rules).
+    return rows.map((row) => ({ ...row, type: row.type as ContractCashType, amount: Money.of(row.amount) }));
+  }
+
+  async findStanding(shopId: string, contractId: string): Promise<ContractStanding | null> {
+    const [row] = await this.db
+      .select({
+        status: contracts.status,
+        interestType: contracts.interestType,
+        interestRate: contracts.interestRate,
+        interestPeriodDays: contracts.interestPeriodDays,
+        outstandingPrincipal: contracts.outstandingPrincipal,
+        interestPaidUntil: contracts.interestPaidUntil,
+        prepaidInterest: contracts.prepaidInterest,
+      })
+      .from(contracts)
+      .where(and(eq(contracts.shopId, shopId), eq(contracts.id, contractId), isNull(contracts.deletedAt)));
+    if (!row) return null;
+    return { ...row, outstandingPrincipal: Money.of(row.outstandingPrincipal), interestRate: rateFromDb(row.interestRate) };
+  }
+
+  async recordInterestPayment(actor: Actor, draft: InterestPaymentDraft): Promise<boolean> {
+    const { contractId, payment } = draft;
+    try {
+      return await this.db.transaction(async (tx) => {
+        // UPDATE có điều kiện khoá dòng hợp đồng: hai lần đóng lãi đồng thời thì lần sau không khớp ngày trả đến.
+        const updated = await tx
+          .update(contracts)
+          .set({ interestPaidUntil: payment.to })
+          .where(
+            and(
+              eq(contracts.shopId, actor.shopId),
+              eq(contracts.id, contractId),
+              eq(contracts.status, "active"),
+              isNull(contracts.deletedAt),
+              eq(contracts.interestPaidUntil, payment.from),
+              eq(contracts.outstandingPrincipal, draft.expectedOutstanding.toBigInt()),
+            ),
+          )
+          .returning({ id: contracts.id });
+        if (updated.length === 0) return false;
+        await this.appendCashEntries(tx, { shopId: actor.shopId, createdBy: actor.userId, businessDate: draft.businessDate }, [
+          { type: "interest_payment", contractId, amount: payment.amount, periodFrom: payment.from, periodTo: payment.to },
+        ]);
+        await tx.insert(auditLogs).values({
+          shopId: actor.shopId,
+          userId: actor.userId,
+          entity: "contract",
+          entityId: contractId,
+          action: "pay_interest",
+          changedFields: ["interest_paid_until"],
+        });
+        return true;
+      });
+    } catch (error) {
+      throw dbCause(error);
+    }
   }
 }
 

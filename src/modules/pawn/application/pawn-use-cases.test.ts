@@ -4,7 +4,8 @@ import { Money } from "@/shared/kernel/money";
 import type { ContractTerms } from "../domain/contract";
 import { CreateContract, type CreateContractInput } from "./create-contract";
 import { CONTRACT_PAGE_SIZE, ListContracts } from "./list-contracts";
-import type { ContractDraft, ContractListRow, ContractRepository } from "./ports";
+import { PayInterest, type PayInterestInput } from "./pay-interest";
+import type { ContractDraft, ContractListRow, ContractRepository, ContractStanding, InterestPaymentDraft } from "./ports";
 import { previewContract } from "./preview";
 
 // 2026-10-20 23:30 giờ Việt Nam (UTC đã sang 16:30 cùng ngày).
@@ -29,16 +30,24 @@ const input = (overrides: Partial<ContractTerms> = {}): CreateContractInput => (
   note: null,
 });
 
-function fakeRepo(rows: ContractListRow[] = [], reused = false) {
+function fakeRepo(rows: ContractListRow[] = [], reused = false, standing: ContractStanding | null = null, saves = true) {
   const drafts: ContractDraft[] = [];
+  const payments: InterestPaymentDraft[] = [];
   const repo: ContractRepository = {
     create: async (_actor, draft) => {
       drafts.push(draft);
       return { code: "CD-1", customer: { id: "c", fullName: "Khách Cũ", reused } };
     },
     list: async (_shop, _after, limit) => rows.slice(0, limit),
+    findDetail: async () => null,
+    listTransactions: async () => [],
+    findStanding: async () => standing,
+    recordInterestPayment: async (_actor, draft) => {
+      payments.push(draft);
+      return saves;
+    },
   };
-  return { repo, drafts };
+  return { repo, drafts, payments };
 }
 
 describe("CreateContract", () => {
@@ -107,5 +116,48 @@ describe("previewContract", () => {
     expect(p.periodInterest.toBigInt()).toBe(150_000n);
     expect(p.cashToCustomer.toBigInt()).toBe(4_850_000n);
     expect(p).toMatchObject({ annualPercent: 109.5, warning: "criminal_risk" });
+  });
+});
+
+describe("PayInterest", () => {
+  // 5tr, 3k/triệu/ngày, kỳ 10 ngày, thu lãi sau, đã trả đến 01/10: hôm nay 20/10 chọn được 1 hoặc 2 kỳ.
+  const standing: ContractStanding = {
+    status: "active",
+    interestType: "per_million_per_day",
+    interestRate: 30_000n,
+    interestPeriodDays: 10,
+    outstandingPrincipal: Money.fromNumber(5_000_000),
+    interestPaidUntil: "2026-10-01",
+    prepaidInterest: false,
+  };
+  const pay = (overrides: Partial<PayInterestInput> = {}): PayInterestInput => ({
+    contractId: "k",
+    periods: 2,
+    expectedPaidUntil: "2026-10-01",
+    amount: null,
+    ...overrides,
+  });
+
+  it("ghi sổ két hôm nay, kỳ [ngày trả đến, + 2 kỳ), kèm gốc lúc tính để khoá lạc quan", async () => {
+    const { repo, payments } = fakeRepo([], false, standing);
+    const result = await new PayInterest(repo).execute(actor, pay(), now);
+    expect(result).toMatchObject({ ok: true, paidUntil: "2026-10-21" });
+    expect(payments[0]).toMatchObject({ contractId: "k", businessDate: "2026-10-20", payment: { from: "2026-10-01", to: "2026-10-21" } });
+    expect(payments[0].payment.amount.toBigInt()).toBe(300_000n);
+    expect(payments[0].expectedOutstanding.toBigInt()).toBe(5_000_000n);
+  });
+
+  it("không thấy, đã đóng, trang cũ: không ghi", async () => {
+    expect(await new PayInterest(fakeRepo().repo).execute(actor, pay(), now)).toEqual({ ok: false, error: "not_found" });
+    const closed = fakeRepo([], false, { ...standing, status: "closed" });
+    expect(await new PayInterest(closed.repo).execute(actor, pay(), now)).toEqual({ ok: false, error: "closed" });
+    const stale = fakeRepo([], false, standing);
+    expect(await new PayInterest(stale.repo).execute(actor, pay({ expectedPaidUntil: "2026-09-21" }), now)).toEqual({ ok: false, error: "stale" });
+    expect([...closed.payments, ...stale.payments]).toHaveLength(0);
+  });
+
+  it("repository không khớp điều kiện (vừa có người đóng): báo trang cũ", async () => {
+    const { repo } = fakeRepo([], false, standing, false);
+    expect(await new PayInterest(repo).execute(actor, pay(), now)).toEqual({ ok: false, error: "stale" });
   });
 });

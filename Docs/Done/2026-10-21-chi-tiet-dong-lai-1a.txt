@@ -1,0 +1,15 @@
+# 2026-10-21: Bước 0 tự chốt nghiệp vụ + lát 1a chi tiết hợp đồng và đóng lãi — [verified: lint, typecheck, 96 unit/DB test, 16 e2e; layout 390px/1440px không tràn ngang]
+
+- Commit: xem commit "Bước 0 tự chốt nghiệp vụ + lát 1a" ngay sau cf05813
+- Đã làm:
+  1. Bước 0: ghi 7 nghiệp vụ mockup tự đặt + luật "chỉ huỷ thao tác mới nhất" vào `Docs/SourceOfTruth/Core/core-spec.txt` mục 2 (GIẢ ĐỊNH TẠM 2026-10-21). Decision `Docs/Decisions/2026-10-21-pilot-scope.txt`: tự chốt, làm bản dùng thử thu gọn, chưa đưa khách.
+  2. Domain `src/modules/pawn/domain/contract.ts`: `interestOptions` (kỳ đã tới hạn + 1 kỳ đóng sớm, trần 24), `planInterestPayment` (kỳ nguyên, được giảm lãi, không thu vượt), `upcomingPeriods` (lịch kỳ chưa đóng).
+  3. Use case `GetContractDetail`, `PayInterest` (so ngày trả đến người nhập đang thấy, chặn trang cũ / bấm hai lần).
+  4. Repository: `findDetail` (lãi đã thu cộng bằng SQL, bỏ dòng đã đảo), `listTransactions` (100 dòng mới nhất, cờ `reversed`), `findStanding`, `recordInterestPayment` (UPDATE có điều kiện ngày trả đến + gốc = khoá lạc quan; sổ két + audit `pay_interest` cùng transaction).
+  5. Trang `/cam-do/[id]` theo mockup `cam-do-chi-tiet.html`: số liệu, lịch đóng lãi, lịch sử, khách (SĐT đầy đủ, CCCD 4 số cuối), khoản vay; hộp thoại đóng lãi (`pay-interest-dialog.tsx`). Danh sách `/cam-do`: mã hợp đồng thành link. Helper hiển thị chung ở `presentation/format.tsx`.
+  6. `globals.css`: `.table { position: relative }` mang từ mockup sang.
+- Trạng thái: xong bước 0 và lát 1a; kế tiếp lát 1b (chuộc đồ / đóng hợp đồng).
+- Lưu ý cho phiên sau:
+  - Chỉ hiện nút Đóng lãi; nút các thao tác lát 1b–1e chưa đặt lên trang (không để nút chết).
+  - Lịch sử chỉ hiện 100 giao dịch mới nhất, chưa phân trang; lịch kỳ đã đóng lấy từ chính danh sách này.
+  - Kỳ thu lãi trước lúc giải ngân cũng hiện là "Đóng lãi" trong lịch sử.
