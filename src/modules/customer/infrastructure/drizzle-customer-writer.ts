@@ -3,8 +3,7 @@ import { and, eq, sql } from "drizzle-orm";
 import type { Tx } from "@/shared/infrastructure/db/client";
 import { auditLogs, customers } from "@/shared/infrastructure/db/schema";
 import type { NewCustomer, ResolvedCustomer } from "../domain/customer";
-import { maskCccd } from "../domain/personal-data";
-import type { CccdCipher } from "./cccd-cipher";
+import { cccdColumns, type CccdCipher } from "./cccd-cipher";
 
 type Actor = { userId: string; shopId: string };
 
@@ -17,7 +16,7 @@ export class DrizzleCustomerWriter {
   constructor(private readonly cipher: () => CccdCipher) {}
 
   async resolve(tx: Tx, actor: Actor, input: NewCustomer): Promise<ResolvedCustomer> {
-    const cccdColumns = input.cccd ? this.protect(actor.shopId, input.cccd) : null;
+    const protectedCccd = input.cccd ? cccdColumns(this.cipher(), actor.shopId, input.cccd) : null;
     const [created] = await tx
       .insert(customers)
       .values({
@@ -25,7 +24,7 @@ export class DrizzleCustomerWriter {
         fullName: input.fullName,
         phone: input.phone,
         address: input.address,
-        ...cccdColumns,
+        ...protectedCccd,
       })
       // Khớp partial unique index (shop_id, cccd_hash) WHERE cccd_hash IS NOT NULL; hai yêu cầu đồng thời cùng
       // CCCD thì một bên chèn, bên kia đọc lại dòng đã có.
@@ -36,17 +35,12 @@ export class DrizzleCustomerWriter {
       await tx.insert(auditLogs).values({ shopId: actor.shopId, userId: actor.userId, entity: "customer", entityId: created.id, action: "create" });
       return { ...created, reused: false };
     }
-    if (!cccdColumns) throw new Error("Không chèn được khách hàng");
+    if (!protectedCccd) throw new Error("Không chèn được khách hàng");
     const [existing] = await tx
       .select({ id: customers.id, fullName: customers.fullName })
       .from(customers)
-      .where(and(eq(customers.shopId, actor.shopId), eq(customers.cccdHash, cccdColumns.cccdHash)));
+      .where(and(eq(customers.shopId, actor.shopId), eq(customers.cccdHash, protectedCccd.cccdHash)));
     if (!existing) throw new Error("Không tìm thấy khách hàng trùng CCCD");
     return { ...existing, reused: true };
-  }
-
-  private protect(shopId: string, cccd: string) {
-    const cipher = this.cipher();
-    return { cccdEncrypted: cipher.encrypt(shopId, cccd), cccdHash: cipher.hash(shopId, cccd), cccdMasked: maskCccd(cccd) };
   }
 }

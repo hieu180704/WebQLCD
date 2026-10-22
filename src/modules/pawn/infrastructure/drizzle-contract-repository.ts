@@ -1,7 +1,8 @@
 import "server-only";
 import { and, asc, desc, eq, isNotNull, isNull, lt, lte, sql, type SQL } from "drizzle-orm";
 import type { AppendCashEntries, CashEntry } from "@/modules/cashbook";
-import { maskPhone, type DrizzleCustomerWriter } from "@/modules/customer";
+// Chỉ kiểu: index của customer kéo theo presentation, mà presentation import composition-root (vòng import).
+import type { DrizzleCustomerWriter } from "@/modules/customer";
 import type { Db, Tx } from "@/shared/infrastructure/db/client";
 import { dbCause } from "@/shared/infrastructure/db/errors";
 import {
@@ -15,6 +16,7 @@ import {
 } from "@/shared/infrastructure/db/schema";
 import { businessDate, type LocalDate } from "@/shared/kernel/local-date";
 import { Money } from "@/shared/kernel/money";
+import { maskPhone } from "@/shared/kernel/personal-data";
 import { CODE_PREFIX, type ContractKind, type OperationKind } from "../domain/contract";
 import { formatRate, parseRate } from "../domain/interest/rate";
 import type {

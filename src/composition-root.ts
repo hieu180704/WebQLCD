@@ -7,7 +7,10 @@ import { ReverseManualEntry } from "@/modules/cashbook/application/reverse-manua
 import { SetOpeningBalance } from "@/modules/cashbook/application/set-opening-balance";
 import { appendCashEntries } from "@/modules/cashbook/infrastructure/cash-ledger";
 import { DrizzleCashbookRepository } from "@/modules/cashbook/infrastructure/drizzle-cashbook-repository";
-import { CccdCipher, DrizzleCustomerWriter } from "@/modules/customer";
+import { EditCustomer, RevealCccd } from "@/modules/customer/application/edit-customer";
+import { CccdCipher } from "@/modules/customer/infrastructure/cccd-cipher";
+import { DrizzleCustomerRepository } from "@/modules/customer/infrastructure/drizzle-customer-repository";
+import { DrizzleCustomerWriter } from "@/modules/customer/infrastructure/drizzle-customer-writer";
 import { CreateStaff } from "@/modules/identity/application/create-staff";
 import { ListStaff } from "@/modules/identity/application/list-staff";
 import { RegisterOwner } from "@/modules/identity/application/register-owner";
@@ -63,7 +66,11 @@ export const reverseManualEntry = new ReverseManualEntry(cashbook);
 
 // Khoá CCCD đọc lần đầu cần dùng rồi giữ lại; thiếu khoá thì chỉ thao tác có CCCD báo lỗi.
 let cccdCipher: CccdCipher | undefined;
-const customerWriter = new DrizzleCustomerWriter(() => (cccdCipher ??= CccdCipher.fromEnv()));
+const lazyCccdCipher = () => (cccdCipher ??= CccdCipher.fromEnv());
+const customerWriter = new DrizzleCustomerWriter(lazyCccdCipher);
+const customerRepository = new DrizzleCustomerRepository(db, lazyCccdCipher);
+export const editCustomer = new EditCustomer(customerRepository);
+export const revealCccd = new RevealCccd(customerRepository);
 const contracts = new DrizzleContractRepository(db, customerWriter, appendCashEntries);
 export const createContract = new CreateContract(contracts);
 export const listContracts = new ListContracts(contracts);
@@ -79,6 +86,6 @@ export const editContract = new EditContract(contracts);
 
 export const getDashboardStats = new GetDashboardStats(new DrizzleDashboardStats(db));
 export const listCustomers = new ListCustomers(
-  new DrizzleCustomerDirectory(db, (shopId, cccd) => (cccdCipher ??= CccdCipher.fromEnv()).hash(shopId, cccd)),
+  new DrizzleCustomerDirectory(db, (shopId, cccd) => lazyCccdCipher().hash(shopId, cccd)),
 );
 export const getCustomerDetail = new GetCustomerDetail(new DrizzleCustomerProfile(db));

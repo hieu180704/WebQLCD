@@ -1,10 +1,10 @@
 import "server-only";
 import { and, desc, eq, lt, or, sql, type SQL } from "drizzle-orm";
-import { maskPhone } from "@/modules/customer";
 import type { Db } from "@/shared/infrastructure/db/client";
 import { contracts, customers } from "@/shared/infrastructure/db/schema";
 import type { LocalDate } from "@/shared/kernel/local-date";
 import { Money } from "@/shared/kernel/money";
+import { maskPhone } from "@/shared/kernel/personal-data";
 import type { CustomerDirectory, CustomerListRow, CustomerQuery, CustomerTotals } from "../application/list-customers";
 import { overdueCondition } from "./contract-sql";
 

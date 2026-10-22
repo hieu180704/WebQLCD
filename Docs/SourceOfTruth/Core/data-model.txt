@@ -51,7 +51,7 @@
 - `cccd_hash` = HMAC-SHA256 của `<shop_id>:<CCCD đã chuẩn hoá>` (9 hoặc 12 chữ số): cùng CCCD ở hai cửa hàng cho hai hash khác nhau.
 - `cccd_encrypted` = `v1:` + base64(IV 12 byte | tag 16 byte | bản mã), AES-256-GCM, AAD là `shop_id` (không tráo bản mã sang cửa hàng khác được). `cccd_masked` giữ 4 số cuối.
 - Khoá `CCCD_ENCRYPTION_KEY`, `CCCD_HMAC_KEY` (base64, 32 byte, phải khác nhau) nằm trong biến môi trường, không lưu trong DB, đọc lần đầu cần dùng. Xoay khoá HMAC làm mất khả năng tìm khách trùng (hash chưa có version), cần job băm lại khi xoay.
-- Hiện thực: `src/modules/customer/infrastructure/cccd-cipher.ts`, ghi khách trong transaction của bên gọi: `drizzle-customer-writer.ts` (trùng CCCD thì dùng lại khách cũ, không ghi đè).
+- Hiện thực: `src/modules/customer/infrastructure/cccd-cipher.ts`, ghi khách trong transaction của bên gọi: `drizzle-customer-writer.ts` (trùng CCCD thì dùng lại khách cũ, không ghi đè). Sửa khách / xem CCCD đầy đủ: `drizzle-customer-repository.ts` (khoá dòng `FOR UPDATE`, trùng CCCD bắt qua UNIQUE bên dưới; audit `edit` với `changed_fields` = `full_name` / `phone` / `address` / `cccd`, audit `view_cccd`). Chuẩn hoá, che CCCD và SĐT: `src/shared/kernel/personal-data.ts`.
 - `UNIQUE (shop_id, cccd_hash) WHERE cccd_hash IS NOT NULL`.
 - Tìm tên không dấu, không phân biệt hoa thường qua hàm `search_text(text)` = `lower(unaccent(...))` (IMMUTABLE, extension `unaccent`, migration 0007); truy vấn phải gọi đúng `search_text(full_name)` mới dùng được index.
 - CHECK: ba cột CCCD cùng có hoặc cùng trống.
@@ -101,7 +101,7 @@
 - Chuộc đồ / đóng hợp đồng không có loại riêng: thao tác sinh các dòng `interest_payment` (bỏ qua nếu lãi thu = 0) + `principal_repayment` chung `operation_id`, đặt `outstanding_principal = 0`, `status = 'closed'`; có thu lãi thì `interest_paid_until` = ngày chuộc.
 
 ## 3.7 `audit_logs`
-- `shop_id`, `user_id`, `entity`, `entity_id`, `action` (`create` / `edit` / `extend` / `delete` / `pay_interest` / `repay_principal` / `additional_loan` / `close` / `reverse` / ...), `changed_fields` (chỉ tên field, không lưu giá trị), `at`.
+- `shop_id`, `user_id`, `entity`, `entity_id`, `action` (`create` / `edit` / `extend` / `delete` / `pay_interest` / `repay_principal` / `additional_loan` / `close` / `reverse` / `view_cccd` / ...), `changed_fields` (chỉ tên field, không lưu giá trị), `at`.
 - Append-only, trigger chặn UPDATE/DELETE/TRUNCATE giống `cash_transactions`.
 
 ## 3.8 `shop_counters`

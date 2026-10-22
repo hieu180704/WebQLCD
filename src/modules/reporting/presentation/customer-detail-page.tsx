@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { z } from "zod";
 import { getCustomerDetail, requireSession } from "@/composition-root";
+import { CccdReveal, EditCustomerDialog } from "@/modules/customer";
 import { CONTRACT_CASH_LABEL, DueBadge } from "@/modules/pawn";
 import { BUSINESS_TIME_ZONE, businessDate } from "@/shared/kernel/local-date";
 import { formatVnd } from "@/shared/kernel/vnd";
@@ -24,7 +25,7 @@ const formatDateTime = (at: Date) =>
   `${formatDay(businessDate(at))} ${formatTime(at)}`;
 
 /**
- * Trang chi tiết khách hàng (mockup khach-hang-chi-tiet.html). Chỉ xem; "Sửa thông tin" và "Hiện số đầy đủ" CCCD làm ở lát 3c,
+ * Trang chi tiết khách hàng (mockup khach-hang-chi-tiet.html). Sửa thông tin và xem CCCD đầy đủ thuộc module customer;
  * nút tạo hợp đồng từ trang khách chưa làm.
  */
 export async function CustomerDetailPage({ id }: { id: string }) {
@@ -53,6 +54,17 @@ export async function CustomerDetailPage({ id }: { id: string }) {
             {customer.overdueContracts} hợp đồng quá hạn
           </span>
         )}
+        <div className="sm:ml-auto flex flex-wrap items-center gap-2">
+          <EditCustomerDialog
+            customerId={customer.id}
+            info={{
+              fullName: customer.fullName,
+              phone: customer.phone,
+              address: customer.address,
+              cccdMasked: customer.cccdMasked,
+            }}
+          />
+        </div>
       </div>
 
       <div className="mt-6 grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-6 items-start">
@@ -87,7 +99,19 @@ export async function CustomerDetailPage({ id }: { id: string }) {
               <dt className="text-slate-500">Họ tên</dt>
               <dd className="font-medium">{customer.fullName}</dd>
               <dt className="text-slate-500">Số CCCD</dt>
-              <dd className="num">{customer.cccdMasked ?? "—"}</dd>
+              <dd>
+                {customer.cccdMasked ? (
+                  // Đổi CCCD thì key đổi, bỏ số đầy đủ đang hiện.
+                  <CccdReveal
+                    key={customer.cccdMasked}
+                    customerId={customer.id}
+                    masked={customer.cccdMasked}
+                    canReveal={principal.role === "owner"}
+                  />
+                ) : (
+                  "—"
+                )}
+              </dd>
               <dt className="text-slate-500">SĐT</dt>
               <dd className="num">{customer.phone ?? "—"}</dd>
               <dt className="text-slate-500">Địa chỉ</dt>

@@ -79,7 +79,7 @@ src/
       presentation/        component, form, server action
       index.ts             public API của module
   shared/
-    kernel/                Money, Result, lỗi nghiệp vụ dùng chung
+    kernel/                Money, Result, lỗi nghiệp vụ dùng chung, chuẩn hoá/che CCCD và SĐT
     infrastructure/        kết nối DB, transaction, auth session, guard requireSession
     (không còn ui/: theme TP83 là class CSS trong src/app/globals.css; khung trang sidebar/topbar ở src/app/(app)/_shell/)
   composition-root.ts      nơi duy nhất ghép implementation vào use case

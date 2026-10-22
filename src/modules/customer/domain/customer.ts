@@ -1,4 +1,4 @@
-/** Khách nhập kèm hợp đồng; các field đã chuẩn hoá ở presentation (CCCD, SĐT qua personal-data). */
+/** Khách nhập kèm hợp đồng; các field đã chuẩn hoá ở presentation (CCCD, SĐT qua shared/kernel/personal-data). */
 export type NewCustomer = {
   fullName: string;
   cccd: string | null;

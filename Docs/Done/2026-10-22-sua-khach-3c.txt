@@ -1,0 +1,14 @@
+# 2026-10-22: Lát 3c sửa thông tin khách, xem CCCD đầy đủ — [verified: lint, typecheck, 167 unit/DB test, 29 e2e ×2 lần liền]
+
+- Commit: xem commit "Lát 3c: sửa thông tin khách, xem CCCD đầy đủ" ngay sau a691935
+- Đã làm:
+  1. Module `customer` thêm lớp application (`ports.ts`, `edit-customer.ts`: `EditCustomer`, `RevealCccd`) và `DrizzleCustomerRepository`: sửa trong một transaction (khoá dòng `FOR UPDATE`, so giá trị người sửa đang thấy gồm tên, SĐT, địa chỉ, CCCD đã che → `stale`; CCCD mới so bằng hash, trùng số cũ thì không tính là đổi; trùng khách khác bắt qua UNIQUE `customers_shop_id_cccd_hash_key` → `duplicate_cccd`); audit `edit` kèm tên cột, không đổi gì thì không ghi. Xem CCCD: giải mã + audit `view_cccd` cùng transaction.
+  2. Presentation `customer`: server action (sửa: `write: true`, chủ tiệm + KTV; xem CCCD: `role: "owner"`, không cần `write`), schema Zod, hộp thoại `EditCustomerDialog`, `CccdReveal`; gắn vào trang `/khach-hang/[id]` (nút xem chỉ hiện với chủ tiệm).
+  3. Vòng import: `customer/index.ts` giờ export UI, UI → action → `composition-root` → infrastructure của pawn/reporting → `customer/index.ts` (đã làm vỡ DB test của reporting). Sửa gốc: chuyển `personal-data` (chuẩn hoá/che CCCD, SĐT) sang `src/shared/kernel/`; infrastructure của pawn/reporting import `maskPhone` từ kernel, `DrizzleCustomerWriter` chỉ import kiểu; `composition-root` import thẳng file của `customer` như các module khác. Hàm `cccdColumns` (3 cột CCCD) tách ra `cccd-cipher.ts`, writer và repository dùng chung.
+  4. Test: unit `RevealCccd`; DB test 5 ca (sửa đủ field + audit + mã hoá lại, CCCD trống/trùng số cũ không đổi, stale + trùng CCCD, xem CCCD + audit, cách ly A/B); e2e 2 ca (chủ tiệm sửa + trùng CCCD + xem số đầy đủ; KTV không có nút xem).
+  5. Docs: core-spec mục 2 ("Sửa thông tin khách"), data-model 3.3 + 3.7 (`view_cccd`), architecture-spec (kernel), handoff.
+- Trạng thái: xong lát 3c; kế tiếp lát 3d.
+- Lưu ý cho phiên sau:
+  - Index của module có export presentation (pawn, cashbook, customer) thì infrastructure/application của module khác chỉ được `import type` từ đó, không thì vòng import qua `composition-root` (lỗi "X is not a constructor" ở test).
+  - Thông báo "Đã lưu thông tin khách hàng." hiện cạnh nút "Sửa thông tin" (trang khách không có khung OperationStatus như chi tiết hợp đồng).
+  - Chưa có e2e cho KTV gọi thẳng action xem CCCD; chặn ở guard `requireSession({ role: "owner" })`.

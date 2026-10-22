@@ -1,5 +1,6 @@
 import "server-only";
 import { createCipheriv, createDecipheriv, createHmac, randomBytes } from "node:crypto";
+import { maskCccd } from "@/shared/kernel/personal-data";
 
 const VERSION = "v1";
 const IV_BYTES = 12;
@@ -50,4 +51,9 @@ export class CccdCipher {
   hash(shopId: string, cccd: string): string {
     return createHmac("sha256", this.hmacKey).update(`${shopId}:${cccd}`).digest("hex");
   }
+}
+
+/** Ba cột CCCD của bảng customers cho một CCCD đã chuẩn hoá. */
+export function cccdColumns(cipher: CccdCipher, shopId: string, cccd: string) {
+  return { cccdEncrypted: cipher.encrypt(shopId, cccd), cccdHash: cipher.hash(shopId, cccd), cccdMasked: maskCccd(cccd) };
 }
