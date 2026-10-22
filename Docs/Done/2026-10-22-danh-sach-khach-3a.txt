@@ -1,0 +1,15 @@
+# 2026-10-22: Lát 3a danh sách khách, tìm kiếm — [verified: lint, typecheck, 155 unit/DB test, 26 e2e ×2 lần liền]
+
+- Commit: xem commit "Lát 3a: danh sách khách, tìm không dấu" ngay sau ea61192
+- Đã làm:
+  1. Kế hoạch mục 3 pilot-scope chia 4 lát (người dùng duyệt 2026-10-22): 3a danh sách + tìm; 3b chi tiết khách; 3c sửa thông tin khách + xem CCCD đầy đủ; 3d tìm/lọc `/cam-do`. Chốt kèm: tìm không dấu; sửa CCCD trùng khách khác thì từ chối; nút "+ Cầm đồ" ở trang khách hoãn.
+  2. Migration 0007 (viết tay phần đầu): extension `unaccent` (trusted, role app tạo được, đã smoke-test trên PG 18 dev: "Đ" → "d", planner dùng index); hàm `search_text` (IMMUTABLE), index trigram `search_text(full_name)` thay index cũ trên `full_name`; index `contracts (shop_id, customer_id)`; hàm `contract_interest_due`. `listDue` (pawn) và đếm quá hạn (reporting, `contract-sql.ts`) chuyển sang hàm này.
+  3. Read-model `reporting`: `ListCustomers` + `DrizzleCustomerDirectory` (một truy vấn GROUP BY: HĐ mở, quá hạn, dư nợ; giao dịch gần nhất bằng truy vấn con; HAVING cho bộ lọc; keyset theo id). Tên khớp `search_text(...) LIKE`, ký tự `%` `_` `\` thoát; SĐT khớp khi ô tìm có ≥ 3 chữ số; CCCD khớp `cccd_hash` (hàm băm ghép qua composition-root, khoá lấy lười như pawn).
+  4. Trang `/khach-hang` (form GET: Tìm kiếm, Số CCCD, Lọc; "Xem tiếp" giữ bộ lọc; CCCD sai định dạng thì báo lỗi, không trả danh sách), bật link menu "Khách hàng". SĐT che giữa theo web-security (mockup hiện đủ).
+  5. Test: unit `ListCustomers`; DB test 4 ca (số liệu, tìm không dấu/SĐT/LIKE/CCCD, lọc + keyset, cách ly cửa hàng); helper seed chung `reporting/infrastructure/db-test-kit.ts` (test dashboard dùng lại); e2e `e2e/customers.spec.ts`.
+  6. Docs: core-spec mục 2 ("Danh sách khách hàng"), data-model 3.3 + 3.9, architecture-spec 3.1 (vai trò reporting), handoff.
+- Trạng thái: xong lát 3a; kế tiếp lát 3b.
+- Lưu ý cho phiên sau:
+  - Danh sách khách ở `reporting` vì lọc/phân trang trên số liệu gộp từ bảng `contracts` (ngoại lệ chỉ đọc của architecture-spec 2.2); sửa khách (3c) làm ở module `customer`.
+  - Link từ tên khách sang trang chi tiết làm ở 3b; tên trong bảng 3a chưa là link.
+  - Truy vấn tên phải bọc `search_text()` cả hai vế, không thì không dùng index. Tìm tài sản không dấu ở 3d cần index tương tự trên `contracts.asset_name`.

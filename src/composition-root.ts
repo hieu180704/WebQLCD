@@ -30,6 +30,8 @@ import { RedeemContract } from "@/modules/pawn/application/redeem-contract";
 import { ReverseOperation } from "@/modules/pawn/application/reverse-operation";
 import { DrizzleContractRepository } from "@/modules/pawn/infrastructure/drizzle-contract-repository";
 import { GetDashboardStats } from "@/modules/reporting/application/get-dashboard-stats";
+import { ListCustomers } from "@/modules/reporting/application/list-customers";
+import { DrizzleCustomerDirectory } from "@/modules/reporting/infrastructure/drizzle-customer-directory";
 import { DrizzleDashboardStats } from "@/modules/reporting/infrastructure/drizzle-dashboard-stats";
 import { DrizzleShopRepository } from "@/modules/shop/infrastructure/drizzle-shop-repository";
 import { db } from "@/shared/infrastructure/db/client";
@@ -74,3 +76,6 @@ export const deleteContract = new DeleteContract(contracts);
 export const editContract = new EditContract(contracts);
 
 export const getDashboardStats = new GetDashboardStats(new DrizzleDashboardStats(db));
+export const listCustomers = new ListCustomers(
+  new DrizzleCustomerDirectory(db, (shopId, cccd) => (cccdCipher ??= CccdCipher.fromEnv()).hash(shopId, cccd)),
+);

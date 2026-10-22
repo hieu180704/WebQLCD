@@ -6,6 +6,7 @@ import { cashTransactions, contracts } from "@/shared/infrastructure/db/schema";
 import type { LocalDate } from "@/shared/kernel/local-date";
 import { Money } from "@/shared/kernel/money";
 import type { DashboardStats, DashboardStatsSource, MonthRange } from "../application/get-dashboard-stats";
+import { overdueCondition } from "./contract-sql";
 
 // reporting được truy vấn thẳng bảng của module khác, chỉ đọc (architecture-spec mục 2.2).
 const original = alias(cashTransactions, "original");
@@ -15,8 +16,7 @@ export class DrizzleDashboardStats implements DashboardStatsSource {
 
   async load(shopId: string, today: LocalDate, month: MonthRange): Promise<DashboardStats> {
     const c = contracts;
-    // Hạn đóng lãi như `nextInterestDue` của pawn; lãi suất 0 không có thao tác đóng lãi nên không bao giờ quá hạn.
-    const overdue = sql`${c.interestRate} > 0 AND ${c.interestPaidUntil} + CASE WHEN ${c.prepaidInterest} THEN 0 ELSE ${c.interestPeriodDays} END < ${today}`;
+    const overdue = overdueCondition(today);
     const contractStats = this.db
       .select({
         // sum(bigint) trả numeric nên đọc dạng chuỗi.

@@ -14,7 +14,7 @@ const NAV: NavItem[] = [
   { label: "Cầm đồ & Tín chấp", icon: "pawn", href: "/cam-do" },
   { label: "Trả góp", icon: "installment" },
   { label: "Quỹ két & Thu chi", icon: "cash", href: "/quy-ket" },
-  { label: "Khách hàng", icon: "customer" },
+  { label: "Khách hàng", icon: "customer", href: "/khach-hang" },
   { label: "Báo cáo", icon: "report" },
   { label: "Sao lưu & Xuất Excel", icon: "backup" },
   { label: "Nhân viên", icon: "staff", href: "/nhan-vien", ownerOnly: true },

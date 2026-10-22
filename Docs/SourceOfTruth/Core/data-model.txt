@@ -53,6 +53,7 @@
 - Khoá `CCCD_ENCRYPTION_KEY`, `CCCD_HMAC_KEY` (base64, 32 byte, phải khác nhau) nằm trong biến môi trường, không lưu trong DB, đọc lần đầu cần dùng. Xoay khoá HMAC làm mất khả năng tìm khách trùng (hash chưa có version), cần job băm lại khi xoay.
 - Hiện thực: `src/modules/customer/infrastructure/cccd-cipher.ts`, ghi khách trong transaction của bên gọi: `drizzle-customer-writer.ts` (trùng CCCD thì dùng lại khách cũ, không ghi đè).
 - `UNIQUE (shop_id, cccd_hash) WHERE cccd_hash IS NOT NULL`.
+- Tìm tên không dấu, không phân biệt hoa thường qua hàm `search_text(text)` = `lower(unaccent(...))` (IMMUTABLE, extension `unaccent`, migration 0007); truy vấn phải gọi đúng `search_text(full_name)` mới dùng được index.
 - CHECK: ba cột CCCD cùng có hoặc cùng trống.
 
 ## 3.4 `contracts` (cầm đồ + tín chấp)
@@ -108,7 +109,8 @@
 - `next_value` là số sẽ cấp tiếp theo. Cấp mã bằng `INSERT (shop_id, prefix, 2) ON CONFLICT DO UPDATE SET next_value = next_value + 1 RETURNING next_value`, mã = giá trị trả về − 1, trong cùng transaction tạo hợp đồng (khoá dòng, không trùng mã; dòng bộ đếm tự tạo lần đầu).
 
 ## 3.9 Index
-- `contracts (shop_id, status, interest_paid_until)`: danh sách đến hạn đóng lãi (hạn ≥ ngày trả đến nên lọc trước `interest_paid_until <= hôm nay + 3` trên index, rồi lọc và xếp theo hạn tính trong SQL).
+- `contracts (shop_id, status, interest_paid_until)`: danh sách đến hạn đóng lãi (hạn ≥ ngày trả đến nên lọc trước `interest_paid_until <= hôm nay + 3` trên index, rồi lọc và xếp theo hạn tính trong SQL). Hạn trong SQL dùng hàm `contract_interest_due(interest_paid_until, prepaid_interest, interest_period_days)` (migration 0007), tính như `nextInterestDue` của domain; đổi quy tắc hạn thì sửa cả hai.
+- `contracts (shop_id, customer_id)`: hợp đồng của một khách, số liệu khách hàng.
 - `cash_transactions (shop_id, business_date)`: sổ quỹ theo ngày, quỹ đầu két; lọc sổ quỹ theo loại / người thực hiện chạy trên index này (một ngày một cửa hàng đã đủ hẹp), chưa cần index riêng.
 - `cash_transactions (shop_id, contract_id)`, `(shop_id, installment_contract_id)`: lịch sử giao dịch của một hợp đồng.
 - `cash_transactions (shop_id, operation_id)`: đảo cả một thao tác.
@@ -116,7 +118,7 @@
 - `installment_contracts (shop_id, status)`, `audit_logs (shop_id, entity, entity_id)`.
 - `contract_operations (shop_id, contract_id, created_at)`: thao tác mới nhất của hợp đồng.
 - `customers (shop_id, cccd_hash)`: tìm khớp chính xác CCCD (đã có qua UNIQUE).
-- `pg_trgm` GIN: `customers.full_name`, `customers.phone`, `contracts.code`, `contracts.asset_name`, `installment_contracts.code`.
+- `pg_trgm` GIN: `search_text(customers.full_name)`, `customers.phone`, `contracts.code`, `contracts.asset_name`, `installment_contracts.code`.
 
 ---
 

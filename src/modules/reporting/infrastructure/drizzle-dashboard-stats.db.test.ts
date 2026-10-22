@@ -1,10 +1,8 @@
 // Thống kê trang chủ trên PostgreSQL thật (cần DATABASE_URL, đã migrate). Mỗi test chạy trong transaction rồi rollback.
-import { TransactionRollbackError, sql } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { Db } from "@/shared/infrastructure/db/client";
-import * as schema from "@/shared/infrastructure/db/schema";
+import { inRollbackTx, seedCash as cash, seedContract, seedShop } from "./db-test-kit";
 import { DrizzleDashboardStats } from "./drizzle-dashboard-stats";
 
 const url = process.env.DATABASE_URL;
@@ -22,79 +20,7 @@ describe.skipIf(!url)("DrizzleDashboardStats", () => {
     await pool.end();
   });
 
-  async function inTx(fn: (db: Db) => Promise<void>) {
-    const db = drizzle({ client: pool, schema });
-    try {
-      await db.transaction(async (tx) => {
-        await fn(tx as unknown as Db);
-        tx.rollback();
-      });
-    } catch (error) {
-      if (!(error instanceof TransactionRollbackError)) throw error;
-    }
-  }
-
-  const rows = async <T>(db: Db, query: ReturnType<typeof sql>) => (await db.execute(query)).rows as T[];
-
-  let n = 0;
-  async function seedShop(db: Db) {
-    const id = `ds_${Date.now()}_${n++}`;
-    const [shop] = await rows<{ id: string }>(
-      db,
-      sql`INSERT INTO shops (name, opened_at, trial_ends_at) VALUES ('Tiệm Test', ${TODAY}, now() + interval '7 days') RETURNING id`,
-    );
-    const [user] = await rows<{ id: string }>(
-      db,
-      sql`INSERT INTO users (shop_id, name, email, username, role) VALUES (${shop.id}, 'Chủ Test', ${`${id}@test.local`}, ${id}, 'owner') RETURNING id`,
-    );
-    const [customer] = await rows<{ id: string }>(
-      db,
-      sql`INSERT INTO customers (shop_id, full_name) VALUES (${shop.id}, 'Khách') RETURNING id`,
-    );
-    return { shopId: shop.id, userId: user.id, customerId: customer.id };
-  }
-  type Shop = Awaited<ReturnType<typeof seedShop>>;
-
-  let code = 0;
-  async function seedContract(
-    db: Db,
-    shop: Shop,
-    c: {
-      kind?: "secured" | "unsecured";
-      outstanding: number;
-      paidUntil: string;
-      period?: number;
-      prepaid?: boolean;
-      rate?: string;
-      closed?: boolean;
-      deleted?: boolean;
-    },
-  ) {
-    const [row] = await rows<{ id: string }>(
-      db,
-      sql`INSERT INTO contracts (shop_id, code, customer_id, kind, asset_name, principal, outstanding_principal, interest_type,
-            interest_rate, interest_period_days, term_days, loan_date, interest_paid_until, prepaid_interest, status, closed_at, staff_id,
-            deleted_at, deleted_by, deleted_reason)
-          VALUES (${shop.shopId}, ${`CD-${++code}`}, ${shop.customerId}, ${c.kind ?? "secured"}, 'Xe', 10000000, ${c.outstanding},
-            'percent_per_month', ${c.rate ?? "3"}, ${c.period ?? 10}, 90, '2026-09-01', ${c.paidUntil}, ${c.prepaid ?? false},
-            ${c.closed ? "closed" : "active"}, ${c.closed ? sql`now()` : null}, ${shop.userId},
-            ${c.deleted ? sql`now()` : null}, ${c.deleted ? shop.userId : null}, ${c.deleted ? "Nhập sai" : null})
-          RETURNING id`,
-    );
-    return row.id;
-  }
-
-  async function cash(db: Db, shop: Shop, c: { date: string; type: string; amount: number; contractId?: string; reverses?: string }) {
-    const period = c.type === "interest_payment" ? ["2026-09-01", "2026-09-11"] : [null, null];
-    const [row] = await rows<{ id: string }>(
-      db,
-      sql`INSERT INTO cash_transactions (shop_id, operation_id, business_date, amount, type, contract_id, period_from, period_to, reverses_id, created_by)
-          VALUES (${shop.shopId}, ${crypto.randomUUID()}, ${c.date}, ${c.amount}, ${c.type}, ${c.contractId ?? null}, ${period[0]}, ${period[1]},
-            ${c.reverses ?? null}, ${shop.userId})
-          RETURNING id`,
-    );
-    return row.id;
-  }
+  const inTx = (fn: (db: Db) => Promise<void>) => inRollbackTx(pool, fn);
 
   const load = (db: Db, shopId: string) => new DrizzleDashboardStats(db).load(shopId, TODAY, MONTH);
 

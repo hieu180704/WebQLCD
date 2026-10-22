@@ -123,9 +123,9 @@ export class DrizzleContractRepository implements ContractRepository {
   }
 
   async listDue(shopId: string, until: LocalDate, limit: number): Promise<DueContractRow[]> {
-    // Hạn = ngày trả đến (+ kỳ lãi nếu thu lãi sau), như `nextInterestDue`; hạn >= ngày trả đến nên lọc trước
+    // Hàm SQL contract_interest_due (migration 0007) tính như `nextInterestDue`; hạn >= ngày trả đến nên lọc trước
     // `interest_paid_until <= until` chạy được trên index (shop_id, status, interest_paid_until).
-    const due = sql`(${contracts.interestPaidUntil} + CASE WHEN ${contracts.prepaidInterest} THEN 0 ELSE ${contracts.interestPeriodDays} END)`;
+    const due = sql`contract_interest_due(${contracts.interestPaidUntil}, ${contracts.prepaidInterest}, ${contracts.interestPeriodDays})`;
     const rows = await this.db
       .select({
         id: contracts.id,

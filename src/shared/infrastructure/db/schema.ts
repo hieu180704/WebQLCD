@@ -190,7 +190,8 @@ export const customers = pgTable(
       "customers_cccd_columns_together",
       sql`num_nonnulls(${t.cccdEncrypted}, ${t.cccdHash}, ${t.cccdMasked}) IN (0, 3)`,
     ),
-    index("customers_full_name_trgm_idx").using("gin", t.fullName.op("gin_trgm_ops")),
+    // Tìm tên không dấu, không phân biệt hoa thường; hàm search_text tạo ở migration 0007.
+    index("customers_full_name_search_trgm_idx").using("gin", sql`search_text(${t.fullName}) gin_trgm_ops`),
     index("customers_phone_trgm_idx").using("gin", t.phone.op("gin_trgm_ops")),
   ],
 );
@@ -258,6 +259,7 @@ export const contracts = pgTable(
       sql`(${t.deletedAt} IS NULL) = (${t.deletedReason} IS NULL) AND btrim(coalesce(${t.deletedReason}, 'x')) <> ''`,
     ),
     index("contracts_shop_status_paid_until_idx").on(t.shopId, t.status, t.interestPaidUntil),
+    index("contracts_shop_customer_idx").on(t.shopId, t.customerId),
     index("contracts_code_trgm_idx").using("gin", t.code.op("gin_trgm_ops")),
     index("contracts_asset_name_trgm_idx").using("gin", t.assetName.op("gin_trgm_ops")),
   ],
