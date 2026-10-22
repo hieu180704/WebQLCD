@@ -1,0 +1,15 @@
+# 2026-10-22: Lát 2d trang chủ thống kê + hợp đồng đến hạn — [verified: lint, typecheck, 150 unit/DB test, 25 e2e ×2 lần liền]
+
+- Commit: xem commit "Lát 2d: trang chủ thống kê, hợp đồng đến hạn" ngay sau 91fb597
+- Đã làm:
+  1. Module `reporting` có code đầu tiên: `GetDashboardStats` (`application/get-dashboard-stats.ts`, `monthOf` tính tháng nửa mở theo ngày nghiệp vụ) + `DrizzleDashboardStats` truy vấn thẳng bảng `contracts`, `cash_transactions` (ngoại lệ chỉ đọc của architecture-spec mục 2.2). Hai truy vấn SQL chạy song song: tổng gốc còn lại / đếm theo loại / đếm quá hạn (`count FILTER`), và tổng lãi tháng (dòng `interest_payment` + dòng đảo có dòng gốc là `interest_payment`, cùng ghi trong tháng, trên index (shop_id, business_date)).
+  2. Pawn: domain `interestPerPeriod`; port `listDue` + repository (lọc trước `interest_paid_until <= until` trên index (shop_id, status, interest_paid_until), rồi lọc/xếp theo hạn tính trong SQL, bỏ lãi suất 0, tối đa 20); use case `ListDueContracts` (hôm nay + 3 ngày); component `DueContracts` (trạng thái Quá N ngày / Hôm nay / Còn N ngày).
+  3. Trang chủ: 4 ô thống kê + lưới "Đến hạn đóng lãi" | "Giao dịch hôm nay" theo mockup; 3 use case chạy `Promise.all`. "Tất cả", "Xem danh sách" tạm trỏ `/cam-do`.
+  4. Test: unit `ListDueContracts`, `monthOf`/`GetDashboardStats`; DB test `listDue` (thu lãi trước/sau, lãi suất 0, đã đóng, đã xoá, ngoài khoảng, limit, cách ly cửa hàng), DB test thống kê (3 test, gồm cách ly cửa hàng); e2e `e2e/dashboard.spec.ts`.
+  5. Docs: core-spec mục 2 (khối GIẢ ĐỊNH TẠM 2026-10-22, mục "Trang chủ"), data-model 3.9, handoff.
+- Trạng thái: xong mục 2 của pilot-scope; kế tiếp mục 3 (Khách hàng + tìm kiếm).
+- Lưu ý cho phiên sau:
+  - "Lãi đã thu tháng này" tính theo dòng tiền: huỷ trong tháng này một lần đóng lãi của tháng trước cũng trừ vào tháng này (khớp sổ quỹ). Nếu khách muốn tính theo tháng của dòng lãi gốc thì đổi điều kiện ngày sang dòng gốc.
+  - Lãi suất 0 bị loại khỏi bảng đến hạn và số quá hạn (không có thao tác đóng lãi, nếu không sẽ quá hạn mãi). Danh sách `/cam-do` (`DueBadge`) vẫn hiện "Quá N ngày" cho hợp đồng lãi suất 0: lệch có từ trước, chưa sửa.
+  - Công thức hạn đóng lãi viết ở 3 chỗ: `nextInterestDue` (domain), SQL trong `listDue` (pawn) và SQL đếm quá hạn (reporting). Đổi quy tắc hạn thì sửa cả 3.
+  - Lệnh prettier chạy trên cả file cũ sẽ format lại code có sẵn (một số dòng cũ dài hơn 140 cột): chỉ format file mới.

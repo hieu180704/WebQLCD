@@ -225,6 +225,43 @@ describe.skipIf(!url)("DrizzleContractRepository", () => {
       const page2 = await repo(db).list(actor.shopId, page1[1].id, 2);
       expect(page2.map((c) => c.code)).toEqual(["CD-1"]);
     }));
+  it("đến hạn: hạn theo thu lãi trước/sau, bỏ lãi suất 0 / đã đóng / đã xoá / ngoài khoảng; hạn sớm nhất trước; cách ly cửa hàng", () =>
+    inTx(async (db) => {
+      const actor = await seedShop(db);
+      // [ngày trả đến, kỳ lãi, thu lãi trước, chỉnh thêm]; hạn ghi ở cuối dòng.
+      const cases: [string, number, boolean, string?][] = [
+        ["2026-10-01", 10, false], // CD-1 hạn 11/10, quá hạn
+        ["2026-10-23", 10, true], // CD-2 hạn 23/10 (đúng mốc)
+        ["2026-10-20", 10, false], // CD-3 hạn 30/10, ngoài khoảng
+        ["2026-10-01", 10, false, "interest_rate = 0"], // CD-4 lãi suất 0
+        ["2026-10-01", 10, false, "status = 'closed', closed_at = now(), outstanding_principal = 0"], // CD-5 đã đóng
+        ["2026-10-01", 10, false, `deleted_at = now(), deleted_by = '${actor.userId}', deleted_reason = 'Nhập sai'`], // CD-6 đã xoá
+        ["2026-10-15", 5, false], // CD-7 hạn 20/10
+        ["2026-10-20", 4, false], // CD-8 hạn 24/10, ngoài khoảng
+      ];
+      for (const [paidUntil, period, prepaid, extra] of cases) {
+        await repo(db).create(actor, draft());
+        await db.execute(
+          sql`UPDATE contracts SET interest_paid_until = ${paidUntil}, interest_period_days = ${period}, prepaid_interest = ${prepaid}
+              WHERE shop_id = ${actor.shopId} AND code = (SELECT 'CD-' || count(*) FROM contracts WHERE shop_id = ${actor.shopId})`,
+        );
+        if (extra) {
+          await db.execute(
+            sql`UPDATE contracts SET ${sql.raw(extra)}
+                WHERE shop_id = ${actor.shopId} AND code = (SELECT 'CD-' || count(*) FROM contracts WHERE shop_id = ${actor.shopId})`,
+          );
+        }
+      }
+      const due = await repo(db).listDue(actor.shopId, "2026-10-23", 10);
+      expect(due.map((c) => c.code)).toEqual(["CD-1", "CD-7", "CD-2"]);
+      expect(due[0]).toMatchObject({ customerName: "Nguyễn Văn A", interestRate: 30_000n, interestPeriodDays: 10, prepaidInterest: false });
+      expect(due[0].outstandingPrincipal.toBigInt()).toBe(5_000_000n);
+      expect((await repo(db).listDue(actor.shopId, "2026-10-23", 2)).map((c) => c.code)).toEqual(["CD-1", "CD-7"]);
+
+      const other = await seedShop(db);
+      expect(await repo(db).listDue(other.shopId, "2026-10-23", 10)).toEqual([]);
+    }));
+
   it("đóng lãi: dời ngày trả đến, một dòng thu lãi, audit; khớp đối soát; lặp lại cùng kỳ thì không ghi", () =>
     inTx(async (db) => {
       const actor = await seedShop(db);

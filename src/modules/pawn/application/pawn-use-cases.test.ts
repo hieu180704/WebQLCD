@@ -8,6 +8,7 @@ import { DeleteContract } from "./delete-contract";
 import { EditContract } from "./edit-contract";
 import { ExtendContract, type ExtendContractInput } from "./extend-contract";
 import { CONTRACT_PAGE_SIZE, ListContracts } from "./list-contracts";
+import { DUE_LIST_LIMIT, ListDueContracts } from "./list-due-contracts";
 import { PayInterest, type PayInterestInput } from "./pay-interest";
 import type {
   ContractDetailRow,
@@ -66,12 +67,17 @@ function fakeRepo(
   const reversals: ReversalDraft[] = [];
   const deletions: DeletionDraft[] = [];
   const edits: EditDraft[] = [];
+  const dueQueries: { until: string; limit: number }[] = [];
   const repo: ContractRepository = {
     create: async (_actor, draft) => {
       drafts.push(draft);
       return { code: "CD-1", customer: { id: "c", fullName: "Khách Cũ", reused } };
     },
     list: async (_shop, _after, limit) => rows.slice(0, limit),
+    listDue: async (_shop, until, limit) => {
+      dueQueries.push({ until, limit });
+      return rows.slice(0, limit);
+    },
     findDetail: async () => detail,
     listTransactions: async () => [],
     findStanding: async () => standing,
@@ -105,7 +111,7 @@ function fakeRepo(
       return saves;
     },
   };
-  return { repo, drafts, payments, redemptions, principalChanges, extensions, reversals, deletions, edits };
+  return { repo, drafts, payments, redemptions, principalChanges, extensions, reversals, deletions, edits, dueQueries };
 }
 
 describe("CreateContract", () => {
@@ -165,6 +171,36 @@ describe("ListContracts", () => {
     const view = await new ListContracts(fakeRepo(rows).repo).execute("s", null, now);
     expect(view.items).toHaveLength(CONTRACT_PAGE_SIZE);
     expect(view.nextAfter).toBe(`id-${CONTRACT_PAGE_SIZE - 1}`);
+  });
+});
+
+describe("ListDueContracts", () => {
+  const row = (overrides: Partial<ContractListRow> = {}): ContractListRow => ({
+    id: "id",
+    code: "CD-1",
+    customerName: "Khách",
+    customerPhone: null,
+    kind: "secured",
+    assetName: "Xe",
+    principal: Money.fromNumber(10_000_000),
+    outstandingPrincipal: Money.fromNumber(6_000_000),
+    loanDate: "2026-09-01",
+    interestType: "percent_per_month",
+    interestRate: 30_000n,
+    interestPeriodDays: 30,
+    interestPaidUntil: "2026-09-21",
+    prepaidInterest: false,
+    status: "active",
+    ...overrides,
+  });
+
+  it("lấy tới hôm nay + 3 ngày; hạn theo thu lãi trước/sau; lãi một kỳ trên gốc còn lại", async () => {
+    const { repo, dueQueries } = fakeRepo([row(), row({ id: "id2", prepaidInterest: true, interestPaidUntil: "2026-10-22" })]);
+    const view = await new ListDueContracts(repo).execute("s", now);
+    expect(dueQueries).toEqual([{ until: "2026-10-23", limit: DUE_LIST_LIMIT }]);
+    expect(view.today).toBe("2026-10-20");
+    expect(view.items.map((c) => c.due)).toEqual(["2026-10-21", "2026-10-22"]);
+    expect(view.items[0].periodInterest.toBigInt()).toBe(180_000n);
   });
 });
 

@@ -66,6 +66,7 @@ GIẢ ĐỊNH TẠM (2026-10-22, đội dự án tự chốt theo mockup, ngư�
 - **Thu khác / Chi khác:** phiếu không gắn hợp đồng, ghi vào sổ két hôm nay. Chủ tiệm và KTV đều làm được. Số tiền > 0 (tối đa 100 tỷ), nội dung bắt buộc (tối đa 200 ký tự). Chi khác được làm két âm.
 - **Nạp vốn:** chỉ chủ tiệm, ghi vào sổ két hôm nay, ghi chú không bắt buộc. Dùng khi bỏ thêm vốn vào két hoặc chỉnh quỹ đầu két nhập sai.
 - **Huỷ phiếu:** chỉ chủ tiệm, phải nhập lý do. Ghi bút toán đảo vào sổ két hôm nay; phiếu gốc giữ nguyên, mang nhãn "Đã huỷ". Chỉ huỷ được phiếu thu khác, chi khác, nạp vốn; quỹ đầu két không huỷ được. Giao dịch hợp đồng không huỷ ở trang quỹ két mà ở trang chi tiết hợp đồng (luật "chỉ huỷ thao tác mới nhất"); trên quỹ két, mã hợp đồng là link sang trang đó.
+- **Trang chủ (cầm đồ/tín chấp; chưa tính trả góp):** "Đang cho vay" = tổng gốc còn lại của hợp đồng đang mở, chưa xoá. "Lãi đã thu tháng này" = tổng dòng thu lãi ghi trong tháng theo ngày nghiệp vụ, trừ dòng huỷ thu lãi ghi trong tháng (kể cả huỷ dòng lãi của tháng trước), khớp sổ quỹ. Hạn đóng lãi theo mục "Hạn đóng lãi" ở trên; **quá hạn** = hạn trước hôm nay; **sắp đến hạn** = hạn trong ≤ 3 ngày tới. Bảng "Đến hạn đóng lãi" gồm hợp đồng quá hạn và sắp đến hạn, hạn sớm nhất trước, tối đa 20 dòng; "Lãi kỳ này" = lãi một kỳ trên gốc còn lại. Hợp đồng lãi suất 0 không có hạn đóng lãi nên không vào bảng, không tính quá hạn. Nút "Tất cả", "Xem danh sách" tạm trỏ danh sách hợp đồng.
 
 ---
 

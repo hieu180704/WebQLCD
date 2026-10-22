@@ -48,6 +48,21 @@ export type ContractListRow = {
   status: "active" | "closed";
 };
 
+/** Hợp đồng đang mở cần đóng lãi (trang chủ). */
+export type DueContractRow = Pick<
+  ContractListRow,
+  | "id"
+  | "code"
+  | "customerName"
+  | "kind"
+  | "outstandingPrincipal"
+  | "interestType"
+  | "interestRate"
+  | "interestPeriodDays"
+  | "interestPaidUntil"
+  | "prepaidInterest"
+>;
+
 export type ContractDetailRow = Omit<ContractListRow, "customerPhone"> & {
   termDays: number;
   note: string | null;
@@ -151,6 +166,11 @@ export interface ContractRepository {
   create(actor: Actor, draft: ContractDraft): Promise<CreatedContract>;
   /** Hợp đồng chưa xoá, mới nhất trước; `after` là id dòng cuối của trang trước (keyset). */
   list(shopId: string, after: string | null, limit: number): Promise<ContractListRow[]>;
+  /**
+   * Hợp đồng đang mở, chưa xoá, lãi suất > 0, hạn đóng lãi (`nextInterestDue`) không sau `until`; hạn sớm nhất trước,
+   * tối đa `limit` dòng.
+   */
+  listDue(shopId: string, until: LocalDate, limit: number): Promise<DueContractRow[]>;
   /** Hợp đồng chưa xoá của cửa hàng, hoặc null. */
   findDetail(shopId: string, contractId: string): Promise<ContractDetailRow | null>;
   /** Giao dịch két của hợp đồng, mới nhất trước, tối đa `limit` dòng. */

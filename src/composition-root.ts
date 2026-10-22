@@ -24,10 +24,13 @@ import { EditContract } from "@/modules/pawn/application/edit-contract";
 import { ExtendContract } from "@/modules/pawn/application/extend-contract";
 import { GetContractDetail } from "@/modules/pawn/application/get-contract-detail";
 import { ListContracts } from "@/modules/pawn/application/list-contracts";
+import { ListDueContracts } from "@/modules/pawn/application/list-due-contracts";
 import { PayInterest } from "@/modules/pawn/application/pay-interest";
 import { RedeemContract } from "@/modules/pawn/application/redeem-contract";
 import { ReverseOperation } from "@/modules/pawn/application/reverse-operation";
 import { DrizzleContractRepository } from "@/modules/pawn/infrastructure/drizzle-contract-repository";
+import { GetDashboardStats } from "@/modules/reporting/application/get-dashboard-stats";
+import { DrizzleDashboardStats } from "@/modules/reporting/infrastructure/drizzle-dashboard-stats";
 import { DrizzleShopRepository } from "@/modules/shop/infrastructure/drizzle-shop-repository";
 import { db } from "@/shared/infrastructure/db/client";
 
@@ -60,6 +63,7 @@ const customerWriter = new DrizzleCustomerWriter(() => (cccdCipher ??= CccdCiphe
 const contracts = new DrizzleContractRepository(db, customerWriter, appendCashEntries);
 export const createContract = new CreateContract(contracts);
 export const listContracts = new ListContracts(contracts);
+export const listDueContracts = new ListDueContracts(contracts);
 export const getContractDetail = new GetContractDetail(contracts);
 export const payInterest = new PayInterest(contracts);
 export const redeemContract = new RedeemContract(contracts);
@@ -68,3 +72,5 @@ export const extendContract = new ExtendContract(contracts);
 export const reverseOperation = new ReverseOperation(contracts);
 export const deleteContract = new DeleteContract(contracts);
 export const editContract = new EditContract(contracts);
+
+export const getDashboardStats = new GetDashboardStats(new DrizzleDashboardStats(db));

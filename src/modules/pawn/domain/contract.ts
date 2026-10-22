@@ -97,6 +97,11 @@ export function accruedInterest(contract: InterestStanding, today: LocalDate): M
   return interestPolicy(contract.interestType).interestFor(contract.outstandingPrincipal, contract.interestRate, days);
 }
 
+/** Lãi một kỳ trên gốc còn lại ("Lãi kỳ này" ở trang chủ). */
+export function interestPerPeriod(contract: InterestStanding): Money {
+  return interestPolicy(contract.interestType).interestFor(contract.outstandingPrincipal, contract.interestRate, contract.interestPeriodDays);
+}
+
 /**
  * Hạn đóng lãi kỳ tiếp theo. Thu lãi trước: kỳ sau đóng ngay đầu kỳ, tức ngày đã trả đến.
  * Thu lãi sau: đóng cuối kỳ, tức ngày đã trả đến + kỳ lãi.

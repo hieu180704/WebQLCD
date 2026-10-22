@@ -1,5 +1,5 @@
 import "server-only";
-import { and, desc, eq, isNotNull, isNull, lt, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, isNotNull, isNull, lt, lte, sql, type SQL } from "drizzle-orm";
 import type { AppendCashEntries, CashEntry } from "@/modules/cashbook";
 import { maskPhone, type DrizzleCustomerWriter } from "@/modules/customer";
 import type { Db, Tx } from "@/shared/infrastructure/db/client";
@@ -28,6 +28,7 @@ import type {
   ContractTransaction,
   CreatedContract,
   DeletionDraft,
+  DueContractRow,
   EditDraft,
   ExtensionDraft,
   InterestPaymentDraft,
@@ -116,6 +117,45 @@ export class DrizzleContractRepository implements ContractRepository {
       ...row,
       customerPhone: row.customerPhone ? maskPhone(row.customerPhone) : null,
       principal: Money.of(row.principal),
+      outstandingPrincipal: Money.of(row.outstandingPrincipal),
+      interestRate: rateFromDb(row.interestRate),
+    }));
+  }
+
+  async listDue(shopId: string, until: LocalDate, limit: number): Promise<DueContractRow[]> {
+    // Hạn = ngày trả đến (+ kỳ lãi nếu thu lãi sau), như `nextInterestDue`; hạn >= ngày trả đến nên lọc trước
+    // `interest_paid_until <= until` chạy được trên index (shop_id, status, interest_paid_until).
+    const due = sql`(${contracts.interestPaidUntil} + CASE WHEN ${contracts.prepaidInterest} THEN 0 ELSE ${contracts.interestPeriodDays} END)`;
+    const rows = await this.db
+      .select({
+        id: contracts.id,
+        code: contracts.code,
+        customerName: customers.fullName,
+        kind: contracts.kind,
+        outstandingPrincipal: contracts.outstandingPrincipal,
+        interestType: contracts.interestType,
+        interestRate: contracts.interestRate,
+        interestPeriodDays: contracts.interestPeriodDays,
+        interestPaidUntil: contracts.interestPaidUntil,
+        prepaidInterest: contracts.prepaidInterest,
+      })
+      .from(contracts)
+      .innerJoin(customers, and(eq(customers.shopId, contracts.shopId), eq(customers.id, contracts.customerId)))
+      .where(
+        and(
+          eq(contracts.shopId, shopId),
+          eq(contracts.status, "active"),
+          lte(contracts.interestPaidUntil, until),
+          isNull(contracts.deletedAt),
+          // Lãi suất 0 không có thao tác đóng lãi (core-spec mục 2), không bao giờ "đến hạn".
+          sql`${contracts.interestRate} > 0`,
+          sql`${due} <= ${until}`,
+        ),
+      )
+      .orderBy(asc(due), asc(contracts.id))
+      .limit(limit);
+    return rows.map((row) => ({
+      ...row,
       outstandingPrincipal: Money.of(row.outstandingPrincipal),
       interestRate: rateFromDb(row.interestRate),
     }));
