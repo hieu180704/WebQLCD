@@ -1,0 +1,35 @@
+# QUYẾT ĐỊNH: BẢNG `contract_operations` LÀM ĐƠN VỊ "THAO TÁC" ĐỂ HUỶ GIAO DỊCH
+
+# Mục lục
+1. Bối Cảnh & Vấn Đề
+2. Các Phương Án Đã Cân Nhắc
+3. Quyết Định Đã Chốt & Lý Do
+
+---
+
+# 1. Bối Cảnh & Vấn Đề
+- Ngày ghi nhận: 2026-10-22
+- Luật huỷ (core-spec mục 2): chỉ huỷ thao tác mới nhất chưa huỷ, đảo mọi dòng sổ két chung `operation_id`.
+- Trước lát 1d, "thao tác" chỉ tồn tại qua `operation_id` trên `cash_transactions`. Gia hạn không thu lãi không sinh dòng nào nên không huỷ được. Gia hạn có thu lãi thì đảo được dòng lãi nhưng không lùi được `term_days`, vì `audit_logs` chỉ lưu tên field, không lưu giá trị.
+- `operation_id` cũ sinh bằng UUID v4 nên không sắp được theo thời gian.
+
+---
+
+# 2. Các Phương Án Đã Cân Nhắc
+- **G1: bảng `contract_operations`, mỗi thao tác một dòng; `id` = `operation_id` của các dòng sổ két.**
+  - Ưu: "thao tác mới nhất" là một truy vấn có index. Gia hạn (kể cả không có tiền) có mặt trong lịch sử và lưu được số ngày để trừ lại. Lý do huỷ, người huỷ nằm trên chính thao tác.
+  - Nhược: thêm migration; mọi lệnh ghi phải chèn thêm một dòng; dữ liệu cũ phải dựng lại.
+- **G2: không cho huỷ gia hạn, "thao tác mới nhất" suy ra từ sổ két.**
+  - Ưu: không đổi schema.
+  - Nhược: gia hạn có thu lãi sẽ huỷ được phần tiền mà không huỷ được ngày, trạng thái hợp đồng sai lệch. Thứ tự thao tác không suy ra chắc chắn được từ UUID v4.
+
+---
+
+# 3. Quyết Định Đã Chốt & Lý Do
+- Quyết định: **G1** (người dùng duyệt 2026-10-22).
+- Hiện thực:
+  - Schema: `src/shared/infrastructure/db/schema.ts` (`contractOperations`), migration `drizzle/0006_contract_operations.sql`. Phần dựng dữ liệu cũ viết tay ở cuối file: thao tác suy từ sổ két; gia hạn không thu lãi có trước migration thì không dựng lại được; gia hạn có thu lãi thì dựng thành `pay_interest`. Chấp nhận được vì mới chỉ có dữ liệu dev.
+  - `created_at` ghi bằng `clock_timestamp()`, lấy sau khi đã khoá dòng hợp đồng (UPDATE có điều kiện, hoặc `SELECT … FOR UPDATE` khi huỷ). Nhờ vậy thao tác ghi sau luôn mới hơn, kể cả khi transaction của nó bắt đầu trước. `now()` thì không đảm bảo được điều này.
+  - Huỷ: tính lại `outstanding_principal` và `interest_paid_until` bằng công thức đối soát (data-model mục 4) trên các dòng chưa đảo, không đảo ngược từng field. Gia hạn trừ `extra_days`; huỷ `close` thì mở lại hợp đồng.
+  - Xoá hợp đồng không đánh dấu thao tác đã huỷ; hợp đồng đã xoá không còn thao tác nào (`findLatestOperation` lọc `deleted_at`).
+- Kiểm chứng: `src/modules/pawn/infrastructure/drizzle-contract-repository.db.test.ts` (huỷ lần lượt, mở lại hợp đồng, huỷ gia hạn, xoá, cách ly cửa hàng), `e2e/pawn-cash.spec.ts`.

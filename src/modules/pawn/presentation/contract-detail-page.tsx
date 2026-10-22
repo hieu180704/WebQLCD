@@ -1,17 +1,20 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import type { ReactNode } from "react";
 import { z } from "zod";
 import { getContractDetail, requireSession } from "@/composition-root";
 import { BUSINESS_TIME_ZONE, businessDate, diffDays } from "@/shared/kernel/local-date";
 import { formatVnd } from "@/shared/kernel/vnd";
 import type { ContractDetailView } from "../application/get-contract-detail";
-import type { ContractCashType, ContractTransaction } from "../application/ports";
+import type { ContractCashType, ContractTransaction, LatestOperation } from "../application/ports";
+import { DeleteDialog } from "./delete-dialog";
 import { ExtendDialog } from "./extend-dialog";
 import { DueBadge, INTEREST_UNIT, formatDay } from "./format";
-import { OperationStatus } from "./operation-status";
+import { OperationStatus, OperationStatusMessage } from "./operation-status";
 import { PayInterestDialog } from "./pay-interest-dialog";
 import { PrincipalDialog } from "./principal-dialog";
 import { RedeemDialog } from "./redeem-dialog";
+import { ReverseDialog } from "./reverse-dialog";
 
 const TYPE_LABEL: Record<ContractCashType, string> = {
   disbursement: "Giải ngân, tạo hợp đồng",
@@ -26,14 +29,45 @@ const formatTime = new Intl.DateTimeFormat("vi-VN", { timeZone: BUSINESS_TIME_ZO
 /** "05/10/2026 10:15" theo giờ Việt Nam, như mockup. */
 const formatDateTime = (at: Date) => `${formatDay(businessDate(at))} ${formatTime(at)}`;
 
-/** Trang chi tiết hợp đồng cầm đồ/tín chấp (mockup cam-do-chi-tiet.html). Thao tác: đóng lãi, trả bớt gốc, vay thêm, gia hạn, chuộc đồ / đóng hợp đồng. */
+/** Số tiền có dấu như mockup: "+450.000", "−5.000.000". */
+const formatSigned = (amount: ContractTransaction["amount"]) =>
+  amount.isNegative() ? `−${formatVnd(amount.negate())}` : `+${formatVnd(amount)}`;
+
+const OPERATION_EFFECT: Record<LatestOperation["kind"], string> = {
+  disbursement: "",
+  pay_interest: "Ngày lãi đã trả đến lùi về như trước lần đóng này.",
+  repay_principal: "Gốc còn lại và ngày lãi đã trả đến trở về như trước lần trả gốc.",
+  additional_loan: "Gốc còn lại và ngày lãi đã trả đến trở về như trước lần vay thêm.",
+  extend: "Số ngày vay trừ lại số ngày đã gia hạn.",
+  close: "Hợp đồng mở lại, gốc còn lại và ngày lãi đã trả đến trở về như trước lần chuộc.",
+};
+
+function operationLabel(op: LatestOperation, contractKind: ContractDetailView["contract"]["kind"]): string {
+  switch (op.kind) {
+    case "pay_interest":
+      return "Đóng lãi";
+    case "repay_principal":
+      return "Trả bớt gốc";
+    case "additional_loan":
+      return "Vay thêm";
+    case "extend":
+      return `Gia hạn ${op.extraDays} ngày`;
+    case "close":
+      return contractKind === "secured" ? "Chuộc đồ" : "Đóng hợp đồng";
+    case "disbursement":
+      return "Giải ngân";
+  }
+}
+
+/** Trang chi tiết hợp đồng cầm đồ/tín chấp (mockup cam-do-chi-tiet.html). Thao tác: đóng lãi, trả bớt gốc, vay thêm, gia hạn, chuộc đồ / đóng hợp đồng; chủ tiệm huỷ giao dịch, xoá hợp đồng. */
 export async function ContractDetailPage({ id }: { id: string }) {
   const principal = await requireSession();
   const contractId = z.uuid().safeParse(id);
   if (!contractId.success) notFound();
   const view = await getContractDetail.execute(principal.shopId, contractId.data);
   if (!view) notFound();
-  const { contract, open } = view;
+  const { contract, open, reversible } = view;
+  const isOwner = principal.role === "owner";
   const interestDays = Math.max(0, diffDays(contract.interestPaidUntil, view.today));
   const lock = {
     contractId: contract.id,
@@ -44,7 +78,7 @@ export async function ContractDetailPage({ id }: { id: string }) {
   };
 
   return (
-    <>
+    <OperationStatus>
       <nav className="text-sm text-slate-500" aria-label="Breadcrumb">
         <Link href="/cam-do" className="hover:underline">
           Cầm đồ & Tín chấp
@@ -53,12 +87,26 @@ export async function ContractDetailPage({ id }: { id: string }) {
       </nav>
       <div className="mt-1 flex flex-wrap items-center gap-3">
         <h1 className="text-2xl font-bold">Hợp đồng {contract.code}</h1>
-        <DueBadge due={open?.nextInterestDue ?? null} today={view.today} kind={contract.kind} closedOn={contract.closedOn} />
+        {contract.deleted ? (
+          <span className="badge badge-late">Đã xoá {formatDay(contract.deleted.on)}</span>
+        ) : (
+          <DueBadge due={open?.nextInterestDue ?? null} today={view.today} kind={contract.kind} closedOn={contract.closedOn} />
+        )}
+        {isOwner && !contract.deleted && (
+          <div className="sm:ml-auto">
+            <DeleteDialog contractId={contract.id} code={contract.code} cashChangeText={formatSigned(contract.ledgerNet.negate())} />
+          </div>
+        )}
       </div>
+      {contract.deleted && (
+        <p className="mt-4 rounded-lg bg-red-50 text-red-800 px-4 py-3 text-sm">
+          Hợp đồng đã xoá, mọi giao dịch đã được ghi bút toán đảo. Lý do: {contract.deleted.reason}
+        </p>
+      )}
+      <OperationStatusMessage />
 
       {open && (
         <section className="card mt-6 p-4 flex flex-wrap gap-2" aria-label="Thao tác">
-          <OperationStatus>
             <PayInterestDialog
               contractId={contract.id}
               code={contract.code}
@@ -95,7 +143,6 @@ export async function ContractDetailPage({ id }: { id: string }) {
               interestDue={open.accruedInterest.toString()}
               interestDays={interestDays}
             />
-          </OperationStatus>
         </section>
       )}
 
@@ -108,7 +155,24 @@ export async function ContractDetailPage({ id }: { id: string }) {
             <Stat label="Cần trả nếu chuộc" value={open ? formatVnd(open.payoff) : "—"} />
           </section>
           <Schedule view={view} />
-          <History history={view.history} />
+          <History
+            history={view.history}
+            reverse={
+              isOwner && reversible ? (
+                <ReverseDialog
+                  contractId={contract.id}
+                  operationId={reversible.id}
+                  label={operationLabel(reversible, contract.kind)}
+                  when={`${formatDateTime(reversible.createdAt)} · ${reversible.createdByName}`}
+                  amountText={reversible.cashNet.isZero() ? null : formatSigned(reversible.cashNet)}
+                  effect={
+                    (reversible.cashNet.isZero() ? "" : `Quỹ két ghi bút toán đảo ${formatSigned(reversible.cashNet.negate())} đ hôm nay. `) +
+                    OPERATION_EFFECT[reversible.kind]
+                  }
+                />
+              ) : null
+            }
+          />
         </div>
 
         <aside className="flex flex-col gap-6">
@@ -161,7 +225,7 @@ export async function ContractDetailPage({ id }: { id: string }) {
           </section>
         </aside>
       </div>
-    </>
+    </OperationStatus>
   );
 }
 
@@ -233,12 +297,15 @@ function Schedule({ view }: { view: ContractDetailView }) {
   );
 }
 
-function History({ history }: { history: ContractTransaction[] }) {
+function History({ history, reverse }: { history: ContractTransaction[]; reverse: ReactNode }) {
   return (
     <section className="card" aria-labelledby="t-history">
-      <h2 id="t-history" className="p-5 pb-3 font-semibold">
-        Lịch sử giao dịch
-      </h2>
+      <div className="p-5 pb-3 flex flex-wrap items-center gap-2 justify-between">
+        <h2 id="t-history" className="font-semibold">
+          Lịch sử giao dịch
+        </h2>
+        {reverse}
+      </div>
       <div className="overflow-x-auto">
         <table className="table">
           <thead>
@@ -257,6 +324,7 @@ function History({ history }: { history: ContractTransaction[] }) {
                 <td>
                   {TYPE_LABEL[t.type]}
                   {t.periodFrom && t.periodTo && ` ${formatDay(t.periodFrom)} – ${formatDay(t.periodTo)}`}
+                  {t.type === "reversal" && t.note && ` — ${t.note}`}
                   {t.reversed && <span className="badge badge-muted ml-2">Đã huỷ</span>}
                 </td>
                 <td className="text-right num text-emerald-700">{t.amount.isPositive() ? formatVnd(t.amount) : ""}</td>

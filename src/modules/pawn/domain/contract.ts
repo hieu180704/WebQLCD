@@ -310,3 +310,12 @@ export function planExtension(
   if (!settled.ok) return settled;
   return { ok: true, value: { termDaysAfter, interest: settled.value } };
 }
+
+/** Loại thao tác trên hợp đồng (bảng `contract_operations`). */
+export type OperationKind = "disbursement" | "pay_interest" | "repay_principal" | "additional_loan" | "extend" | "close";
+
+/**
+ * Huỷ giao dịch (GIẢ ĐỊNH TẠM, core-spec mục 2): chỉ huỷ thao tác mới nhất chưa huỷ, lần lượt từ mới về cũ. Không huỷ
+ * riêng giải ngân; muốn bỏ hợp đồng thì xoá.
+ */
+export const isReversible = (kind: OperationKind) => kind !== "disbursement";

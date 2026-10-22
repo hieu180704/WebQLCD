@@ -59,15 +59,19 @@ describe.skipIf(!url)("DrizzleContractRepository", () => {
 
   // Ghi sổ két thật bằng SQL như cashbook (test không import nội bộ module khác); dấu tiền theo data-model mục 3.6.
   const appendCash: AppendCashEntries = async (tx, op, entries) => {
-    const operationId = crypto.randomUUID();
+    const operationId = op.operationId ?? crypto.randomUUID();
     for (const e of entries) {
-      const outflow = e.type === "disbursement" || e.type === "additional_loan";
+      // Bút toán đảo mang số tiền có dấu của dòng gốc, ghi số đối.
+      const outflow = e.type === "disbursement" || e.type === "additional_loan" || e.type === "reversal";
       const amount = outflow ? e.amount.negate().toBigInt() : e.amount.toBigInt();
       const contractId = "contractId" in e ? e.contractId : null;
       const [from, to] = e.type === "interest_payment" ? [e.periodFrom, e.periodTo] : [null, null];
+      const reversesId = e.type === "reversal" ? e.reversesId : null;
       await tx.execute(
-        sql`INSERT INTO cash_transactions (shop_id, operation_id, business_date, amount, type, contract_id, period_from, period_to, created_by)
-            VALUES (${op.shopId}, ${operationId}, ${op.businessDate}, ${amount}, ${e.type}, ${contractId}, ${from}, ${to}, ${op.createdBy})`,
+        sql`INSERT INTO cash_transactions
+              (shop_id, operation_id, business_date, amount, type, contract_id, period_from, period_to, reverses_id, note, created_by)
+            VALUES (${op.shopId}, ${operationId}, ${op.businessDate}, ${amount}, ${e.type}, ${contractId}, ${from}, ${to},
+                    ${reversesId}, ${op.note ?? null}, ${op.createdBy})`,
       );
     }
   };
@@ -415,7 +419,7 @@ describe.skipIf(!url)("DrizzleContractRepository", () => {
       });
     }));
 
-  // Đối soát data-model mục 4 (chưa có dòng đảo).
+  // Đối soát data-model mục 4 trên các dòng chưa bị đảo.
   const reconcile = (db: Db, id: string) =>
     rows<{ outstanding: string; paid_until: string }>(
       db,
@@ -423,6 +427,7 @@ describe.skipIf(!url)("DrizzleContractRepository", () => {
                    AS outstanding,
                  coalesce(max(t.period_to) FILTER (WHERE t.type = 'interest_payment'), c.loan_date)::text AS paid_until
           FROM contracts c LEFT JOIN cash_transactions t ON t.shop_id = c.shop_id AND t.contract_id = c.id
+            AND NOT EXISTS (SELECT 1 FROM cash_transactions r WHERE r.reverses_id = t.id)
           WHERE c.id = ${id} GROUP BY c.id`,
     );
 
@@ -529,5 +534,150 @@ describe.skipIf(!url)("DrizzleContractRepository", () => {
         sql`SELECT changed_fields FROM audit_logs WHERE entity_id = ${id} AND action = 'extend'`,
       );
       expect(audits.map((a) => a.changed_fields).sort()).toEqual([["term_days"], ["term_days", "interest_paid_until"]]);
+    }));
+
+  // Các thao tác mẫu trên hợp đồng 5tr vay TODAY, thu lãi sau (75.000 đ cho 5 ngày).
+  const repayDraft = (id: string) => ({
+    contractId: id,
+    direction: "repayment" as const,
+    change: {
+      interest: { from: TODAY, to: "2026-10-25", amount: Money.fromNumber(75_000) },
+      amount: Money.fromNumber(2_000_000),
+      outstandingAfter: Money.fromNumber(3_000_000),
+    },
+    expectedPaidUntil: TODAY,
+    expectedOutstanding: Money.fromNumber(5_000_000),
+    businessDate: "2026-10-25",
+  });
+  const latestId = async (db: Db, shopId: string, id: string) => (await repo(db).findLatestOperation(shopId, id))?.id ?? "";
+
+  it("thao tác ghi contract_operations, id = operation_id của sổ két; huỷ lần lượt từ mới về cũ, mở lại hợp đồng; khớp đối soát", () =>
+    inTx(async (db) => {
+      const actor = await seedShop(db);
+      await repo(db).create(actor, draft());
+      const [{ id }] = await rows<{ id: string }>(db, sql`SELECT id FROM contracts WHERE shop_id = ${actor.shopId}`);
+      expect(await repo(db).findLatestOperation(actor.shopId, id)).toMatchObject({ kind: "disbursement", cashNet: Money.fromNumber(-5_000_000) });
+      const disbursementId = await latestId(db, actor.shopId, id);
+
+      expect(await repo(db).recordPrincipalChange(actor, repayDraft(id))).toBe(true);
+      const repayId = await latestId(db, actor.shopId, id);
+      const redeem = {
+        contractId: id,
+        redemption: { interest: null, principal: Money.fromNumber(3_000_000) },
+        expectedPaidUntil: "2026-10-25",
+        businessDate: "2026-10-26",
+      };
+      expect(await repo(db).recordRedemption(actor, redeem)).toBe(true);
+      const closeOp = await repo(db).findLatestOperation(actor.shopId, id);
+      expect(closeOp).toMatchObject({ kind: "close", cashNet: Money.fromNumber(3_000_000) });
+      const [linked] = await rows<{ n: string }>(
+        db,
+        sql`SELECT count(*)::text AS n FROM cash_transactions WHERE operation_id = ${closeOp!.id} AND type = 'principal_repayment'`,
+      );
+      expect(linked.n).toBe("1");
+
+      // Không phải thao tác mới nhất thì không huỷ.
+      const reversal = { contractId: id, reason: "Nhập nhầm", businessDate: "2026-10-27" };
+      expect(await repo(db).reverseOperation(actor, { ...reversal, operationId: repayId })).toBe(false);
+      expect(await repo(db).reverseOperation(actor, { ...reversal, operationId: closeOp!.id })).toBe(true);
+      expect(await repo(db).reverseOperation(actor, { ...reversal, operationId: closeOp!.id })).toBe(false);
+      expect(await repo(db).findStanding(actor.shopId, id)).toMatchObject({
+        status: "active",
+        outstandingPrincipal: Money.fromNumber(3_000_000),
+        interestPaidUntil: "2026-10-25",
+      });
+      const [reopened] = await rows<{ closed: boolean }>(db, sql`SELECT closed_at IS NOT NULL AS closed FROM contracts WHERE id = ${id}`);
+      expect(reopened.closed).toBe(false);
+
+      expect(await latestId(db, actor.shopId, id)).toBe(repayId);
+      expect(await repo(db).reverseOperation(actor, { ...reversal, operationId: repayId })).toBe(true);
+      expect(await repo(db).findStanding(actor.shopId, id)).toMatchObject({
+        outstandingPrincipal: Money.fromNumber(5_000_000),
+        interestPaidUntil: TODAY,
+      });
+      expect(await reconcile(db, id)).toEqual([{ outstanding: "5000000", paid_until: TODAY }]);
+
+      // Còn lại giải ngân: không huỷ được.
+      expect(await latestId(db, actor.shopId, id)).toBe(disbursementId);
+      expect(await repo(db).reverseOperation(actor, { ...reversal, operationId: disbursementId })).toBe(false);
+
+      const cash = await rows<{ amount: string; note: string | null; business_date: string }>(
+        db,
+        sql`SELECT amount::text, note, business_date::text FROM cash_transactions WHERE contract_id = ${id} AND type = 'reversal' ORDER BY cash_transactions.amount`,
+      );
+      expect(cash).toEqual([
+        { amount: "-3000000", note: "Nhập nhầm", business_date: "2026-10-27" },
+        { amount: "-2000000", note: "Nhập nhầm", business_date: "2026-10-27" },
+        { amount: "-75000", note: "Nhập nhầm", business_date: "2026-10-27" },
+      ]);
+      const detail = await repo(db).findDetail(actor.shopId, id);
+      expect(detail?.interestPaid.toBigInt()).toBe(0n);
+      expect(detail?.ledgerNet.toBigInt()).toBe(-5_000_000n);
+      const audits = await rows<{ changed_fields: string[] }>(
+        db,
+        sql`SELECT changed_fields FROM audit_logs WHERE entity_id = ${id} AND action = 'reverse'`,
+      );
+      expect(audits).toHaveLength(2);
+    }));
+
+  it("huỷ gia hạn (không có dòng sổ két): trừ lại số ngày vay", () =>
+    inTx(async (db) => {
+      const actor = await seedShop(db);
+      await repo(db).create(actor, draft());
+      const [{ id }] = await rows<{ id: string }>(db, sql`SELECT id FROM contracts WHERE shop_id = ${actor.shopId}`);
+      const extend = {
+        contractId: id,
+        extension: { termDaysAfter: 45, interest: null },
+        expectedTermDays: 30,
+        expectedPaidUntil: TODAY,
+        expectedOutstanding: Money.fromNumber(5_000_000),
+        businessDate: TODAY,
+      };
+      expect(await repo(db).recordExtension(actor, extend)).toBe(true);
+      const op = await repo(db).findLatestOperation(actor.shopId, id);
+      expect(op).toMatchObject({ kind: "extend", extraDays: 15, cashNet: Money.ZERO });
+      expect(await repo(db).reverseOperation(actor, { contractId: id, operationId: op!.id, reason: "Gia hạn nhầm", businessDate: TODAY })).toBe(true);
+      expect(await repo(db).findStanding(actor.shopId, id)).toMatchObject({ termDays: 30, interestPaidUntil: TODAY });
+    }));
+
+  it("xoá hợp đồng: đảo mọi dòng chưa đảo trong một thao tác, ghi lý do; vẫn xem được, không thao tác được, không có trong danh sách", () =>
+    inTx(async (db) => {
+      const actor = await seedShop(db);
+      await repo(db).create(actor, draft({ prepaidInterest: true }));
+      const [{ id }] = await rows<{ id: string }>(db, sql`SELECT id FROM contracts WHERE shop_id = ${actor.shopId}`);
+      const deletion = { contractId: id, reason: "Trùng hồ sơ", businessDate: "2026-10-21" };
+      expect(await repo(db).deleteContract(actor, deletion)).toBe(true);
+      expect(await repo(db).deleteContract(actor, deletion)).toBe(false);
+
+      const cash = await rows<{ net: string; operations: string; reversals: string }>(
+        db,
+        sql`SELECT sum(amount)::text AS net, count(DISTINCT operation_id) FILTER (WHERE type = 'reversal')::text AS operations,
+                   count(*) FILTER (WHERE type = 'reversal')::text AS reversals
+            FROM cash_transactions WHERE contract_id = ${id}`,
+      );
+      expect(cash).toEqual([{ net: "0", operations: "1", reversals: "2" }]);
+      const detail = await repo(db).findDetail(actor.shopId, id);
+      expect(detail?.deleted).toEqual({ on: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/), reason: "Trùng hồ sơ" });
+      expect(detail?.ledgerNet.toBigInt()).toBe(0n);
+      expect(await repo(db).findStanding(actor.shopId, id)).toBeNull();
+      expect(await repo(db).findLatestOperation(actor.shopId, id)).toBeNull();
+      expect(await repo(db).list(actor.shopId, null, 10)).toEqual([]);
+      const audits = await rows<{ changed_fields: string[] }>(db, sql`SELECT changed_fields FROM audit_logs WHERE entity_id = ${id} AND action = 'delete'`);
+      expect(audits).toEqual([{ changed_fields: ["deleted_at", "deleted_reason"] }]);
+    }));
+
+  it("cách ly cửa hàng: B không thấy thao tác, không huỷ, không xoá được hợp đồng của A", () =>
+    inTx(async (db) => {
+      const a = await seedShop(db);
+      const b = await seedShop(db);
+      await repo(db).create(a, draft());
+      const [{ id }] = await rows<{ id: string }>(db, sql`SELECT id FROM contracts WHERE shop_id = ${a.shopId}`);
+      expect(await repo(db).recordPrincipalChange(a, repayDraft(id))).toBe(true);
+      const opId = await latestId(db, a.shopId, id);
+      expect(await repo(db).findLatestOperation(b.shopId, id)).toBeNull();
+      expect(await repo(db).reverseOperation(b, { contractId: id, operationId: opId, reason: "x", businessDate: TODAY })).toBe(false);
+      expect(await repo(db).deleteContract(b, { contractId: id, reason: "x", businessDate: TODAY })).toBe(false);
+      expect(await repo(db).findStanding(a.shopId, id)).toMatchObject({ outstandingPrincipal: Money.fromNumber(3_000_000) });
+      expect(await latestId(db, a.shopId, id)).toBe(opId);
     }));
 });

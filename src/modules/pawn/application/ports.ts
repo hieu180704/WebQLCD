@@ -7,6 +7,7 @@ import type {
   Disbursement,
   Extension,
   InterestPeriod,
+  OperationKind,
   PayableStanding,
   PrincipalChange,
   Redemption,
@@ -57,6 +58,10 @@ export type ContractDetailRow = Omit<ContractListRow, "customerPhone"> & {
   customer: { phone: string | null; address: string | null; cccdMasked: string | null };
   /** Tổng lãi đã thu, không tính lần đã bị huỷ; cộng bằng SQL. */
   interestPaid: Money;
+  /** Tổng có dấu các dòng sổ két chưa đảo của hợp đồng; xoá hợp đồng làm két thay đổi −ledgerNet. */
+  ledgerNet: Money;
+  /** Hợp đồng đã xoá vẫn xem được (mockup), không còn thao tác. */
+  deleted: { on: LocalDate; reason: string } | null;
 };
 
 /** Loại giao dịch két gắn với hợp đồng cầm đồ/tín chấp (data-model mục 3.6). */
@@ -72,9 +77,26 @@ export type ContractTransaction = {
   createdByName: string;
   /** Đã có bút toán đảo trỏ tới dòng này. */
   reversed: boolean;
+  /** Lý do huỷ (dòng đảo). */
+  note: string | null;
 };
 
-export type ContractStanding = PayableStanding & { status: "active" | "closed"; termDays: number };
+/** Thao tác mới nhất chưa huỷ của hợp đồng. */
+export type LatestOperation = {
+  id: string;
+  kind: OperationKind;
+  extraDays: number | null;
+  createdAt: Date;
+  createdByName: string;
+  /** Tổng có dấu các dòng sổ két của thao tác; huỷ làm két thay đổi −cashNet. */
+  cashNet: Money;
+};
+
+export type ReversalDraft = { contractId: string; operationId: string; reason: string; businessDate: LocalDate };
+
+export type DeletionDraft = { contractId: string; reason: string; businessDate: LocalDate };
+
+export type ContractStanding = PayableStanding & { status: "active" | "closed"; termDays: number; code: string };
 
 export type InterestPaymentDraft = {
   contractId: string;
@@ -140,4 +162,14 @@ export interface ContractRepository {
   recordPrincipalChange(actor: Actor, draft: PrincipalChangeDraft): Promise<boolean>;
   /** Gia hạn: đổi số ngày vay, ghi lãi thu kèm (nếu có), audit trong một transaction. Khoá lạc quan như trên. */
   recordExtension(actor: Actor, draft: ExtensionDraft): Promise<boolean>;
+  /** Thao tác mới nhất chưa huỷ của hợp đồng chưa xoá, hoặc null. */
+  findLatestOperation(shopId: string, contractId: string): Promise<LatestOperation | null>;
+  /**
+   * Huỷ thao tác: đánh dấu đã huỷ, đảo mọi dòng sổ két chung id, tính lại gốc còn lại / ngày trả đến từ các dòng chưa đảo
+   * (data-model mục 4), trừ số ngày gia hạn, mở lại hợp đồng nếu huỷ chuộc; audit; một transaction. Chỉ ghi khi
+   * `operationId` vẫn là thao tác mới nhất chưa huỷ và không phải giải ngân; không thì trả false.
+   */
+  reverseOperation(actor: Actor, draft: ReversalDraft): Promise<boolean>;
+  /** Xoá mềm hợp đồng chưa xoá kèm lý do, đảo mọi dòng sổ két chưa đảo trong một thao tác, audit; không thấy thì false. */
+  deleteContract(actor: Actor, draft: DeletionDraft): Promise<boolean>;
 }

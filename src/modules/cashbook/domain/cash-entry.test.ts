@@ -17,6 +17,12 @@ describe("bút toán két", () => {
     expect(() => signedAmount({ type: "disbursement", contractId: "c", amount: vnd(-1) })).toThrow(RangeError);
   });
 
+  it("bút toán đảo ghi số đối của dòng gốc (dòng gốc có dấu)", () => {
+    expect(signedAmount({ type: "reversal", reversesId: "t", contractId: "c", amount: vnd(-5_000_000) }).toBigInt()).toBe(5_000_000n);
+    expect(signedAmount({ type: "reversal", reversesId: "t", contractId: "c", amount: vnd(150_000) }).toBigInt()).toBe(-150_000n);
+    expect(() => signedAmount({ type: "reversal", reversesId: "t", contractId: null, amount: Money.ZERO })).toThrow(RangeError);
+  });
+
   it("cuối ngày = đầu ngày − chi + thu", () => {
     expect(summarizeDay(vnd(20_000_000), vnd(150_000), vnd(-5_000_000)).closing.toBigInt()).toBe(15_150_000n);
   });

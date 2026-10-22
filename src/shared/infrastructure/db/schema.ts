@@ -38,6 +38,14 @@ export const interestType = pgEnum("interest_type", [
   "percent_per_week",
 ]);
 export const contractStatus = pgEnum("contract_status", ["active", "closed"]);
+export const contractOperationKind = pgEnum("contract_operation_kind", [
+  "disbursement",
+  "pay_interest",
+  "repay_principal",
+  "additional_loan",
+  "extend",
+  "close",
+]);
 export const cashTransactionType = pgEnum("cash_transaction_type", [
   "opening_balance",
   "capital_in",
@@ -213,6 +221,7 @@ export const contracts = pgTable(
     staffId: uuid("staff_id").notNull(),
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
     deletedBy: uuid("deleted_by"),
+    deletedReason: text("deleted_reason"),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
@@ -244,6 +253,10 @@ export const contracts = pgTable(
     check("contracts_days_positive", sql`${t.interestPeriodDays} > 0 AND ${t.termDays} > 0`),
     check("contracts_closed_at_matches_status", sql`(${t.status} = 'closed') = (${t.closedAt} IS NOT NULL)`),
     check("contracts_deleted_together", sql`(${t.deletedAt} IS NULL) = (${t.deletedBy} IS NULL)`),
+    check(
+      "contracts_deleted_reason",
+      sql`(${t.deletedAt} IS NULL) = (${t.deletedReason} IS NULL) AND btrim(coalesce(${t.deletedReason}, 'x')) <> ''`,
+    ),
     index("contracts_shop_status_paid_until_idx").on(t.shopId, t.status, t.interestPaidUntil),
     index("contracts_code_trgm_idx").using("gin", t.code.op("gin_trgm_ops")),
     index("contracts_asset_name_trgm_idx").using("gin", t.assetName.op("gin_trgm_ops")),
@@ -305,6 +318,55 @@ export const installmentContracts = pgTable(
     check("installment_contracts_deleted_together", sql`(${t.deletedAt} IS NULL) = (${t.deletedBy} IS NULL)`),
     index("installment_contracts_shop_status_idx").on(t.shopId, t.status),
     index("installment_contracts_code_trgm_idx").using("gin", t.code.op("gin_trgm_ops")),
+  ],
+);
+
+/**
+ * Thao tác trên hợp đồng cầm đồ/tín chấp (data-model mục 3.6a). `id` = `operation_id` của các dòng sổ két sinh ra
+ * (gia hạn không thu lãi thì không có dòng nào). Huỷ = đánh dấu `reversed_*` và đảo các dòng sổ két chung id.
+ */
+export const contractOperations = pgTable(
+  "contract_operations",
+  {
+    id: id(),
+    shopId: uuid("shop_id")
+      .notNull()
+      .references(() => shops.id),
+    contractId: uuid("contract_id").notNull(),
+    kind: contractOperationKind("kind").notNull(),
+    /** Số ngày cộng thêm khi gia hạn; huỷ gia hạn trừ lại. */
+    extraDays: integer("extra_days"),
+    createdBy: uuid("created_by").notNull(),
+    createdAt: createdAt(),
+    reversedAt: timestamp("reversed_at", { withTimezone: true }),
+    reversedBy: uuid("reversed_by"),
+    reverseReason: text("reverse_reason"),
+  },
+  (t) => [
+    unique("contract_operations_shop_id_id_key").on(t.shopId, t.id),
+    foreignKey({
+      name: "contract_operations_contract_fk",
+      columns: [t.shopId, t.contractId],
+      foreignColumns: [contracts.shopId, contracts.id],
+    }),
+    foreignKey({
+      name: "contract_operations_created_by_fk",
+      columns: [t.shopId, t.createdBy],
+      foreignColumns: [users.shopId, users.id],
+    }),
+    foreignKey({
+      name: "contract_operations_reversed_by_fk",
+      columns: [t.shopId, t.reversedBy],
+      foreignColumns: [users.shopId, users.id],
+    }),
+    check("contract_operations_extra_days", sql`(${t.kind} = 'extend') = (${t.extraDays} IS NOT NULL) AND coalesce(${t.extraDays}, 1) > 0`),
+    check(
+      "contract_operations_reversed_together",
+      sql`num_nonnulls(${t.reversedAt}, ${t.reversedBy}, ${t.reverseReason}) IN (0, 3) AND btrim(coalesce(${t.reverseReason}, 'x')) <> ''`,
+    ),
+    check("contract_operations_disbursement_not_reversed", sql`${t.kind} <> 'disbursement' OR ${t.reversedAt} IS NULL`),
+    // Thao tác mới nhất của hợp đồng.
+    index("contract_operations_shop_contract_created_idx").on(t.shopId, t.contractId, t.createdAt),
   ],
 );
 

@@ -6,25 +6,31 @@ import {
   AccessDeniedError,
   changePrincipal,
   createContract,
+  deleteContract,
   extendContract,
   payInterest,
   redeemContract,
   requireSession,
+  reverseOperation,
 } from "@/composition-root";
 import { formatVnd } from "@/shared/kernel/vnd";
 import type { ChangePrincipalError } from "../application/change-principal";
 import type { ContractRuleViolation } from "../application/create-contract";
+import type { DeleteContractError } from "../application/delete-contract";
 import type { ExtendContractError } from "../application/extend-contract";
 import type { PayInterestError } from "../application/pay-interest";
 import type { RedeemContractError } from "../application/redeem-contract";
+import type { ReverseOperationError } from "../application/reverse-operation";
 import { formatDay } from "./format";
 import {
   CONTRACT_FORM_FIELDS,
   changePrincipalSchema,
   contractFormSchema,
+  deleteSchema,
   extendSchema,
   payInterestSchema,
   redeemSchema,
+  reverseSchema,
 } from "./schemas";
 
 export type CreateContractState = { error: string | null; values: Record<string, string> };
@@ -248,4 +254,70 @@ export async function extendContractAction(previous: ContractOperationState, for
     message: `Đã gia hạn thêm ${parsed.data.extraDays} ngày (số ngày vay ${result.termDays})${interest}.`,
     done: previous.done + 1,
   };
+}
+
+const OWNER_DENIED: Record<AccessDeniedError["reason"], string> = {
+  ...OPERATION_DENIED,
+  role: "Chỉ chủ tiệm được thực hiện thao tác này.",
+};
+
+const REVERSE_MESSAGE: Record<ReverseOperationError, string> = {
+  not_found: "Không tìm thấy giao dịch để huỷ.",
+  stale: "Hợp đồng vừa có thao tác khác. Số liệu đã tải lại, kiểm tra rồi thử lại.",
+  not_reversible: "Không huỷ riêng giải ngân được; muốn bỏ hợp đồng thì xoá hợp đồng.",
+};
+
+export async function reverseOperationAction(previous: ContractOperationState, formData: FormData): Promise<ContractOperationState> {
+  const fail = (error: string): ContractOperationState => ({ ...previous, error, message: null });
+  let actor;
+  try {
+    actor = await requireSession({ role: "owner", write: true });
+  } catch (error) {
+    if (error instanceof AccessDeniedError) return fail(OWNER_DENIED[error.reason]);
+    throw error;
+  }
+
+  const parsed = reverseSchema.safeParse({
+    contractId: formData.get("contractId"),
+    operationId: formData.get("operationId"),
+    reason: String(formData.get("reason") ?? ""),
+  });
+  if (!parsed.success) return fail(parsed.error.issues[0].message);
+
+  const result = await reverseOperation.execute({ userId: actor.userId, shopId: actor.shopId }, parsed.data);
+  if (!result.ok) {
+    if (result.error === "stale") refresh();
+    return fail(REVERSE_MESSAGE[result.error]);
+  }
+  refresh();
+  return { error: null, message: "Đã huỷ giao dịch, bút toán đảo ghi vào quỹ két hôm nay.", done: previous.done + 1 };
+}
+
+const DELETE_MESSAGE: Record<DeleteContractError, string> = {
+  not_found: "Không tìm thấy hợp đồng (có thể đã bị xoá).",
+  code_mismatch: "Mã hợp đồng gõ lại không khớp.",
+};
+
+export async function deleteContractAction(previous: ContractOperationState, formData: FormData): Promise<ContractOperationState> {
+  const fail = (error: string): ContractOperationState => ({ ...previous, error, message: null });
+  let actor;
+  try {
+    actor = await requireSession({ role: "owner", write: true });
+  } catch (error) {
+    if (error instanceof AccessDeniedError) return fail(OWNER_DENIED[error.reason]);
+    throw error;
+  }
+
+  const parsed = deleteSchema.safeParse({
+    contractId: formData.get("contractId"),
+    confirmCode: String(formData.get("confirmCode") ?? ""),
+    reason: String(formData.get("reason") ?? ""),
+  });
+  if (!parsed.success) return fail(parsed.error.issues[0].message);
+
+  const result = await deleteContract.execute({ userId: actor.userId, shopId: actor.shopId }, parsed.data);
+  if (!result.ok) return fail(DELETE_MESSAGE[result.error]);
+  // Hợp đồng đã xoá vẫn xem được: trang tải lại hiện nhãn "Đã xoá" kèm lý do.
+  refresh();
+  return { error: null, message: null, done: previous.done + 1 };
 }

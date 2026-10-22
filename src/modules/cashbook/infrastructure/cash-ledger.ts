@@ -5,7 +5,15 @@ import { cashTransactions } from "@/shared/infrastructure/db/schema";
 import type { LocalDate } from "@/shared/kernel/local-date";
 import { signedAmount, type CashEntry } from "../domain/cash-entry";
 
-export type CashOperation = { shopId: string; createdBy: string; businessDate: LocalDate };
+export type CashOperation = {
+  shopId: string;
+  createdBy: string;
+  businessDate: LocalDate;
+  /** Id thao tác của bên gọi (vd. `contract_operations.id`); bỏ trống thì sinh mới. */
+  operationId?: string;
+  /** Ghi chú cho mọi dòng, vd. lý do huỷ. */
+  note?: string;
+};
 
 export type AppendCashEntries = typeof appendCashEntries;
 
@@ -15,7 +23,7 @@ export type AppendCashEntries = typeof appendCashEntries;
  */
 export async function appendCashEntries(tx: Tx, operation: CashOperation, entries: readonly CashEntry[]): Promise<void> {
   if (entries.length === 0) return;
-  const operationId = randomUUID();
+  const operationId = operation.operationId ?? randomUUID();
   await tx.insert(cashTransactions).values(
     entries.map((entry) => ({
       shopId: operation.shopId,
@@ -26,6 +34,8 @@ export async function appendCashEntries(tx: Tx, operation: CashOperation, entrie
       contractId: "contractId" in entry ? entry.contractId : null,
       periodFrom: entry.type === "interest_payment" ? entry.periodFrom : null,
       periodTo: entry.type === "interest_payment" ? entry.periodTo : null,
+      reversesId: entry.type === "reversal" ? entry.reversesId : null,
+      note: operation.note ?? null,
       createdBy: operation.createdBy,
     })),
   );

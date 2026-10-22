@@ -2,21 +2,25 @@
 
 import { createContext, useContext, useState, type ReactNode } from "react";
 
-const ReportStatus = createContext<(message: string | null) => void>(() => {});
+type StatusContext = { message: string | null; report: (message: string | null) => void };
 
-/** Vùng thông báo chung của các hộp thoại thao tác: chỉ hiện kết quả của thao tác mới nhất. */
+const Status = createContext<StatusContext>({ message: null, report: () => {} });
+
+/** Thông báo chung của các hộp thoại thao tác trên trang: chỉ giữ kết quả của thao tác mới nhất. */
 export function OperationStatus({ children }: { children: ReactNode }) {
   const [message, setMessage] = useState<string | null>(null);
+  return <Status value={{ message, report: setMessage }}>{children}</Status>;
+}
+
+/** Chỗ hiện thông báo; đặt ở đâu trong `OperationStatus` cũng được. */
+export function OperationStatusMessage() {
+  const { message } = useContext(Status);
+  if (!message) return null;
   return (
-    <ReportStatus value={setMessage}>
-      {children}
-      {message && (
-        <p role="status" className="basis-full rounded-lg bg-emerald-50 text-emerald-800 px-4 py-3 text-sm">
-          {message}
-        </p>
-      )}
-    </ReportStatus>
+    <p role="status" className="mt-4 rounded-lg bg-emerald-50 text-emerald-800 px-4 py-3 text-sm">
+      {message}
+    </p>
   );
 }
 
-export const useReportStatus = () => useContext(ReportStatus);
+export const useReportStatus = () => useContext(Status).report;

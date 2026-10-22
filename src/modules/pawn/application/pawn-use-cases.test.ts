@@ -4,6 +4,7 @@ import { Money } from "@/shared/kernel/money";
 import type { ContractTerms } from "../domain/contract";
 import { ChangePrincipal, type ChangePrincipalInput } from "./change-principal";
 import { CreateContract, type CreateContractInput } from "./create-contract";
+import { DeleteContract } from "./delete-contract";
 import { ExtendContract, type ExtendContractInput } from "./extend-contract";
 import { CONTRACT_PAGE_SIZE, ListContracts } from "./list-contracts";
 import { PayInterest, type PayInterestInput } from "./pay-interest";
@@ -12,13 +13,17 @@ import type {
   ContractListRow,
   ContractRepository,
   ContractStanding,
+  DeletionDraft,
   ExtensionDraft,
   InterestPaymentDraft,
+  LatestOperation,
   PrincipalChangeDraft,
   RedemptionDraft,
+  ReversalDraft,
 } from "./ports";
 import { previewContract } from "./preview";
 import { RedeemContract, type RedeemContractInput } from "./redeem-contract";
+import { ReverseOperation } from "./reverse-operation";
 
 // 2026-10-20 23:30 giờ Việt Nam (UTC đã sang 16:30 cùng ngày).
 const now = new Date("2026-10-20T16:30:00Z");
@@ -42,12 +47,20 @@ const input = (overrides: Partial<ContractTerms> = {}): CreateContractInput => (
   note: null,
 });
 
-function fakeRepo(rows: ContractListRow[] = [], reused = false, standing: ContractStanding | null = null, saves = true) {
+function fakeRepo(
+  rows: ContractListRow[] = [],
+  reused = false,
+  standing: ContractStanding | null = null,
+  saves = true,
+  latest: LatestOperation | null = null,
+) {
   const drafts: ContractDraft[] = [];
   const payments: InterestPaymentDraft[] = [];
   const redemptions: RedemptionDraft[] = [];
   const principalChanges: PrincipalChangeDraft[] = [];
   const extensions: ExtensionDraft[] = [];
+  const reversals: ReversalDraft[] = [];
+  const deletions: DeletionDraft[] = [];
   const repo: ContractRepository = {
     create: async (_actor, draft) => {
       drafts.push(draft);
@@ -73,8 +86,17 @@ function fakeRepo(rows: ContractListRow[] = [], reused = false, standing: Contra
       extensions.push(draft);
       return saves;
     },
+    findLatestOperation: async () => latest,
+    reverseOperation: async (_actor, draft) => {
+      reversals.push(draft);
+      return saves;
+    },
+    deleteContract: async (_actor, draft) => {
+      deletions.push(draft);
+      return saves;
+    },
   };
-  return { repo, drafts, payments, redemptions, principalChanges, extensions };
+  return { repo, drafts, payments, redemptions, principalChanges, extensions, reversals, deletions };
 }
 
 describe("CreateContract", () => {
@@ -157,6 +179,7 @@ describe("PayInterest", () => {
     interestPaidUntil: "2026-10-01",
     prepaidInterest: false,
     termDays: 30,
+    code: "CD-7",
   };
   const pay = (overrides: Partial<PayInterestInput> = {}): PayInterestInput => ({
     contractId: "k",
@@ -201,6 +224,7 @@ describe("RedeemContract", () => {
     interestPaidUntil: "2026-10-01",
     prepaidInterest: false,
     termDays: 30,
+    code: "CD-7",
   };
   const redeem = (overrides: Partial<RedeemContractInput> = {}): RedeemContractInput => ({
     contractId: "k",
@@ -264,6 +288,7 @@ describe("ChangePrincipal", () => {
     interestPaidUntil: "2026-10-01",
     prepaidInterest: false,
     termDays: 30,
+    code: "CD-7",
   };
   const change = (overrides: Partial<ChangePrincipalInput> = {}): ChangePrincipalInput => ({
     contractId: "k",
@@ -328,6 +353,7 @@ describe("ExtendContract", () => {
     interestPaidUntil: "2026-10-01",
     prepaidInterest: false,
     termDays: 30,
+    code: "CD-7",
   };
   const extend = (overrides: Partial<ExtendContractInput> = {}): ExtendContractInput => ({
     contractId: "k",
@@ -357,5 +383,69 @@ describe("ExtendContract", () => {
     expect(await new ExtendContract(closed.repo).execute(actor, extend(), now)).toEqual({ ok: false, error: "closed" });
     const conflict = fakeRepo([], false, standing, false);
     expect(await new ExtendContract(conflict.repo).execute(actor, extend(), now)).toEqual({ ok: false, error: "stale" });
+  });
+});
+
+describe("ReverseOperation", () => {
+  const latest = (overrides: Partial<LatestOperation> = {}): LatestOperation => ({
+    id: "op-2",
+    kind: "pay_interest",
+    extraDays: null,
+    createdAt: now,
+    createdByName: "Chủ",
+    cashNet: Money.fromNumber(150_000),
+    ...overrides,
+  });
+  const input = { contractId: "k", operationId: "op-2", reason: "Nhập nhầm" };
+
+  it("huỷ thao tác mới nhất, bút toán đảo ghi hôm nay", async () => {
+    const { repo, reversals } = fakeRepo([], false, null, true, latest());
+    expect(await new ReverseOperation(repo).execute(actor, input, now)).toEqual({ ok: true });
+    expect(reversals).toEqual([{ contractId: "k", operationId: "op-2", reason: "Nhập nhầm", businessDate: "2026-10-20" }]);
+  });
+
+  it("không có thao tác, đã có thao tác mới hơn, giải ngân, repository không khớp: không ghi", async () => {
+    expect(await new ReverseOperation(fakeRepo().repo).execute(actor, input, now)).toEqual({ ok: false, error: "not_found" });
+    const newer = fakeRepo([], false, null, true, latest({ id: "op-3" }));
+    expect(await new ReverseOperation(newer.repo).execute(actor, input, now)).toEqual({ ok: false, error: "stale" });
+    const disbursement = fakeRepo([], false, null, true, latest({ kind: "disbursement" }));
+    expect(await new ReverseOperation(disbursement.repo).execute(actor, input, now)).toEqual({ ok: false, error: "not_reversible" });
+    expect([...newer.reversals, ...disbursement.reversals]).toHaveLength(0);
+    const conflict = fakeRepo([], false, null, false, latest());
+    expect(await new ReverseOperation(conflict.repo).execute(actor, input, now)).toEqual({ ok: false, error: "stale" });
+  });
+});
+
+describe("DeleteContract", () => {
+  const standing: ContractStanding = {
+    status: "closed",
+    interestType: "per_million_per_day",
+    interestRate: 30_000n,
+    interestPeriodDays: 10,
+    outstandingPrincipal: Money.ZERO,
+    interestPaidUntil: "2026-10-01",
+    prepaidInterest: false,
+    termDays: 30,
+    code: "CD-7",
+  };
+
+  it("gõ đúng mã (không phân biệt hoa thường, bỏ khoảng trắng): xoá, đảo giao dịch hôm nay", async () => {
+    const { repo, deletions } = fakeRepo([], false, standing);
+    const result = await new DeleteContract(repo).execute(actor, { contractId: "k", confirmCode: " cd-7 ", reason: "Trùng hồ sơ" }, now);
+    expect(result).toEqual({ ok: true, code: "CD-7" });
+    expect(deletions).toEqual([{ contractId: "k", reason: "Trùng hồ sơ", businessDate: "2026-10-20" }]);
+  });
+
+  it("sai mã, không thấy: không xoá", async () => {
+    const { repo, deletions } = fakeRepo([], false, standing);
+    expect(await new DeleteContract(repo).execute(actor, { contractId: "k", confirmCode: "CD-70", reason: "x" }, now)).toEqual({
+      ok: false,
+      error: "code_mismatch",
+    });
+    expect(deletions).toHaveLength(0);
+    expect(await new DeleteContract(fakeRepo().repo).execute(actor, { contractId: "k", confirmCode: "CD-7", reason: "x" }, now)).toEqual({
+      ok: false,
+      error: "not_found",
+    });
   });
 });

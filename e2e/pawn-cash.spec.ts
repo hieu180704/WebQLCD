@@ -221,6 +221,68 @@ test("trả bớt gốc, vay thêm, gia hạn: lãi đến hôm nay thu kèm khi
   await expect(page.getByRole("row", { name: /Trả gốc.*CD-3/ })).toBeVisible();
 });
 
+test("chủ tiệm huỷ giao dịch mới nhất (huỷ chuộc mở lại hợp đồng), xoá hợp đồng", async ({ page }) => {
+  await signIn(page);
+  const loanDate = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh" }).format(Date.now() - 5 * 86_400_000);
+  await fillContract(page, "Khách Huỷ Giao Dịch");
+  await page.getByLabel("Ngày vay *", { exact: true }).fill(loanDate);
+  await page.getByRole("button", { name: "Lưu hợp đồng và giải ngân" }).click();
+  await expect(page).toHaveURL(/moi=CD-4/);
+  await page.getByRole("link", { name: "CD-4" }).click();
+  const tile = (label: string) => page.getByRole("region", { name: "Số liệu" }).getByText(label).locator("..");
+  // Chỉ có giải ngân: không huỷ riêng được.
+  await expect(page.getByRole("button", { name: "Huỷ giao dịch gần nhất" })).toHaveCount(0);
+
+  await page.getByRole("button", { name: "Trả bớt gốc" }).click();
+  const repay = page.getByRole("dialog", { name: "Trả bớt gốc — CD-4" });
+  await repay.getByLabel("Số tiền trả bớt gốc").fill("1.000.000");
+  await repay.getByRole("button", { name: "Xác nhận trả gốc" }).click();
+  await expect(tile("Tiền gốc còn lại")).toContainText("4.000.000");
+
+  await page.getByRole("button", { name: "Chuộc đồ" }).click();
+  await page.getByRole("dialog", { name: "Chuộc đồ — CD-4" }).getByRole("button", { name: "Xác nhận chuộc đồ" }).click();
+  await expect(page.getByText(/^Đã chuộc \d{2}\/\d{2}\/\d{4}$/)).toBeVisible();
+
+  // Huỷ chuộc: hợp đồng mở lại.
+  await page.getByRole("button", { name: "Huỷ giao dịch gần nhất" }).click();
+  const reverse = page.getByRole("dialog", { name: "Huỷ giao dịch" });
+  await expect(reverse).toContainText("Chuộc đồ");
+  await expect(reverse).toContainText("+4.000.000");
+  await reverse.getByLabel("Lý do huỷ").fill("Khách chưa chuộc");
+  await reverse.getByRole("button", { name: "Huỷ giao dịch" }).click();
+  await expect(page.getByRole("status")).toHaveText("Đã huỷ giao dịch, bút toán đảo ghi vào quỹ két hôm nay.");
+  await expect(page.getByRole("button", { name: "Chuộc đồ" })).toBeVisible();
+  await expect(tile("Tiền gốc còn lại")).toContainText("4.000.000");
+  await expect(page.getByRole("row", { name: /Huỷ giao dịch — Khách chưa chuộc/ }).first()).toBeVisible();
+
+  // Huỷ tiếp trả bớt gốc (lãi thu kèm cũng đảo): về như lúc giải ngân.
+  await page.getByRole("button", { name: "Huỷ giao dịch gần nhất" }).click();
+  await expect(reverse).toContainText("Trả bớt gốc");
+  await expect(reverse).toContainText("+1.075.000");
+  await reverse.getByLabel("Lý do huỷ").fill("Nhập nhầm");
+  await reverse.getByRole("button", { name: "Huỷ giao dịch" }).click();
+  await expect(tile("Tiền gốc còn lại")).toContainText("5.000.000");
+  await expect(tile("Lãi đến hôm nay")).toContainText("75.000");
+  await expect(page.getByRole("button", { name: "Huỷ giao dịch gần nhất" })).toHaveCount(0);
+
+  await page.getByRole("button", { name: "Xoá" }).click();
+  const remove = page.getByRole("dialog", { name: "Xoá hợp đồng CD-4" });
+  await expect(remove.getByText("Quỹ két thay đổi").locator("..")).toContainText("+5.000.000");
+  await remove.getByLabel("Lý do xoá").fill("Tạo nhầm hồ sơ");
+  await remove.getByLabel("Gõ mã hợp đồng để xác nhận").fill("CD-40");
+  await remove.getByRole("button", { name: "Xoá hợp đồng" }).click();
+  await expect(remove.getByRole("alert")).toHaveText("Mã hợp đồng gõ lại không khớp.");
+  await remove.getByLabel("Gõ mã hợp đồng để xác nhận").fill("cd-4");
+  await remove.getByRole("button", { name: "Xoá hợp đồng" }).click();
+  await expect(page.getByText(/^Đã xoá \d{2}\/\d{2}\/\d{4}$/)).toBeVisible();
+  await expect(page.getByText("Lý do: Tạo nhầm hồ sơ")).toBeVisible();
+  await expect(page.getByRole("region", { name: "Thao tác" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Xoá" })).toHaveCount(0);
+
+  await page.goto("/cam-do");
+  await expect(page.getByRole("link", { name: "CD-4" })).toHaveCount(0);
+});
+
 test("dữ liệu sai: báo lỗi, giữ lại giá trị đã nhập", async ({ page }) => {
   await signIn(page);
   await fillContract(page, "Khách Lỗi");

@@ -183,3 +183,18 @@ export const extendSchema = z.object({
   extraDays: days("Gia hạn thêm"),
   interest: optionalInterest,
 });
+
+const reason = (label: string) =>
+  z.string().trim().min(1, `Nhập ${label.toLowerCase()}.`).max(200, `${label} tối đa 200 ký tự.`);
+
+export const reverseSchema = z.object({
+  contractId: z.uuid("Hợp đồng không hợp lệ."),
+  operationId: z.uuid("Giao dịch không hợp lệ."),
+  reason: reason("Lý do huỷ"),
+});
+
+export const deleteSchema = z.object({
+  contractId: z.uuid("Hợp đồng không hợp lệ."),
+  confirmCode: z.string().max(30),
+  reason: reason("Lý do xoá"),
+});

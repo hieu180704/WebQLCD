@@ -1,0 +1,17 @@
+# 2026-10-22: Lát 1d huỷ giao dịch + xoá hợp đồng — [verified: lint, typecheck, 128 unit/DB test, 19 e2e]
+
+- Commit: xem commit "Lát 1d: huỷ giao dịch, xoá hợp đồng" ngay sau 48b1ae6
+- Đã làm:
+  1. Bảng `contract_operations` + cột `contracts.deleted_reason` (migration `drizzle/0006_contract_operations.sql`, cuối file có phần dựng dữ liệu cũ viết tay). Lý do: `Docs/Decisions/2026-10-22-contract-operations.txt`.
+  2. Mọi lệnh ghi của repository (tạo, đóng lãi, chuộc, trả bớt / vay thêm, gia hạn) chèn thêm một dòng thao tác; sổ két dùng id đó làm `operation_id` (`CashOperation.operationId`, `note` ở `cash-ledger.ts`). Cashbook thêm bút toán `reversal` (`cash-entry.ts`).
+  3. Use case `ReverseOperation` (chỉ huỷ được thao tác mới nhất, không huỷ giải ngân) và `DeleteContract` (gõ lại mã, không phân biệt hoa thường). Repository `findLatestOperation`, `reverseOperation` (khoá dòng hợp đồng, tính lại gốc / ngày trả đến theo đối soát, trừ ngày gia hạn, mở lại khi huỷ chuộc), `deleteContract` (đảo mọi dòng chưa đảo trong một thao tác).
+  4. Chỉ chủ tiệm: action dùng guard `requireSession({ role: "owner", write: true })`; nút chỉ hiện với chủ tiệm.
+  5. Giao diện: `reverse-dialog.tsx` (nút "Huỷ giao dịch gần nhất" ở đầu bảng lịch sử, vì gia hạn không có dòng sổ két để gắn nút theo từng dòng như mockup), `delete-dialog.tsx`. Hợp đồng đã xoá vẫn mở được: nhãn "Đã xoá", lý do, không còn thao tác. Dòng đảo hiện kèm lý do. `operation-status.tsx` tách thành provider bao cả trang + `OperationStatusMessage` dưới tiêu đề.
+  6. Docs: core-spec mục 2, data-model 3.4, 3.4a, 3.6, 3.7, 3.9, mục 4; Decision mới.
+- Trạng thái: xong lát 1d; kế tiếp lát 1e (sửa thông tin hồ sơ).
+- Lưu ý cho phiên sau:
+  - Lịch sử giao dịch vẫn chỉ hiện dòng sổ két, nên gia hạn không thu lãi không hiện trong bảng (chỉ hiện ở hộp thoại huỷ khi nó là thao tác mới nhất).
+  - Chưa có e2e kiểm KTV bị từ chối khi huỷ / xoá; chặn nằm ở guard của action, UI chỉ ẩn nút.
+  - Dữ liệu dev cũ: gia hạn không thu lãi có trước migration 0006 không có dòng thao tác.
+  - Lát 1e: "hợp đồng đã có giao dịch ngoài giải ngân" (luật Sửa) tra được qua `contract_operations` chưa huỷ có `kind <> 'disbursement'`.
+  - Postgres dev bị tắt không sạch qua đêm, `npm run db:start` tự recover (log `.local/pg.log`) nhưng lệnh `pg_ctl -w` treo quá 60s dù DB đã nhận kết nối.
