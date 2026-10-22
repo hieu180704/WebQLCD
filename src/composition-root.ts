@@ -13,6 +13,7 @@ import { DrizzleCustomerRepository } from "@/modules/customer/infrastructure/dri
 import { DrizzleCustomerWriter } from "@/modules/customer/infrastructure/drizzle-customer-writer";
 import { CreateStaff } from "@/modules/identity/application/create-staff";
 import { ListStaff } from "@/modules/identity/application/list-staff";
+import { SetStaffActive } from "@/modules/identity/application/set-staff-active";
 import { RegisterOwner } from "@/modules/identity/application/register-owner";
 import { SignIn } from "@/modules/identity/application/sign-in";
 import { SignOut } from "@/modules/identity/application/sign-out";
@@ -54,6 +55,7 @@ const accounts = new DrizzleAccountRepository(db);
 export const registerOwner = new RegisterOwner(new IpSignupLimiter(db), accounts, authenticator);
 export const createStaff = new CreateStaff(accounts);
 export const listStaff = new ListStaff(accounts);
+export const setStaffActive = new SetStaffActive(accounts);
 
 export const getSubscription = new GetSubscription(new DrizzleShopRepository(db));
 

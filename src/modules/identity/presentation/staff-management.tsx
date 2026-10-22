@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { listStaff, requireSession } from "@/composition-root";
 import { CreateStaffForm } from "./create-staff-form";
+import { StaffStatusButton, StaffStatusDialog } from "./staff-status-dialog";
 
 const formatDate = new Intl.DateTimeFormat("vi-VN", { timeZone: "Asia/Ho_Chi_Minh", dateStyle: "short" }).format;
 
@@ -28,34 +29,43 @@ export async function StaffManagement() {
               Danh sách nhân viên
             </h2>
           </div>
-          {members.length === 0 ? (
-            <p className="px-5 pb-5 text-sm text-slate-500">Chưa có nhân viên nào.</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>Họ tên</th>
-                    <th>Tên đăng nhập</th>
-                    <th>Trạng thái</th>
-                    <th>Ngày tạo</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {members.map((m) => (
-                    <tr key={m.id}>
-                      <td className="font-medium">{m.name}</td>
-                      <td>{m.username}</td>
-                      <td>
-                        <span className={`badge ${m.isActive ? "badge-ok" : "badge-muted"}`}>{m.isActive ? "Đang hoạt động" : "Đã khoá"}</span>
-                      </td>
-                      <td className="num">{formatDate(m.createdAt)}</td>
+          <StaffStatusDialog>
+            {members.length === 0 ? (
+              <p className="px-5 pb-5 text-sm text-slate-500">Chưa có nhân viên nào.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>Họ tên</th>
+                      <th>Tên đăng nhập</th>
+                      <th>Trạng thái</th>
+                      <th>Ngày tạo</th>
+                      <th>Thao tác</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+                  </thead>
+                  <tbody>
+                    {members.map((m) => (
+                      <tr key={m.id}>
+                        <td className="font-medium">{m.name}</td>
+                        <td>{m.username}</td>
+                        <td>
+                          <span className={`badge ${m.isActive ? "badge-ok" : "badge-muted"}`}>{m.isActive ? "Đang hoạt động" : "Đã khoá"}</span>
+                        </td>
+                        <td className="num">{formatDate(m.createdAt)}</td>
+                        <td>
+                          <StaffStatusButton staffId={m.id} name={m.name} active={m.isActive} />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </StaffStatusDialog>
+          <p className="px-5 py-3 text-xs text-slate-500">
+            Nhân viên bị khoá không đăng nhập được, phiên đang mở bị đăng xuất ngay. Hồ sơ cũ vẫn ghi tên người đó. Không xoá nhân viên để giữ lịch sử.
+          </p>
         </section>
       </div>
     </>

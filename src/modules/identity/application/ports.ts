@@ -27,6 +27,9 @@ export type RegisterOwnerResult = "ok" | "rate_limited" | "username_taken" | "em
 
 export type CreateStaffResult = "ok" | "username_taken";
 
+/** `not_found`: không có KTV đó trong cửa hàng, hoặc KTV đã ở sẵn trạng thái muốn đổi. */
+export type SetStaffActiveResult = "ok" | "not_found";
+
 /** Tạo cửa hàng dùng thử + chủ tiệm trong một transaction. */
 export interface OwnerRegistrar {
   registerOwner(input: OwnerRegistration, trialDays: number): Promise<Exclude<RegisterOwnerResult, "rate_limited">>;
@@ -36,6 +39,8 @@ export interface OwnerRegistrar {
 export interface StaffRepository {
   createStaff(actor: Actor, input: NewStaff): Promise<CreateStaffResult>;
   listStaff(shopId: string, limit: number): Promise<StaffMember[]>;
+  /** Khoá thì xoá luôn mọi phiên đang mở của KTV. Không đụng được chủ tiệm. */
+  setStaffActive(actor: Actor, staffId: string, active: boolean): Promise<SetStaffActiveResult>;
 }
 
 /** Giới hạn số lần đăng ký theo nguồn gửi (IP). Trả `false` khi đã hết lượt. */

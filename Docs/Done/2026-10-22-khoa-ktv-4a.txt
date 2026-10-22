@@ -1,0 +1,13 @@
+# 2026-10-22: Lát 4a khoá / mở khoá KTV — [verified: lint, typecheck, 170 unit/DB test, 32 e2e]
+
+- Commit: xem commit "Lát 4a: khoá / mở khoá KTV" ngay sau 26a9408
+- Đã làm:
+  1. Chia mục 4 của pilot-scope thành 4a (khoá / mở khoá KTV), 4b (chủ tiệm đặt lại mật khẩu KTV), 4c (tự đổi mật khẩu ở `/cai-dat`); người dùng duyệt 2026-10-22 cùng các điểm: ghi mật khẩu thẳng DB bằng `hashPassword` (không dùng `changePassword` / plugin `admin` của Better Auth), đếm sai mật khẩu hiện tại ở 4c vào `login_throttles`, hết hạn vẫn khoá và đặt lại mật khẩu được, mở khoá cần quyền ghi.
+  2. Module `identity`: port `StaffRepository.setStaffActive`, use case `SetStaffActive`; `DrizzleAccountRepository.setStaffActive` trong một transaction: `UPDATE users` lọc `id` + `shop_id` + `role = 'staff'` + trạng thái khác trạng thái muốn đổi (không có dòng → `not_found`), khoá thì xoá mọi dòng `sessions` của KTV, ghi audit `lock` / `unlock`.
+  3. Presentation: `setStaffActiveAction` (`requireSession({ role: "owner", write: active })`), hộp thoại chung `StaffStatusDialog` + nút `StaffStatusButton` trên từng dòng, cột "Thao tác" và ghi chú dưới bảng ở `/nhan-vien` theo mockup.
+  4. Test: DB test 2 ca (khoá xoá phiên + audit + mở khoá + khoá lần hai `not_found`; không khoá được chủ tiệm, KTV cửa hàng khác, giả mạo shopId bị khoá ngoại audit chặn); e2e 2 ca (KTV đang đăng nhập bị đẩy về `/dang-nhap`, đăng nhập lại bị chặn, mở khoá vào lại được; hết hạn vẫn khoá được, mở khoá báo lỗi).
+  5. Docs: core-spec mục 2 ("Nhân viên"), data-model 3.7 (`lock` / `unlock`), handoff.
+- Trạng thái: xong lát 4a; kế tiếp lát 4b.
+- Lưu ý cho phiên sau:
+  - "Đăng xuất ngay" dựa vào guard tra `users.is_active` ở mọi request (cookie cache của Better Auth không bật); xoá `sessions` chỉ để DB không còn token sống. Nếu sau này bật `session.cookieCache` thì phải xem lại.
+  - Hộp thoại khoá dùng chung `role="status"` cho thông báo; trang `/nhan-vien` có thể có hai `status` (form tạo KTV + khoá) cùng lúc nếu làm cả hai thao tác.

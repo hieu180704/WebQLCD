@@ -63,6 +63,43 @@ test("chủ tiệm tạo KTV; KTV đăng nhập được nhưng không vào đư
   await expect(page).toHaveURL("/");
 });
 
+const staffRow = (page: Page) => page.getByRole("row").filter({ has: page.getByRole("cell", { name: STAFF.username, exact: true }) });
+
+async function setStaffStatus(page: Page, action: "Khoá" | "Mở khoá") {
+  await page.getByRole("button", { name: `${action} KTV Lan`, exact: true }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toHaveAccessibleName(`${action} tài khoản KTV Lan?`);
+  await dialog.getByRole("button", { name: action === "Khoá" ? "Khoá tài khoản" : "Mở khoá" }).click();
+}
+
+test("chủ tiệm khoá KTV: phiên đang mở của KTV bị đăng xuất, đăng nhập lại bị chặn; mở khoá thì vào lại được", async ({ page, browser }) => {
+  const staffContext = await browser.newContext();
+  try {
+    const staffPage = await staffContext.newPage();
+    await signIn(staffPage, STAFF.username, STAFF.password);
+
+    await signIn(page, OWNER.username, OWNER.password);
+    await page.goto("/nhan-vien");
+    await setStaffStatus(page, "Khoá");
+    await expect(page.getByRole("status")).toHaveText("Đã khoá nhân viên, mọi phiên đăng nhập của người đó bị đăng xuất.");
+    await expect(staffRow(page)).toContainText("Đã khoá");
+
+    await staffPage.goto("/");
+    await expect(staffPage).toHaveURL("/dang-nhap");
+    await staffPage.getByLabel("Tên đăng nhập").fill(STAFF.username);
+    await staffPage.getByLabel("Mật khẩu").fill(STAFF.password);
+    await staffPage.getByRole("button", { name: "Đăng nhập" }).click();
+    await expect(formAlert(staffPage)).toHaveText("Tài khoản đã bị vô hiệu hoá. Vui lòng liên hệ chủ tiệm.");
+
+    await setStaffStatus(page, "Mở khoá");
+    await expect(page.getByRole("status")).toHaveText("Đã mở khoá nhân viên.");
+    await expect(staffRow(page)).toContainText("Đang hoạt động");
+    await signIn(staffPage, STAFF.username, STAFF.password);
+  } finally {
+    await staffContext.close();
+  }
+});
+
 test("hết hạn dùng thử: báo chỉ xem, không tạo thêm KTV được", async ({ page }) => {
   await expireTrial(OWNER.username);
   await signIn(page, OWNER.username, OWNER.password);
@@ -74,6 +111,17 @@ test("hết hạn dùng thử: báo chỉ xem, không tạo thêm KTV được",
   await page.getByRole("button", { name: "Tạo nhân viên" }).click();
   await expect(formAlert(page)).toHaveText("Cửa hàng đã hết hạn sử dụng, không tạo thêm nhân viên được.");
   await expect(page.getByRole("cell", { name: `${STAFF.username}_2` })).toHaveCount(0);
+});
+
+test("hết hạn dùng thử: vẫn khoá được KTV, không mở khoá được", async ({ page }) => {
+  await signIn(page, OWNER.username, OWNER.password);
+  await page.goto("/nhan-vien");
+  await setStaffStatus(page, "Khoá");
+  await expect(staffRow(page)).toContainText("Đã khoá");
+  await setStaffStatus(page, "Mở khoá");
+  await expect(page.getByRole("dialog").getByRole("alert")).toHaveText("Cửa hàng đã hết hạn sử dụng, không mở khoá nhân viên được.");
+  await page.reload();
+  await expect(staffRow(page)).toContainText("Đã khoá");
 });
 
 test("đăng ký quá 5 lần trong 1 giờ từ một IP thì bị chặn", async ({ page }) => {

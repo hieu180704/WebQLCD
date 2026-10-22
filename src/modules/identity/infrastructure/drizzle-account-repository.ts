@@ -1,10 +1,10 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
-import { DrizzleQueryError, and, asc, eq, sql } from "drizzle-orm";
+import { DrizzleQueryError, and, asc, eq, ne, sql } from "drizzle-orm";
 import { DatabaseError } from "pg";
 import { hashPassword } from "@/shared/infrastructure/auth/password";
 import type { Db } from "@/shared/infrastructure/db/client";
-import { accounts, auditLogs, shops, users } from "@/shared/infrastructure/db/schema";
+import { accounts, auditLogs, sessions, shops, users } from "@/shared/infrastructure/db/schema";
 import type {
   Actor,
   CreateStaffResult,
@@ -12,6 +12,7 @@ import type {
   OwnerRegistrar,
   OwnerRegistration,
   RegisterOwnerResult,
+  SetStaffActiveResult,
   StaffMember,
   StaffRepository,
 } from "../application/ports";
@@ -80,6 +81,21 @@ export class DrizzleAccountRepository implements OwnerRegistrar, StaffRepository
       .where(and(eq(users.shopId, shopId), eq(users.role, "staff")))
       .orderBy(asc(users.createdAt))
       .limit(limit);
+  }
+
+  async setStaffActive(actor: Actor, staffId: string, active: boolean): Promise<SetStaffActiveResult> {
+    return this.db.transaction(async (tx) => {
+      const [row] = await tx
+        .update(users)
+        .set({ isActive: active })
+        .where(and(eq(users.id, staffId), eq(users.shopId, actor.shopId), eq(users.role, "staff"), ne(users.isActive, active)))
+        .returning({ id: users.id });
+      if (!row) return "not_found";
+      // Guard tra is_active ở mọi request nên phiên cũ đã hết dùng được; xoá luôn để DB không còn token sống.
+      if (!active) await tx.delete(sessions).where(eq(sessions.userId, staffId));
+      await tx.insert(auditLogs).values({ shopId: actor.shopId, userId: actor.userId, entity: "user", entityId: staffId, action: active ? "unlock" : "lock" });
+      return "ok";
+    });
   }
 }
 

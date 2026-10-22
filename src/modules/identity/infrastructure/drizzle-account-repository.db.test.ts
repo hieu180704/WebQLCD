@@ -145,4 +145,61 @@ describe.skipIf(!url)("DrizzleAccountRepository", () => {
       ).rejects.toThrow();
       expect(await findUser(db, staffName)).toBeUndefined();
     }));
+
+  it("khoá KTV: xoá mọi phiên, có audit; mở khoá lại được; khoá lần hai báo not_found", () =>
+    inTx(async (db) => {
+      const repo = new DrizzleAccountRepository(db);
+      const a = owner();
+      await repo.registerOwner(a, 7);
+      const ownerA = await findUser(db, a.username);
+      const actor = { userId: ownerA.id, shopId: ownerA.shopId };
+      const staffName = `ktv_${Date.now()}_${n++}`;
+      await repo.createStaff(actor, { name: "KTV Khoá", username: staffName, password: "matkhau456" });
+      const staff = await findUser(db, staffName);
+      const session = (userId: string) => ({ userId, token: `t_${Date.now()}_${n++}`, expiresAt: new Date(Date.now() + 3_600_000) });
+      await db.insert(schema.sessions).values([session(staff.id), session(staff.id), session(ownerA.id)]);
+      const countSessions = async (userId: string) =>
+        (await db.execute<{ n: number }>(sql`SELECT count(*)::int AS n FROM sessions WHERE user_id = ${userId}`)).rows[0].n;
+      const isActive = async () => (await repo.listStaff(ownerA.shopId, 10))[0].isActive;
+
+      expect(await repo.setStaffActive(actor, staff.id, false)).toBe("ok");
+      expect(await isActive()).toBe(false);
+      expect(await countSessions(staff.id)).toBe(0);
+      expect(await countSessions(ownerA.id)).toBe(1);
+      expect(await repo.setStaffActive(actor, staff.id, false)).toBe("not_found");
+
+      expect(await repo.setStaffActive(actor, staff.id, true)).toBe("ok");
+      expect(await isActive()).toBe(true);
+
+      const { rows } = await db.execute<{ user_id: string; action: string }>(
+        sql`SELECT user_id, action FROM audit_logs WHERE entity = 'user' AND entity_id = ${staff.id} ORDER BY id`,
+      );
+      expect(rows).toEqual([
+        { user_id: ownerA.id, action: "create" },
+        { user_id: ownerA.id, action: "lock" },
+        { user_id: ownerA.id, action: "unlock" },
+      ]);
+    }));
+
+  it("khoá: không đụng được chủ tiệm, không đụng được KTV cửa hàng khác", () =>
+    inTx(async (db) => {
+      const repo = new DrizzleAccountRepository(db);
+      const a = owner();
+      const b = owner();
+      await repo.registerOwner(a, 7);
+      await repo.registerOwner(b, 7);
+      const ownerA = await findUser(db, a.username);
+      const ownerB = await findUser(db, b.username);
+      const actorA = { userId: ownerA.id, shopId: ownerA.shopId };
+      const actorB = { userId: ownerB.id, shopId: ownerB.shopId };
+      const staffName = `ktv_${Date.now()}_${n++}`;
+      await repo.createStaff(actorA, { name: "KTV A", username: staffName, password: "matkhau456" });
+      const staffA = await findUser(db, staffName);
+
+      expect(await repo.setStaffActive(actorA, ownerA.id, false)).toBe("not_found");
+      expect(await repo.setStaffActive(actorB, staffA.id, false)).toBe("not_found");
+      // Giả mạo shopId của cửa hàng A với người thực hiện thuộc cửa hàng B: khoá ngoại audit chặn, cả transaction rollback.
+      await expect(repo.setStaffActive({ userId: ownerB.id, shopId: ownerA.shopId }, staffA.id, false)).rejects.toThrow();
+      expect((await repo.listStaff(ownerA.shopId, 10))[0].isActive).toBe(true);
+    }));
 });
