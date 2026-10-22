@@ -65,6 +65,7 @@ GIẢ ĐỊNH TẠM (2026-10-21, đội dự án tự chốt theo mockup, chưa 
 GIẢ ĐỊNH TẠM (2026-10-22, đội dự án tự chốt theo mockup, người dùng duyệt; chưa hỏi khách):
 - **Thu khác / Chi khác:** phiếu không gắn hợp đồng, ghi vào sổ két hôm nay. Chủ tiệm và KTV đều làm được. Số tiền > 0 (tối đa 100 tỷ), nội dung bắt buộc (tối đa 200 ký tự). Chi khác được làm két âm.
 - **Nạp vốn:** chỉ chủ tiệm, ghi vào sổ két hôm nay, ghi chú không bắt buộc. Dùng khi bỏ thêm vốn vào két hoặc chỉnh quỹ đầu két nhập sai.
+- **Huỷ phiếu:** chỉ chủ tiệm, phải nhập lý do. Ghi bút toán đảo vào sổ két hôm nay; phiếu gốc giữ nguyên, mang nhãn "Đã huỷ". Chỉ huỷ được phiếu thu khác, chi khác, nạp vốn; quỹ đầu két không huỷ được. Giao dịch hợp đồng không huỷ ở trang quỹ két mà ở trang chi tiết hợp đồng (luật "chỉ huỷ thao tác mới nhất"); trên quỹ két, mã hợp đồng là link sang trang đó.
 
 ---
 

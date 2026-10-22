@@ -118,6 +118,36 @@ describe.skipIf(!url)("DrizzleCashbookRepository", () => {
       expect(audit.n).toBe("3");
     }));
 
+  it("huỷ phiếu: bút toán đảo hôm nay kèm lý do, một lần; không huỷ giao dịch hợp đồng hay phiếu cửa hàng khác", () =>
+    inTx(async (db) => {
+      const s = await seedShop(db);
+      const other = await seedShop(db);
+      const repo = new DrizzleCashbookRepository(db);
+      await repo.recordManualEntry(s, { type: "manual_expense", amount: vnd(1_250_000), note: "Tiền điện" }, "2026-10-19");
+      await disburse(db, s, "2026-10-19", 1_000_000);
+      const day19 = await repo.listDay(s.shopId, "2026-10-19", null, 10);
+      const expense = day19.find((l) => l.type === "manual_expense")!;
+      const disbursement = day19.find((l) => l.type === "disbursement")!;
+
+      expect(await repo.reverseManualEntry(other, expense.id, "x", "2026-10-20")).toBe("not_found");
+      expect(await repo.reverseManualEntry(s, disbursement.id, "x", "2026-10-20")).toBe("not_manual");
+      expect(await repo.reverseManualEntry(s, expense.id, "Nhập nhầm", "2026-10-20")).toBe("ok");
+      expect(await repo.reverseManualEntry(s, expense.id, "Lần hai", "2026-10-20")).toBe("already_reversed");
+
+      // Dòng gốc ngày 19 mang nhãn đã huỷ; dòng đảo nằm ngày 20, nêu dòng gốc và lý do.
+      expect((await repo.listDay(s.shopId, "2026-10-19", null, 10)).find((l) => l.id === expense.id)?.reversed).toBe(true);
+      const [rev] = await repo.listDay(s.shopId, "2026-10-20", null, 10);
+      expect(rev).toMatchObject({ type: "reversal", note: "Nhập nhầm", reversed: false, reverses: { type: "manual_expense" } });
+      expect(rev.amount.toBigInt()).toBe(1_250_000n);
+      expect(rev.reverses?.occurredAt).toEqual(expense.occurredAt);
+      expect((await repo.dayTotals(s.shopId, "2026-10-20")).income.toBigInt()).toBe(1_250_000n);
+      const audit = await one(
+        db,
+        sql`SELECT array_agg(action ORDER BY at, action)::text AS a FROM audit_logs WHERE shop_id = ${s.shopId} AND entity = 'cash'`,
+      );
+      expect(audit.a).toBe("{create,reverse}");
+    }));
+
   it("cách ly cửa hàng và phân trang keyset danh sách trong ngày", () =>
     inTx(async (db) => {
       const a = await seedShop(db);

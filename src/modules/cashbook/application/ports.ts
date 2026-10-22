@@ -1,5 +1,8 @@
 import type { LocalDate } from "@/shared/kernel/local-date";
 import type { Money } from "@/shared/kernel/money";
+import type { ManualEntryType } from "../domain/cash-entry";
+
+export type { ManualEntryType };
 
 /** Người thực hiện thao tác, lấy từ guard (session), không bao giờ từ input của client. */
 export type Actor = { userId: string; shopId: string };
@@ -26,18 +29,23 @@ export type CashLine = {
   occurredAt: Date;
   type: CashTransactionType;
   amount: Money;
+  contractId: string | null;
   contractCode: string | null;
   createdByName: string;
+  /** Nội dung phiếu; với dòng đảo là lý do huỷ. */
   note: string | null;
+  /** Dòng này đã bị một dòng đảo huỷ. */
+  reversed: boolean;
+  /** Dòng đảo: loại và giờ của dòng gốc bị huỷ. */
+  reverses: { type: CashTransactionType; occurredAt: Date } | null;
 };
 
 export type OpeningBalanceResult = "ok" | "already_set";
 
-/** Phiếu không gắn hợp đồng: nạp vốn, thu khác, chi khác. */
-export type ManualEntryType = "capital_in" | "manual_income" | "manual_expense";
-
 /** `amount` là độ lớn (dương); `note` là nội dung phiếu. */
 export type ManualEntry = { type: ManualEntryType; amount: Money; note: string | null };
+
+export type ReverseManualResult = "ok" | "not_found" | "not_manual" | "already_reversed";
 
 /** Sổ két của một cửa hàng; mọi truy vấn lọc theo shopId của phiên. */
 export interface CashbookRepository {
@@ -45,6 +53,8 @@ export interface CashbookRepository {
   recordOpeningBalance(actor: Actor, amount: Money): Promise<OpeningBalanceResult>;
   /** Ghi một phiếu vào sổ két ngày `date` kèm nhật ký, cùng một transaction. */
   recordManualEntry(actor: Actor, entry: ManualEntry, date: LocalDate): Promise<void>;
+  /** Ghi bút toán đảo phiếu `transactionId` vào ngày `date`, `reason` vào `note`, kèm nhật ký, cùng một transaction. */
+  reverseManualEntry(actor: Actor, transactionId: string, reason: string, date: LocalDate): Promise<ReverseManualResult>;
   hasOpeningBalance(shopId: string): Promise<boolean>;
   dayTotals(shopId: string, date: LocalDate): Promise<CashDayTotals>;
   /** Giao dịch trong ngày, mới nhất trước; `after` là id dòng cuối của trang trước (keyset). */

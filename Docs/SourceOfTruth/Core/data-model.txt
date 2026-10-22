@@ -96,7 +96,7 @@
 - CHECK: `interest_payment` phải có `period_from <= period_to`; type khác (trừ reversal) để trống hai cột này. `amount <> 0`.
 - Trả bớt gốc / vay thêm: dòng `principal_repayment` / `additional_loan` + dòng `interest_payment` thu kèm (nếu có) chung `operation_id`; cập nhật `outstanding_principal`, có thu lãi thì `interest_paid_until` = `period_to` của dòng lãi (lãi bổ sung khi vay thêm có `period_to` = ngày trả đến cũ nên không đổi).
 - Xoá hợp đồng: đảo mọi dòng chưa đảo của hợp đồng chung một `operation_id` mới (không thuộc `contract_operations`), `note` = lý do; huỷ thao tác cũng ghi lý do vào `note` của dòng đảo.
-- Phiếu thu khác / chi khác / nạp vốn: một dòng `manual_income` / `manual_expense` / `capital_in`, nội dung ở `note`, kèm một dòng `audit_logs` (`entity = cash`, `entity_id` = `operation_id`, `action = create`) cùng transaction.
+- Phiếu thu khác / chi khác / nạp vốn: một dòng `manual_income` / `manual_expense` / `capital_in`, nội dung ở `note`, kèm một dòng `audit_logs` (`entity = cash`, `entity_id` = `operation_id`, `action = create`) cùng transaction. Huỷ phiếu: một dòng `reversal` (operation_id mới, `note` = lý do) + `audit_logs` `action = reverse` với `entity_id` = `operation_id` của phiếu gốc. Hai người huỷ cùng lúc thì người sau vướng `UNIQUE (reverses_id)`.
 - Chuộc đồ / đóng hợp đồng không có loại riêng: thao tác sinh các dòng `interest_payment` (bỏ qua nếu lãi thu = 0) + `principal_repayment` chung `operation_id`, đặt `outstanding_principal = 0`, `status = 'closed'`; có thu lãi thì `interest_paid_until` = ngày chuộc.
 
 ## 3.7 `audit_logs`

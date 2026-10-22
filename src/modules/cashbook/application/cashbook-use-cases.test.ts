@@ -4,6 +4,7 @@ import { Money } from "@/shared/kernel/money";
 import { CASH_PAGE_SIZE, GetCashDay } from "./get-cash-day";
 import type { CashLine, CashbookRepository, ManualEntry } from "./ports";
 import { RecordManualEntry } from "./record-manual-entry";
+import { ReverseManualEntry } from "./reverse-manual-entry";
 import { SetOpeningBalance } from "./set-opening-balance";
 
 const actor = { userId: "u", shopId: "s" };
@@ -12,13 +13,22 @@ const line = (i: number): CashLine => ({
   occurredAt: new Date(),
   type: "disbursement",
   amount: Money.of(-1n),
+  contractId: "c",
   contractCode: "CD-1",
   createdByName: "Chủ",
   note: null,
+  reversed: false,
+  reverses: null,
 });
 
 function fakeRepo(lines: CashLine[] = []) {
-  const calls: { date?: string; limit?: number; opening?: bigint; manual?: { entry: ManualEntry; date: string } } = {};
+  const calls: {
+    date?: string;
+    limit?: number;
+    opening?: bigint;
+    manual?: { entry: ManualEntry; date: string };
+    reverse?: { id: string; reason: string; date: string };
+  } = {};
   const repo: CashbookRepository = {
     recordOpeningBalance: async (_actor, amount) => {
       calls.opening = amount.toBigInt();
@@ -26,6 +36,10 @@ function fakeRepo(lines: CashLine[] = []) {
     },
     recordManualEntry: async (_actor, entry, date) => {
       calls.manual = { entry, date };
+    },
+    reverseManualEntry: async (_actor, id, reason, date) => {
+      calls.reverse = { id, reason, date };
+      return "ok";
     },
     hasOpeningBalance: async () => true,
     dayTotals: async (_shop, date) => {
@@ -71,7 +85,29 @@ describe("RecordManualEntry", () => {
   });
 });
 
+describe("ReverseManualEntry", () => {
+  it("bắt buộc lý do; ghi bút toán đảo vào hôm nay", async () => {
+    const { repo, calls } = fakeRepo();
+    const use = new ReverseManualEntry(repo);
+    expect(await use.execute(actor, "t1", "", now)).toBe("reason_required");
+    expect(calls.reverse).toBeUndefined();
+    expect(await use.execute(actor, "t1", "Nhập nhầm", now)).toBe("ok");
+    expect(calls.reverse).toEqual({ id: "t1", reason: "Nhập nhầm", date: "2026-10-20" });
+  });
+});
+
 describe("GetCashDay", () => {
+  it("chỉ phiếu thu/chi khác, nạp vốn chưa bị huỷ là huỷ được từ sổ quỹ", async () => {
+    const lines: CashLine[] = [
+      { ...line(0), type: "manual_expense", contractId: null, contractCode: null },
+      { ...line(1), type: "capital_in", contractId: null, contractCode: null, reversed: true },
+      line(2),
+      { ...line(3), type: "opening_balance", contractId: null, contractCode: null },
+    ];
+    const view = await new GetCashDay(fakeRepo(lines).repo).execute("s", null, null, now);
+    expect(view.lines.map((l) => l.reversible)).toEqual([true, false, false, false]);
+  });
+
   it("mặc định hôm nay theo giờ Việt Nam; ngày tương lai quy về hôm nay", async () => {
     const { repo, calls } = fakeRepo();
     expect((await new GetCashDay(repo).execute("s", null, null, now)).date).toBe("2026-10-20");

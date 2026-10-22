@@ -1,8 +1,9 @@
 "use client";
 
-import { useActionState, useEffect, useRef, useState } from "react";
+import { useActionState, useEffect, useRef } from "react";
 import type { ManualEntryType } from "../application/ports";
 import { recordManualEntryAction, type ManualEntryState } from "./actions";
+import { useReportCashStatus } from "./cash-status";
 
 const initialState: ManualEntryState = { error: null, message: null, done: 0, amount: "", note: "" };
 
@@ -24,26 +25,15 @@ const KINDS: EntryKind[] = [
 
 /** Nút + hộp thoại phiếu thu khác, chi khác, nạp vốn (mockup quy-ket); nạp vốn chỉ hiện với chủ tiệm. */
 export function ManualEntryDialogs({ today, userName, isOwner }: { today: string; userName: string; isOwner: boolean }) {
-  const [message, setMessage] = useState<string | null>(null);
-  return (
-    <>
-      <div className="flex flex-wrap gap-2">
-        {KINDS.filter((kind) => isOwner || kind.type !== "capital_in").map((kind) => (
-          <EntryDialog key={kind.type} kind={kind} today={today} userName={userName} onDone={setMessage} />
-        ))}
-      </div>
-      {message && (
-        <p role="status" className="basis-full rounded-lg bg-emerald-50 text-emerald-800 px-4 py-3 text-sm">
-          {message}
-        </p>
-      )}
-    </>
-  );
+  return KINDS.filter((kind) => isOwner || kind.type !== "capital_in").map((kind) => (
+    <EntryDialog key={kind.type} kind={kind} today={today} userName={userName} />
+  ));
 }
 
-function EntryDialog({ kind, today, userName, onDone }: { kind: EntryKind; today: string; userName: string; onDone: (message: string | null) => void }) {
+function EntryDialog({ kind, today, userName }: { kind: EntryKind; today: string; userName: string }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [state, formAction, pending] = useActionState(recordManualEntryAction, initialState);
+  const reportStatus = useReportCashStatus();
   const titleId = `${kind.type}-title`;
 
   // Thành công thì đóng hộp thoại, báo kết quả; mỗi lần thành công xử lý một lần.
@@ -52,8 +42,8 @@ function EntryDialog({ kind, today, userName, onDone }: { kind: EntryKind; today
     if (state.done === handledDone.current) return;
     handledDone.current = state.done;
     dialog.current?.close();
-    onDone(state.message);
-  }, [state.done, state.message, onDone]);
+    reportStatus(state.message);
+  }, [state.done, state.message, reportStatus]);
 
   return (
     <>

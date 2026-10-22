@@ -2,6 +2,7 @@
 import "server-only";
 import { GetCashDay } from "@/modules/cashbook/application/get-cash-day";
 import { RecordManualEntry } from "@/modules/cashbook/application/record-manual-entry";
+import { ReverseManualEntry } from "@/modules/cashbook/application/reverse-manual-entry";
 import { SetOpeningBalance } from "@/modules/cashbook/application/set-opening-balance";
 import { appendCashEntries } from "@/modules/cashbook/infrastructure/cash-ledger";
 import { DrizzleCashbookRepository } from "@/modules/cashbook/infrastructure/drizzle-cashbook-repository";
@@ -49,6 +50,7 @@ const cashbook = new DrizzleCashbookRepository(db);
 export const setOpeningBalance = new SetOpeningBalance(cashbook);
 export const getCashDay = new GetCashDay(cashbook);
 export const recordManualEntry = new RecordManualEntry(cashbook);
+export const reverseManualEntry = new ReverseManualEntry(cashbook);
 
 // Khoá CCCD đọc lần đầu cần dùng rồi giữ lại; thiếu khoá thì chỉ thao tác có CCCD báo lỗi.
 let cccdCipher: CccdCipher | undefined;

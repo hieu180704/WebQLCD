@@ -1,0 +1,15 @@
+# 2026-10-22: Lát 2b huỷ phiếu, lịch sử giao dịch đủ nội dung — [verified: lint, typecheck, 140 unit/DB test, 23 e2e]
+
+- Commit: xem commit "Lát 2b: huỷ phiếu, lịch sử giao dịch" ngay sau 5edfbcd
+- Đã làm:
+  1. Use case `ReverseManualEntry` (bắt buộc lý do, ghi vào hôm nay). Repository `reverseManualEntry`: chỉ phiếu `capital_in` / `manual_income` / `manual_expense` của chính cửa hàng, chưa bị đảo; bút toán đảo + audit `reverse` cùng transaction; huỷ trùng lúc bắt bằng UNIQUE `cash_transactions_reverses_id_unique`.
+  2. `listDay` join thêm dòng gốc (của dòng đảo) và dòng đảo (của dòng gốc) bằng `alias`; `CashLine` có `contractId`, `reversed`, `reverses`. `GetCashDay` tính cờ `reversible` (presentation không được import domain).
+  3. Domain: `MANUAL_ENTRY_TYPES`, `isManualEntryType`; `ManualEntryType` chuyển về domain, ports re-export.
+  4. Giao diện `/quy-ket`: cột Giờ, Loại (+ nhãn "Đã huỷ"), Nội dung, Thu, Chi (độ lớn, không dấu), Người thực hiện, Thao tác (chỉ chủ tiệm). Mã hợp đồng là link sang `/cam-do/[id]`. Dòng đảo hiện: Huỷ "Loại [mã]" lúc HH:MM dd/MM — lý do.
+  5. Một hộp thoại huỷ cho cả bảng (`reverse-entry-dialog.tsx`: `ReverseEntryDialog` + `ReverseEntryButton`). Lý do: bản đầu đặt hộp thoại trong từng dòng, huỷ xong `refresh()` làm dòng mất nút (unmount) trước khi `useEffect` kịp báo kết quả, thông báo không hiện. Thông báo chung qua `cash-status.tsx` (bản sao nhỏ của `pawn/presentation/operation-status.tsx`; `src/shared/ui` chưa tồn tại).
+  6. Docs: core-spec mục 2 (Huỷ phiếu), data-model 3.6.
+- Trạng thái: xong lát 2b; kế tiếp lát 2c (bộ lọc loại / người thực hiện, ‹ › Hôm nay).
+- Lưu ý cho phiên sau:
+  - `cash-status.tsx` trùng ý với `operation-status.tsx` của pawn; gộp về `src/shared/ui` khi xử lý việc dọn shadcn (element `ui` trong eslint vẫn còn).
+  - Code không theo prettier chặt; nếu format thì dùng `--print-width 140` và chỉ cho file đang sửa (mặc định 80 sẽ đổi cả file).
+  - E2E có một lần timeout ngẫu nhiên ở pawn-cash test 2 (click "Thêm hồ sơ"); chạy lại thì đạt, chưa thấy lặp lại.

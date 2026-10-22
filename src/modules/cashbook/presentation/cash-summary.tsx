@@ -17,6 +17,13 @@ export const TYPE_LABEL: Record<CashTransactionType, string> = {
 };
 
 export const formatTime = new Intl.DateTimeFormat("vi-VN", { timeZone: "Asia/Ho_Chi_Minh", timeStyle: "short" }).format;
+export const formatDateTime = new Intl.DateTimeFormat("vi-VN", {
+  timeZone: "Asia/Ho_Chi_Minh",
+  hour: "2-digit",
+  minute: "2-digit",
+  day: "2-digit",
+  month: "2-digit",
+}).format;
 
 const amountClass = (amount: CashLine["amount"]) => (amount.isNegative() ? "text-red-700" : "text-emerald-700");
 

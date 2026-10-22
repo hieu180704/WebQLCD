@@ -13,11 +13,17 @@ export type CashEntryType =
   | "principal_repayment"
   | "reversal";
 
+/** Phiếu không gắn hợp đồng: nạp vốn, thu khác, chi khác. Chỉ các loại này huỷ được từ sổ quỹ. */
+export const MANUAL_ENTRY_TYPES = ["capital_in", "manual_income", "manual_expense"] as const;
+export type ManualEntryType = (typeof MANUAL_ENTRY_TYPES)[number];
+
+export const isManualEntryType = (type: string): type is ManualEntryType => (MANUAL_ENTRY_TYPES as readonly string[]).includes(type);
+
 /** Bút toán chờ ghi; `amount` là độ lớn (dương), dấu do `signedAmount` áp theo loại. */
 export type CashEntry =
   | { type: "opening_balance"; amount: Money }
   /** Thu/chi không gắn hợp đồng (phiếu thu khác, phiếu chi khác, nạp vốn). */
-  | { type: "capital_in" | "manual_income" | "manual_expense"; amount: Money }
+  | { type: ManualEntryType; amount: Money }
   | { type: "disbursement"; contractId: string; amount: Money }
   | { type: "additional_loan"; contractId: string; amount: Money }
   | { type: "interest_payment"; contractId: string; amount: Money; periodFrom: LocalDate; periodTo: LocalDate }

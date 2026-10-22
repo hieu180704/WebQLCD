@@ -2,7 +2,8 @@
 
 import { refresh } from "next/cache";
 import { z } from "zod";
-import { AccessDeniedError, recordManualEntry, requireSession, setOpeningBalance } from "@/composition-root";
+import { AccessDeniedError, recordManualEntry, requireSession, reverseManualEntry, setOpeningBalance } from "@/composition-root";
+import type { ReverseManualEntryResult } from "../application/reverse-manual-entry";
 import { parseVnd } from "@/shared/kernel/vnd";
 
 export type OpeningBalanceState = { error: string | null; amount: string };
@@ -92,4 +93,48 @@ export async function recordManualEntryAction(previous: ManualEntryState, formDa
   if (result === "note_required") return fail("Nhập nội dung phiếu.");
   refresh();
   return { error: null, message: MANUAL_DONE[parsed.data.type], done: previous.done + 1, amount: "", note: "" };
+}
+
+export type ReverseEntryState = { error: string | null; message: string | null; done: number };
+
+const REVERSE_DENIED: Record<AccessDeniedError["reason"], string> = {
+  inactive: "Tài khoản đã bị vô hiệu hoá.",
+  role: "Chỉ chủ tiệm được huỷ phiếu.",
+  read_only: "Cửa hàng đã hết hạn sử dụng, không huỷ được phiếu.",
+};
+
+const REVERSE_MESSAGE: Record<Exclude<ReverseManualEntryResult, "ok">, string> = {
+  reason_required: "Nhập lý do huỷ.",
+  not_found: "Không tìm thấy phiếu.",
+  not_manual: "Chỉ huỷ được phiếu thu khác, chi khác, nạp vốn. Giao dịch hợp đồng huỷ ở trang chi tiết hợp đồng.",
+  already_reversed: "Phiếu này đã được huỷ.",
+};
+
+const reverseSchema = z.object({
+  transactionId: z.uuid("Không tìm thấy phiếu."),
+  reason: z.string().trim().max(200, "Lý do tối đa 200 ký tự."),
+});
+
+/** Huỷ phiếu thu khác / chi khác / nạp vốn bằng bút toán đảo (chỉ chủ tiệm). */
+export async function reverseManualEntryAction(previous: ReverseEntryState, formData: FormData): Promise<ReverseEntryState> {
+  const reason = String(formData.get("reason") ?? "");
+  const fail = (error: string): ReverseEntryState => ({ ...previous, error, message: null });
+  let actor;
+  try {
+    actor = await requireSession({ role: "owner", write: true });
+  } catch (error) {
+    if (error instanceof AccessDeniedError) return fail(REVERSE_DENIED[error.reason]);
+    throw error;
+  }
+
+  const parsed = reverseSchema.safeParse({ transactionId: formData.get("transactionId"), reason });
+  if (!parsed.success) return fail(parsed.error.issues[0].message);
+
+  const result = await reverseManualEntry.execute({ userId: actor.userId, shopId: actor.shopId }, parsed.data.transactionId, parsed.data.reason);
+  if (result !== "ok") {
+    if (result === "already_reversed") refresh();
+    return fail(REVERSE_MESSAGE[result]);
+  }
+  refresh();
+  return { error: null, message: "Đã huỷ phiếu.", done: previous.done + 1 };
 }

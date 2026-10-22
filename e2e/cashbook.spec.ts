@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { clearLoginThrottles } from "./db";
 
-// Quỹ két đầy đủ: phiếu thu khác, chi khác, nạp vốn. Mỗi lần chạy tạo một cửa hàng mới trong DB dev.
+// Quỹ két đầy đủ: phiếu thu khác, chi khác, nạp vốn, huỷ phiếu. Mỗi lần chạy tạo một cửa hàng mới trong DB dev.
 const RUN = Date.now().toString(36);
 const OWNER = { username: `e2e_qk_${RUN}`, password: "matkhau123", email: `e2e_qk_${RUN}@example.com` };
 const STAFF = { username: `e2e_qk_ktv_${RUN}`, password: "matkhau456" };
@@ -80,8 +80,42 @@ test("KTV ghi được thu/chi khác nhưng không có nút nạp vốn", async 
   await signIn(page, STAFF.username, STAFF.password);
   await page.goto("/quy-ket");
   await expect(page.getByRole("button", { name: "Nạp vốn" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Huỷ", exact: true })).toHaveCount(0);
   await submitEntry(page, "− Chi khác", "Phiếu chi khác", "100.000", "Mua nước", "Lưu phiếu chi");
   await expect(page.getByRole("status")).toHaveText("Đã lưu phiếu chi.");
   await expect(stat(page, "Tiền cuối ngày")).toContainText("61.150.000");
-  await expect(page.getByRole("row", { name: /Chi khác.*-100\.000.*KTV Quỹ/ })).toBeVisible();
+  await expect(page.getByRole("row", { name: /Chi khác.*Mua nước.*100\.000.*KTV Quỹ/ })).toBeVisible();
+});
+
+test("chủ tiệm huỷ phiếu chi khác: bút toán đảo kèm lý do; dòng hợp đồng không huỷ ở sổ quỹ", async ({ page }) => {
+  await signIn(page, OWNER.username, OWNER.password);
+  await page.goto("/quy-ket");
+  const row = page.getByRole("row", { name: /Tiền điện tháng 10/ });
+  await row.getByRole("button", { name: "Huỷ", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Huỷ phiếu" });
+  await expect(dialog).toContainText("Chi khác 1.250.000");
+  await dialog.getByLabel("Lý do huỷ").fill("Nhập nhầm số tiền");
+  await dialog.getByRole("button", { name: "Huỷ phiếu" }).click();
+  await expect(page.getByRole("status")).toHaveText("Đã huỷ phiếu.");
+
+  await expect(row).toContainText("Đã huỷ");
+  await expect(row.getByRole("button", { name: "Huỷ", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("row", { name: /Bút toán đảo.*Huỷ “Chi khác” lúc .*lý do: Nhập nhầm số tiền/ })).toBeVisible();
+  await expect(stat(page, "Tiền cuối ngày")).toContainText("62.400.000");
+
+  // Giao dịch hợp đồng: mã là link sang chi tiết hợp đồng, không có nút huỷ ở sổ quỹ.
+  await page.goto("/cam-do/moi");
+  await page.getByLabel("Tên khách hàng").fill("Khách Quỹ Két");
+  await page.getByLabel("Tên tài sản").fill("iPhone 13");
+  await page.getByLabel("Số tiền vay").fill("5.000.000");
+  await page.getByLabel("Lãi *", { exact: true }).fill("3");
+  await page.getByLabel("Số ngày vay").fill("30");
+  await page.getByLabel("Kỳ lãi").fill("10");
+  await page.getByRole("button", { name: "Lưu hợp đồng và giải ngân" }).click();
+  await expect(page).toHaveURL(/\/cam-do\?moi=CD-1$/);
+  await page.goto("/quy-ket");
+  const disbursement = page.getByRole("row", { name: /Giải ngân/ });
+  await expect(disbursement.getByRole("button", { name: "Huỷ", exact: true })).toHaveCount(0);
+  await disbursement.getByRole("link", { name: "CD-1" }).click();
+  await expect(page).toHaveURL(/\/cam-do\/[0-9a-f-]+$/);
 });

@@ -1,14 +1,17 @@
 import { businessDate, diffDays, type LocalDate } from "@/shared/kernel/local-date";
-import { summarizeDay, type CashDaySummary } from "../domain/cash-entry";
+import { isManualEntryType, summarizeDay, type CashDaySummary } from "../domain/cash-entry";
 import type { CashLine, CashbookRepository } from "./ports";
 
 export const CASH_PAGE_SIZE = 50;
+
+/** `reversible`: phiếu thu khác / chi khác / nạp vốn chưa bị huỷ (giao dịch hợp đồng huỷ ở trang hợp đồng). */
+export type CashDayLine = CashLine & { reversible: boolean };
 
 export type CashDayView = {
   date: LocalDate;
   today: LocalDate;
   summary: CashDaySummary;
-  lines: CashLine[];
+  lines: CashDayLine[];
   /** Id để xem trang sau; null nếu hết. */
   nextAfter: string | null;
   openingBalanceSet: boolean;
@@ -33,7 +36,7 @@ export class GetCashDay {
       date,
       today,
       summary: summarizeDay(totals.opening, totals.income, totals.expense),
-      lines,
+      lines: lines.map((line) => ({ ...line, reversible: isManualEntryType(line.type) && !line.reversed })),
       nextAfter: hasMore ? lines[lines.length - 1].id : null,
       openingBalanceSet,
     };
