@@ -2,7 +2,8 @@
 import { describe, expect, it } from "vitest";
 import { Money } from "@/shared/kernel/money";
 import { CASH_PAGE_SIZE, GetCashDay } from "./get-cash-day";
-import type { CashLine, CashbookRepository } from "./ports";
+import type { CashLine, CashbookRepository, ManualEntry } from "./ports";
+import { RecordManualEntry } from "./record-manual-entry";
 import { SetOpeningBalance } from "./set-opening-balance";
 
 const actor = { userId: "u", shopId: "s" };
@@ -17,11 +18,14 @@ const line = (i: number): CashLine => ({
 });
 
 function fakeRepo(lines: CashLine[] = []) {
-  const calls: { date?: string; limit?: number; opening?: bigint } = {};
+  const calls: { date?: string; limit?: number; opening?: bigint; manual?: { entry: ManualEntry; date: string } } = {};
   const repo: CashbookRepository = {
     recordOpeningBalance: async (_actor, amount) => {
       calls.opening = amount.toBigInt();
       return "ok";
+    },
+    recordManualEntry: async (_actor, entry, date) => {
+      calls.manual = { entry, date };
     },
     hasOpeningBalance: async () => true,
     dayTotals: async (_shop, date) => {
@@ -46,6 +50,24 @@ describe("SetOpeningBalance", () => {
     expect(calls.opening).toBeUndefined();
     expect(await new SetOpeningBalance(repo).execute(actor, Money.of(5n))).toBe("ok");
     expect(calls.opening).toBe(5n);
+  });
+});
+
+describe("RecordManualEntry", () => {
+  it("ghi vào hôm nay theo giờ Việt Nam", async () => {
+    const { repo, calls } = fakeRepo();
+    const entry: ManualEntry = { type: "manual_expense", amount: Money.of(1_250_000n), note: "Tiền điện" };
+    expect(await new RecordManualEntry(repo).execute(actor, entry, now)).toBe("ok");
+    expect(calls.manual).toEqual({ entry, date: "2026-10-20" });
+  });
+
+  it("thu/chi khác bắt buộc nội dung, nạp vốn thì không; số tiền phải dương", async () => {
+    const { repo, calls } = fakeRepo();
+    const use = new RecordManualEntry(repo);
+    expect(await use.execute(actor, { type: "manual_income", amount: Money.of(5n), note: null }, now)).toBe("note_required");
+    expect(await use.execute(actor, { type: "manual_expense", amount: Money.ZERO, note: "x" }, now)).toBe("not_positive");
+    expect(calls.manual).toBeUndefined();
+    expect(await use.execute(actor, { type: "capital_in", amount: Money.of(5n), note: null }, now)).toBe("ok");
   });
 });
 

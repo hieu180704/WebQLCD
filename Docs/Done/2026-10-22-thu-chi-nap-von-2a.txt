@@ -1,0 +1,14 @@
+# 2026-10-22: Lát 2a thu khác, chi khác, nạp vốn — [verified: lint, typecheck, 137 unit/DB test, 22 e2e]
+
+- Commit: xem commit "Lát 2a: thu khác, chi khác, nạp vốn" ngay sau 5042838
+- Đã làm:
+  1. Thiết kế mục 2 của pilot-scope chia 4 lát (người dùng duyệt 2026-10-22): 2a phiếu thu/chi/nạp vốn; 2b huỷ phiếu + hiển thị lịch sử; 2c bộ lọc + điều hướng ngày; 2d trang chủ thống kê + hợp đồng đến hạn.
+  2. Domain `CashEntry` thêm `capital_in`, `manual_income`, `manual_expense` (chi khác mang dấu âm). Không cần migration: enum và CHECK đã có từ 4b.
+  3. Use case `RecordManualEntry` (`application/record-manual-entry.ts`): ghi vào hôm nay, thu/chi khác bắt buộc nội dung. Repository `recordManualEntry` ghi sổ két + `audit_logs` (`entity = cash`) cùng transaction.
+  4. Action `recordManualEntryAction`: quyền tính từ loại phiếu (nạp vốn chỉ chủ tiệm, kiểm trước khi validate số tiền để KTV nhập sai không bị báo nhầm thiếu quyền). Lỗi thì trả lại giá trị đã nhập (React 19 tự reset form sau action).
+  5. Giao diện: `manual-entry-dialogs.tsx`, 3 nút trên đầu `/quy-ket` (nút Nạp vốn chỉ hiện với chủ tiệm), thông báo kết quả dưới nút. Ô chọn ngày chuyển xuống hàng riêng (lát 2c làm lại điều hướng).
+  6. Docs: core-spec mục 2 (khối GIẢ ĐỊNH TẠM 2026-10-22, câu chỉnh quỹ đầu két), data-model 3.6. E2E mới `e2e/cashbook.spec.ts`.
+- Trạng thái: xong lát 2a; kế tiếp lát 2b.
+- Lưu ý cho phiên sau:
+  - Bảng giao dịch chưa có cột Nội dung: nội dung phiếu đã lưu ở `note` nhưng chưa hiện, làm ở 2b.
+  - Quyết định đã duyệt cho các lát sau: huỷ phiếu chỉ chủ tiệm, phải nhập lý do, chỉ huỷ thu khác / chi khác / nạp vốn; dòng hợp đồng trên `/quy-ket` không có nút huỷ mà link sang chi tiết hợp đồng; "sắp đến hạn" = hạn đóng lãi trong ≤ 3 ngày; nút "Tất cả" ở trang chủ tạm trỏ `/cam-do`.

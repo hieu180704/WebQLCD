@@ -12,6 +12,12 @@ describe("bút toán két", () => {
     expect(signedAmount(interest).toBigInt()).toBe(150_000n);
   });
 
+  it("phiếu không gắn hợp đồng: chi khác là chi, thu khác và nạp vốn là thu", () => {
+    expect(signedAmount({ type: "manual_expense", amount: vnd(1_250_000) }).toBigInt()).toBe(-1_250_000n);
+    expect(signedAmount({ type: "manual_income", amount: vnd(2_500_000) }).toBigInt()).toBe(2_500_000n);
+    expect(signedAmount({ type: "capital_in", amount: vnd(50_000_000) }).toBigInt()).toBe(50_000_000n);
+  });
+
   it("độ lớn 0 hoặc âm là lỗi lập trình", () => {
     expect(() => signedAmount({ type: "opening_balance", amount: Money.ZERO })).toThrow(RangeError);
     expect(() => signedAmount({ type: "disbursement", contractId: "c", amount: vnd(-1) })).toThrow(RangeError);

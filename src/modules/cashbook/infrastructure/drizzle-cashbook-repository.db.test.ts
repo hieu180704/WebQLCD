@@ -94,6 +94,30 @@ describe.skipIf(!url)("DrizzleCashbookRepository", () => {
       expect([before.opening, before.income, before.expense].every((m) => m.isZero())).toBe(true);
     }));
 
+  it("phiếu thu khác / chi khác / nạp vốn: ghi đúng dấu, nội dung, nhật ký cùng transaction", () =>
+    inTx(async (db) => {
+      const s = await seedShop(db);
+      const repo = new DrizzleCashbookRepository(db);
+      await repo.recordManualEntry(s, { type: "manual_income", amount: vnd(2_500_000), note: "Bán thanh lý" }, "2026-10-20");
+      await repo.recordManualEntry(s, { type: "manual_expense", amount: vnd(1_250_000), note: "Tiền điện" }, "2026-10-20");
+      await repo.recordManualEntry(s, { type: "capital_in", amount: vnd(50_000_000), note: null }, "2026-10-20");
+
+      const t = await repo.dayTotals(s.shopId, "2026-10-20");
+      expect([t.opening, t.income, t.expense].map((m) => m.toBigInt())).toEqual([0n, 52_500_000n, -1_250_000n]);
+      const lines = await repo.listDay(s.shopId, "2026-10-20", null, 10);
+      expect(lines.map((l) => [l.type, l.amount.toBigInt(), l.note, l.contractCode])).toEqual([
+        ["capital_in", 50_000_000n, null, null],
+        ["manual_expense", -1_250_000n, "Tiền điện", null],
+        ["manual_income", 2_500_000n, "Bán thanh lý", null],
+      ]);
+      const audit = await one(
+        db,
+        sql`SELECT count(*)::text AS n FROM audit_logs a JOIN cash_transactions c ON c.operation_id = a.entity_id
+            WHERE a.shop_id = ${s.shopId} AND a.entity = 'cash' AND a.action = 'create' AND a.user_id = ${s.userId}`,
+      );
+      expect(audit.n).toBe("3");
+    }));
+
   it("cách ly cửa hàng và phân trang keyset danh sách trong ngày", () =>
     inTx(async (db) => {
       const a = await seedShop(db);

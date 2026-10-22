@@ -46,7 +46,7 @@ GIẢ ĐỊNH TẠM (2026-10-20, bước 5, chưa hỏi khách):
 - **Kỳ lãi** không dài hơn số ngày vay.
 - **KTV trên hồ sơ** là người đang đăng nhập. Chọn KTV khác (như mockup) chưa làm.
 - **Khách trùng CCCD trong cửa hàng:** hợp đồng gắn với khách cũ, thông tin khách cũ giữ nguyên, màn hình báo cho người nhập. Không nhập CCCD thì luôn tạo khách mới.
-- **Quỹ đầu két** chỉ chủ tiệm nhập, mỗi cửa hàng một lần, ghi vào ngày mở két. Nhập sai thì sửa bằng nghiệp vụ nạp vốn / bút toán đảo (chưa làm). Két được phép âm (không chặn giải ngân khi chưa nhập quỹ).
+- **Quỹ đầu két** chỉ chủ tiệm nhập, mỗi cửa hàng một lần, ghi vào ngày mở két. Nhập sai thì chỉnh bằng nạp vốn hoặc chi khác (mục dưới); bản thân quỹ đầu két không huỷ được. Két được phép âm (không chặn giải ngân khi chưa nhập quỹ).
 
 GIẢ ĐỊNH TẠM (2026-10-21, đội dự án tự chốt theo mockup, chưa hỏi khách; lý do: `Docs/Decisions/2026-10-21-pilot-scope.txt`):
 - **Trả góp góp đều:** mỗi kỳ phải thu = tổng phải thu / số kỳ (số kỳ = số ngày góp / số ngày mỗi kỳ). Góp thiếu hoặc góp dư dồn sang kỳ sau. Tất toán sớm được thu thấp hơn số còn nợ, phần chênh không thu.
@@ -61,6 +61,10 @@ GIẢ ĐỊNH TẠM (2026-10-21, đội dự án tự chốt theo mockup, chưa 
 - **Trả bớt gốc / vay thêm (cầm đồ/tín chấp):** đổi gốc thì lãi đến hôm nay (theo ngày, trên gốc cũ) bắt buộc thu kèm trong cùng thao tác, ngày lãi đã trả đến về hôm nay, lãi từ hôm nay tính trên gốc mới. Lãi thu kèm được giảm nhưng phải > 0 (giảm về 0 thì không dời được ngày trả đến). Trả bớt: 0 < tiền < gốc còn lại (trả hết dùng chuộc đồ); lãi đã trả vượt hôm nay thì không thu, không hoàn. Vay thêm: tiền > 0; lãi đã trả vượt hôm nay (thu lãi trước, đóng sớm) thì thu lãi bổ sung trên phần vay thêm cho [hôm nay, ngày trả đến), ngày trả đến giữ nguyên. Không đổi số ngày vay. Chủ tiệm và KTV đều làm được. Trang đã cũ thì từ chối như chuộc đồ.
 - **Gia hạn:** cộng thêm 1–3650 ngày vào số ngày vay, không đổi tiền két. Tuỳ chọn thu lãi đến hôm nay (được giảm, phải > 0), ghi một dòng đóng lãi. Chủ tiệm và KTV đều làm được. Trang đã cũ (số ngày vay, ngày trả đến, gốc đổi, hoặc sang ngày khác) thì từ chối.
 - **Cài đặt giá trị mặc định khi tạo hợp đồng** (hình thức lãi, lãi, số ngày vay, kỳ lãi, thu lãi trước): hoãn đến sau bản dùng thử.
+
+GIẢ ĐỊNH TẠM (2026-10-22, đội dự án tự chốt theo mockup, người dùng duyệt; chưa hỏi khách):
+- **Thu khác / Chi khác:** phiếu không gắn hợp đồng, ghi vào sổ két hôm nay. Chủ tiệm và KTV đều làm được. Số tiền > 0 (tối đa 100 tỷ), nội dung bắt buộc (tối đa 200 ký tự). Chi khác được làm két âm.
+- **Nạp vốn:** chỉ chủ tiệm, ghi vào sổ két hôm nay, ghi chú không bắt buộc. Dùng khi bỏ thêm vốn vào két hoặc chỉnh quỹ đầu két nhập sai.
 
 ---
 

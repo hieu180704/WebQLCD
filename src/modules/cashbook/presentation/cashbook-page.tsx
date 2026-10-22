@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { z } from "zod";
-import { getCashDay, requireSession } from "@/composition-root";
+import { getCashDay, requireProfile } from "@/composition-root";
 import { isLocalDate } from "@/shared/kernel/local-date";
 import { formatVnd } from "@/shared/kernel/vnd";
 import { CashSummary, formatTime, TYPE_LABEL } from "./cash-summary";
+import { ManualEntryDialogs } from "./manual-entry-dialogs";
 import { OpeningBalanceForm } from "./opening-balance-form";
 
 // Tham số URL sai định dạng thì bỏ qua (về hôm nay / trang đầu), không báo lỗi.
@@ -15,7 +16,7 @@ const querySchema = z.object({
 const formatDay = (date: string) => date.split("-").reverse().join("/");
 
 export async function CashbookPage({ query }: { query: Record<string, string | string[] | undefined> }) {
-  const principal = await requireSession();
+  const principal = await requireProfile();
   const { ngay, sau } = querySchema.parse({ ngay: first(query.ngay), sau: first(query.sau) });
   const view = await getCashDay.execute(principal.shopId, ngay, sau);
 
@@ -26,6 +27,12 @@ export async function CashbookPage({ query }: { query: Record<string, string | s
           <h1 className="text-2xl font-bold">Quỹ két</h1>
           <p className="text-sm text-slate-500">Ngày {formatDay(view.date)}</p>
         </div>
+        <div className="ml-auto flex flex-wrap justify-end gap-3">
+          <ManualEntryDialogs today={formatDay(view.today)} userName={principal.userName} isOwner={principal.role === "owner"} />
+        </div>
+      </div>
+
+      <div className="mt-4 flex">
         <form className="ml-auto flex items-end gap-2" action="/quy-ket">
           <div className="field">
             <label htmlFor="ngay">Ngày</label>

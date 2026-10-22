@@ -1,11 +1,12 @@
 import "server-only";
+import { randomUUID } from "node:crypto";
 import { and, desc, eq, lt, sql } from "drizzle-orm";
 import type { Db } from "@/shared/infrastructure/db/client";
 import { dbCause, uniqueViolation } from "@/shared/infrastructure/db/errors";
-import { cashTransactions, contracts, shops, users } from "@/shared/infrastructure/db/schema";
+import { auditLogs, cashTransactions, contracts, shops, users } from "@/shared/infrastructure/db/schema";
 import type { LocalDate } from "@/shared/kernel/local-date";
 import { Money } from "@/shared/kernel/money";
-import type { Actor, CashDayTotals, CashLine, CashbookRepository, OpeningBalanceResult } from "../application/ports";
+import type { Actor, CashDayTotals, CashLine, CashbookRepository, ManualEntry, OpeningBalanceResult } from "../application/ports";
 import { appendCashEntries } from "./cash-ledger";
 
 const OPENING_BALANCE_KEY = "cash_transactions_one_opening_balance_key";
@@ -30,6 +31,18 @@ export class DrizzleCashbookRepository implements CashbookRepository {
       if (uniqueViolation(error) === OPENING_BALANCE_KEY) return "already_set";
       throw dbCause(error);
     }
+  }
+
+  async recordManualEntry(actor: Actor, entry: ManualEntry, date: LocalDate): Promise<void> {
+    const operationId = randomUUID();
+    await this.db.transaction(async (tx) => {
+      await appendCashEntries(
+        tx,
+        { shopId: actor.shopId, createdBy: actor.userId, businessDate: date, operationId, note: entry.note ?? undefined },
+        [{ type: entry.type, amount: entry.amount }],
+      );
+      await tx.insert(auditLogs).values({ shopId: actor.shopId, userId: actor.userId, entity: "cash", entityId: operationId, action: "create" });
+    });
   }
 
   async hasOpeningBalance(shopId: string): Promise<boolean> {

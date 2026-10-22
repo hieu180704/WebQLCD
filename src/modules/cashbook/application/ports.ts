@@ -33,10 +33,18 @@ export type CashLine = {
 
 export type OpeningBalanceResult = "ok" | "already_set";
 
+/** Phiếu không gắn hợp đồng: nạp vốn, thu khác, chi khác. */
+export type ManualEntryType = "capital_in" | "manual_income" | "manual_expense";
+
+/** `amount` là độ lớn (dương); `note` là nội dung phiếu. */
+export type ManualEntry = { type: ManualEntryType; amount: Money; note: string | null };
+
 /** Sổ két của một cửa hàng; mọi truy vấn lọc theo shopId của phiên. */
 export interface CashbookRepository {
   /** Ghi dòng `opening_balance` vào ngày mở két của cửa hàng; mỗi cửa hàng một lần. */
   recordOpeningBalance(actor: Actor, amount: Money): Promise<OpeningBalanceResult>;
+  /** Ghi một phiếu vào sổ két ngày `date` kèm nhật ký, cùng một transaction. */
+  recordManualEntry(actor: Actor, entry: ManualEntry, date: LocalDate): Promise<void>;
   hasOpeningBalance(shopId: string): Promise<boolean>;
   dayTotals(shopId: string, date: LocalDate): Promise<CashDayTotals>;
   /** Giao dịch trong ngày, mới nhất trước; `after` là id dòng cuối của trang trước (keyset). */
