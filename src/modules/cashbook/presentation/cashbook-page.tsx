@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { z } from "zod";
-import { getCashDay, requireProfile } from "@/composition-root";
+import { getCashDay, listCashActors, requireProfile } from "@/composition-root";
 import { isLocalDate } from "@/shared/kernel/local-date";
 import { formatVnd } from "@/shared/kernel/vnd";
+import { CASH_TYPE_GROUPS, isCashTypeGroup } from "../application/cash-filter";
 import type { CashLine } from "../application/ports";
 import { CashStatus, CashStatusMessage } from "./cash-status";
 import { CashSummary, formatDateTime, formatTime, TYPE_LABEL } from "./cash-summary";
@@ -10,21 +11,36 @@ import { ManualEntryDialogs } from "./manual-entry-dialogs";
 import { OpeningBalanceForm } from "./opening-balance-form";
 import { ReverseEntryButton, ReverseEntryDialog } from "./reverse-entry-dialog";
 
-// Tham số URL sai định dạng thì bỏ qua (về hôm nay / trang đầu), không báo lỗi.
+// Tham số URL sai định dạng thì bỏ qua (về hôm nay / trang đầu / không lọc), không báo lỗi.
 const querySchema = z.object({
   ngay: z.string().refine(isLocalDate).nullable().catch(null),
+  loai: z.string().refine(isCashTypeGroup).nullable().catch(null),
+  nv: z.uuid().nullable().catch(null),
   sau: z.uuid().nullable().catch(null),
 });
+
+type CashQuery = Partial<z.infer<typeof querySchema>>;
+
+/** Link trong trang quỹ két; bỏ tham số rỗng để URL gọn. */
+const cashHref = (query: CashQuery) => ({ pathname: "/quy-ket", query: Object.fromEntries(Object.entries(query).filter(([, v]) => v)) });
 
 const formatDay = (date: string) => date.split("-").reverse().join("/");
 
 export async function CashbookPage({ query }: { query: Record<string, string | string[] | undefined> }) {
   const principal = await requireProfile();
-  const { ngay, sau } = querySchema.parse({
+  const { ngay, loai, nv, sau } = querySchema.parse({
     ngay: first(query.ngay),
+    loai: first(query.loai),
+    nv: first(query.nv),
     sau: first(query.sau),
   });
-  const view = await getCashDay.execute(principal.shopId, ngay, sau);
+  const group = loai && isCashTypeGroup(loai) ? loai : null;
+  const [view, actors] = await Promise.all([
+    getCashDay.execute(principal.shopId, ngay, sau, { group, createdBy: nv }),
+    listCashActors.execute(principal.shopId),
+  ]);
+  const filters = { loai: group, nv };
+  const filtered = Boolean(group || nv);
   const isOwner = principal.role === "owner";
 
   return (
@@ -40,8 +56,13 @@ export async function CashbookPage({ query }: { query: Record<string, string | s
       </div>
       <CashStatusMessage />
 
-      <div className="mt-4 flex">
-        <form className="ml-auto flex items-end gap-2" action="/quy-ket">
+      <nav aria-label="Chọn ngày" className="mt-4 flex flex-wrap items-end justify-end gap-2">
+        <Link href={cashHref({ ...filters, ngay: view.prevDate })} className="btn btn-outline" aria-label="Ngày trước">
+          ‹
+        </Link>
+        <form className="flex items-end gap-2" action="/quy-ket">
+          {group && <input type="hidden" name="loai" value={group} />}
+          {nv && <input type="hidden" name="nv" value={nv} />}
           <div className="field">
             <label htmlFor="ngay">Ngày</label>
             <input id="ngay" name="ngay" type="date" defaultValue={view.date} max={view.today} className="input" />
@@ -50,7 +71,19 @@ export async function CashbookPage({ query }: { query: Record<string, string | s
             Xem
           </button>
         </form>
-      </div>
+        {view.nextDate ? (
+          <Link href={cashHref({ ...filters, ngay: view.nextDate })} className="btn btn-outline" aria-label="Ngày sau">
+            ›
+          </Link>
+        ) : (
+          <span className="btn btn-outline opacity-40" aria-hidden="true">
+            ›
+          </span>
+        )}
+        <Link href={cashHref(filters)} className="btn btn-outline">
+          Hôm nay
+        </Link>
+      </nav>
 
       {/* Không gắn aria-labelledby: region "Tổng két trong ngày" đã nằm trong CashSummary. */}
       <section className="card mt-6 p-5">
@@ -79,9 +112,42 @@ export async function CashbookPage({ query }: { query: Record<string, string | s
           <h2 id="lines-title" className="font-semibold">
             Giao dịch trong ngày
           </h2>
+          <form action="/quy-ket" className="mt-3 flex flex-wrap items-end gap-2" aria-label="Lọc giao dịch">
+            <input type="hidden" name="ngay" value={view.date} />
+            <div className="field">
+              <label htmlFor="loai">Loại giao dịch</label>
+              <select id="loai" name="loai" defaultValue={group ?? ""} className="input">
+                <option value="">Tất cả</option>
+                {Object.entries(CASH_TYPE_GROUPS).map(([key, { label }]) => (
+                  <option key={key} value={key}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="field">
+              <label htmlFor="nv">Người thực hiện</label>
+              <select id="nv" name="nv" defaultValue={nv ?? ""} className="input">
+                <option value="">Tất cả</option>
+                {actors.map((actor) => (
+                  <option key={actor.id} value={actor.id}>
+                    {actor.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <button type="submit" className="btn btn-outline">
+              Lọc
+            </button>
+            {filtered && (
+              <Link href={cashHref({ ngay: view.date })} className="btn btn-outline">
+                Bỏ lọc
+              </Link>
+            )}
+          </form>
         </div>
         {view.lines.length === 0 ? (
-          <p className="px-5 pb-5 text-sm text-slate-500">Chưa có giao dịch nào.</p>
+          <p className="px-5 pb-5 text-sm text-slate-500">{filtered ? "Không có giao dịch phù hợp." : "Chưa có giao dịch nào."}</p>
         ) : (
           <ReverseEntryDialog>
             <div className="overflow-x-auto">
@@ -133,13 +199,7 @@ export async function CashbookPage({ query }: { query: Record<string, string | s
         )}
         {view.nextAfter && (
           <div className="p-4">
-            <Link
-              href={{
-                pathname: "/quy-ket",
-                query: { ngay: view.date, sau: view.nextAfter },
-              }}
-              className="btn btn-outline !h-9"
-            >
+            <Link href={cashHref({ ngay: view.date, ...filters, sau: view.nextAfter })} className="btn btn-outline !h-9">
               Xem tiếp
             </Link>
           </div>

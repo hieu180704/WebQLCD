@@ -1,6 +1,7 @@
 // Nơi duy nhất ghép implementation vào use case (architecture-spec mục 2.3).
 import "server-only";
 import { GetCashDay } from "@/modules/cashbook/application/get-cash-day";
+import { ListCashActors } from "@/modules/cashbook/application/list-cash-actors";
 import { RecordManualEntry } from "@/modules/cashbook/application/record-manual-entry";
 import { ReverseManualEntry } from "@/modules/cashbook/application/reverse-manual-entry";
 import { SetOpeningBalance } from "@/modules/cashbook/application/set-opening-balance";
@@ -49,6 +50,7 @@ export const getSubscription = new GetSubscription(new DrizzleShopRepository(db)
 const cashbook = new DrizzleCashbookRepository(db);
 export const setOpeningBalance = new SetOpeningBalance(cashbook);
 export const getCashDay = new GetCashDay(cashbook);
+export const listCashActors = new ListCashActors(cashbook);
 export const recordManualEntry = new RecordManualEntry(cashbook);
 export const reverseManualEntry = new ReverseManualEntry(cashbook);
 

@@ -109,7 +109,7 @@
 
 ## 3.9 Index
 - `contracts (shop_id, status, interest_paid_until)`: danh sách đến hạn đóng lãi.
-- `cash_transactions (shop_id, business_date)`: sổ quỹ theo ngày, quỹ đầu két.
+- `cash_transactions (shop_id, business_date)`: sổ quỹ theo ngày, quỹ đầu két; lọc sổ quỹ theo loại / người thực hiện chạy trên index này (một ngày một cửa hàng đã đủ hẹp), chưa cần index riêng.
 - `cash_transactions (shop_id, contract_id)`, `(shop_id, installment_contract_id)`: lịch sử giao dịch của một hợp đồng.
 - `cash_transactions (shop_id, operation_id)`: đảo cả một thao tác.
 - `cash_transactions (shop_id) WHERE type = 'opening_balance'` UNIQUE: một quỹ đầu két mỗi cửa hàng.

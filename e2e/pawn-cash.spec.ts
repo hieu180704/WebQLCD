@@ -56,6 +56,9 @@ test("đăng ký cửa hàng mới, nhập quỹ đầu két một lần", async
 test("tạo hợp đồng thu lãi trước: cảnh báo lãi suất, giải ngân ghi sổ quỹ", async ({ page }) => {
   await signIn(page);
   await page.getByRole("link", { name: "Cầm đồ" }).click();
+  // Chờ chuyển trang xong: trang chủ cũng có link "Thêm hồ sơ", Next chỉ ẩn trang cũ (Activity, display: none) chứ không gỡ,
+  // nên click sớm sẽ bám vào link đã ẩn và chờ tới hết giờ.
+  await expect(page).toHaveURL("/cam-do");
   await page.getByRole("link", { name: "Thêm hồ sơ" }).click();
   await fillContract(page, "Nguyễn Văn E2E");
   await page.getByLabel("Thu lãi trước").check();

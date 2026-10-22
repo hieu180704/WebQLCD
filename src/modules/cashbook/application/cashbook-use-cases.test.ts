@@ -2,7 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { Money } from "@/shared/kernel/money";
 import { CASH_PAGE_SIZE, GetCashDay } from "./get-cash-day";
-import type { CashLine, CashbookRepository, ManualEntry } from "./ports";
+import type { CashLine, CashLineQuery, CashbookRepository, ManualEntry } from "./ports";
 import { RecordManualEntry } from "./record-manual-entry";
 import { ReverseManualEntry } from "./reverse-manual-entry";
 import { SetOpeningBalance } from "./set-opening-balance";
@@ -25,6 +25,7 @@ function fakeRepo(lines: CashLine[] = []) {
   const calls: {
     date?: string;
     limit?: number;
+    query?: CashLineQuery;
     opening?: bigint;
     manual?: { entry: ManualEntry; date: string };
     reverse?: { id: string; reason: string; date: string };
@@ -41,13 +42,15 @@ function fakeRepo(lines: CashLine[] = []) {
       calls.reverse = { id, reason, date };
       return "ok";
     },
+    listActors: async () => [],
     hasOpeningBalance: async () => true,
     dayTotals: async (_shop, date) => {
       calls.date = date;
       return { opening: Money.of(1_000n), income: Money.of(200n), expense: Money.of(-500n) };
     },
-    listDay: async (_shop, _date, _after, limit) => {
+    listDay: async (_shop, _date, query, _after, limit) => {
       calls.limit = limit;
+      calls.query = query;
       return lines.slice(0, limit);
     },
   };
@@ -97,6 +100,22 @@ describe("ReverseManualEntry", () => {
 });
 
 describe("GetCashDay", () => {
+  it("ngày trước / sau để điều hướng; hôm nay không có ngày sau", async () => {
+    const { repo } = fakeRepo();
+    const today = await new GetCashDay(repo).execute("s", null, null, {}, now);
+    expect([today.prevDate, today.nextDate]).toEqual(["2026-10-19", null]);
+    const past = await new GetCashDay(repo).execute("s", "2026-09-30", null, {}, now);
+    expect([past.prevDate, past.nextDate]).toEqual(["2026-09-29", "2026-10-01"]);
+  });
+
+  it("bộ lọc: nhóm quy về loại cụ thể, bỏ trống thì không lọc", async () => {
+    const { repo, calls } = fakeRepo();
+    await new GetCashDay(repo).execute("s", null, null, {}, now);
+    expect(calls.query).toEqual({ types: null, createdBy: null });
+    await new GetCashDay(repo).execute("s", null, null, { group: "nap-von", createdBy: "u1" }, now);
+    expect(calls.query).toEqual({ types: ["capital_in", "opening_balance"], createdBy: "u1" });
+  });
+
   it("chỉ phiếu thu/chi khác, nạp vốn chưa bị huỷ là huỷ được từ sổ quỹ", async () => {
     const lines: CashLine[] = [
       { ...line(0), type: "manual_expense", contractId: null, contractCode: null },
@@ -104,28 +123,28 @@ describe("GetCashDay", () => {
       line(2),
       { ...line(3), type: "opening_balance", contractId: null, contractCode: null },
     ];
-    const view = await new GetCashDay(fakeRepo(lines).repo).execute("s", null, null, now);
+    const view = await new GetCashDay(fakeRepo(lines).repo).execute("s", null, null, {}, now);
     expect(view.lines.map((l) => l.reversible)).toEqual([true, false, false, false]);
   });
 
   it("mặc định hôm nay theo giờ Việt Nam; ngày tương lai quy về hôm nay", async () => {
     const { repo, calls } = fakeRepo();
-    expect((await new GetCashDay(repo).execute("s", null, null, now)).date).toBe("2026-10-20");
-    expect((await new GetCashDay(repo).execute("s", "2026-10-21", null, now)).date).toBe("2026-10-20");
-    expect((await new GetCashDay(repo).execute("s", "2026-10-01", null, now)).date).toBe("2026-10-01");
+    expect((await new GetCashDay(repo).execute("s", null, null, {}, now)).date).toBe("2026-10-20");
+    expect((await new GetCashDay(repo).execute("s", "2026-10-21", null, {}, now)).date).toBe("2026-10-20");
+    expect((await new GetCashDay(repo).execute("s", "2026-10-01", null, {}, now)).date).toBe("2026-10-01");
     expect(calls.date).toBe("2026-10-01");
   });
 
   it("cuối ngày = đầu − chi + thu; lấy thừa 1 dòng để biết còn trang sau", async () => {
     const lines = Array.from({ length: CASH_PAGE_SIZE + 1 }, (_, i) => line(i));
     const { repo, calls } = fakeRepo(lines);
-    const view = await new GetCashDay(repo).execute("s", null, null, now);
+    const view = await new GetCashDay(repo).execute("s", null, null, {}, now);
     expect(view.summary.closing.toBigInt()).toBe(700n);
     expect(calls.limit).toBe(CASH_PAGE_SIZE + 1);
     expect(view.lines).toHaveLength(CASH_PAGE_SIZE);
     expect(view.nextAfter).toBe(`id-${CASH_PAGE_SIZE - 1}`);
 
-    const last = await new GetCashDay(fakeRepo(lines.slice(0, 3)).repo).execute("s", null, null, now);
+    const last = await new GetCashDay(fakeRepo(lines.slice(0, 3)).repo).execute("s", null, null, {}, now);
     expect(last.nextAfter).toBeNull();
   });
 });

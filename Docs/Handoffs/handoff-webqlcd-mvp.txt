@@ -11,7 +11,7 @@
 
 # 1. Trạng Thái Hiện Tại
 - Nhánh Git: `main`. Chưa có remote.
-- Tiến độ: xong bước 1–5 (4a khung, 4b DB, CSP nonce, 4c auth; 5a đăng ký, dùng thử, KTV; 5b quỹ đầu két + hợp đồng cầm đồ/tín chấp giải ngân) và giao diện theo mockup. Lát cắt dọc đầu tiên đã chạy thông. Mockup HTML đã đủ mọi màn trong menu (2026-10-21). Đang làm bản dùng thử theo Decision `2026-10-21-pilot-scope.txt`: xong lát 1a (chi tiết hợp đồng + đóng lãi), lát 1b (chuộc đồ / đóng hợp đồng), lát 1c (trả bớt gốc, vay thêm, gia hạn), lát 1d (huỷ giao dịch, xoá hợp đồng), lát 1e (sửa thông tin) — xong vòng đời hợp đồng cầm đồ/tín chấp. Mục 2 (quỹ két đầy đủ + trang chủ) chia lát 2a–2d: xong 2a (thu khác, chi khác, nạp vốn), 2b (huỷ phiếu, lịch sử giao dịch đủ nội dung).
+- Tiến độ: xong bước 1–5 (4a khung, 4b DB, CSP nonce, 4c auth; 5a đăng ký, dùng thử, KTV; 5b quỹ đầu két + hợp đồng cầm đồ/tín chấp giải ngân) và giao diện theo mockup. Lát cắt dọc đầu tiên đã chạy thông. Mockup HTML đã đủ mọi màn trong menu (2026-10-21). Đang làm bản dùng thử theo Decision `2026-10-21-pilot-scope.txt`: xong lát 1a (chi tiết hợp đồng + đóng lãi), lát 1b (chuộc đồ / đóng hợp đồng), lát 1c (trả bớt gốc, vay thêm, gia hạn), lát 1d (huỷ giao dịch, xoá hợp đồng), lát 1e (sửa thông tin) — xong vòng đời hợp đồng cầm đồ/tín chấp. Mục 2 (quỹ két đầy đủ + trang chủ) chia lát 2a–2d: xong 2a (thu khác, chi khác, nạp vốn), 2b (huỷ phiếu, lịch sử giao dịch đủ nội dung), 2c (bộ lọc, điều hướng ngày).
 - Lộ trình: (1) khách xem mockup → (2) cập nhật core-spec → (3) database schema → (4) dựng khung project [4a khung, 4b DB, 4c auth] → (5) lát cắt dọc đầu tiên.
 - Dev DB: PostgreSQL 18.6 portable ở `.local/` (gitignore), 127.0.0.1:5433, role `webqlcd_app`, DB `webqlcd`. Bật/tắt: `npm run db:start` / `db:stop`; migrate: `npm run db:migrate`. Mật khẩu superuser ở `.local/pwfile`, DATABASE_URL ở `.env`.
 - Verify chuẩn: `npm run lint`, `npm run typecheck`, `npm test` (cần DB đang chạy cho test DB), `npm run build`, `npm run test:e2e` (Edge, tự build, cổng 3100).
@@ -42,12 +42,13 @@
 - [x] Lát 1e: sửa thông tin hồ sơ (tên tài sản, ghi chú; field tiền không sửa, phương án E2) (worklog `Docs/Done/2026-10-22-sua-thong-tin-1e.txt`).
 - [x] Lát 2a: phiếu thu khác, chi khác, nạp vốn trên `/quy-ket` (worklog `Docs/Done/2026-10-22-thu-chi-nap-von-2a.txt`).
 - [x] Lát 2b: huỷ phiếu (chỉ chủ tiệm), bảng giao dịch `/quy-ket` có cột Nội dung, Thu/Chi, nhãn "Đã huỷ", dòng đảo nêu dòng gốc + lý do (worklog `Docs/Done/2026-10-22-huy-phieu-2b.txt`).
+- [x] Lát 2c: lọc sổ quỹ theo nhóm loại / người thực hiện, nút ‹ › Hôm nay giữ bộ lọc; sửa race e2e do Activity (worklog `Docs/Done/2026-10-22-loc-so-quy-2c.txt`).
 - [x] Giao diện theo mockup: theme ở `globals.css`, khung trang `src/app/(app)/` (sidebar/topbar, menu mobile), các trang cầm đồ/quỹ két/trang chủ/nhân viên/đăng nhập/đăng ký; guard thêm `requireProfile` + `React.cache` (worklog `Docs/Done/2026-10-20-ui-mockup.txt`).
 
 ---
 
 # 3. Đầu Việc Tiếp Theo & Lưu Ý
-- [ ] **Việc kế tiếp:** lát 2c (bộ lọc loại / người thực hiện, ‹ › Hôm nay), 2d (trang chủ: 4 ô thống kê + bảng đến hạn ≤ 3 ngày). Thiết kế đã duyệt: worklog 2a mục "Lưu ý". Sửa thông tin khách làm ở mục 3 (Khách hàng). Thứ tự sau đó: Decision `2026-10-21-pilot-scope.txt` mục 3.
+- [ ] **Việc kế tiếp:** lát 2d (trang chủ: 4 ô thống kê + bảng đến hạn ≤ 3 ngày). Thiết kế đã duyệt: worklog 2a mục "Lưu ý". Sửa thông tin khách làm ở mục 3 (Khách hàng). Thứ tự sau đó: Decision `2026-10-21-pilot-scope.txt` mục 3.
 - [ ] Phần mockup chưa làm vì thiếu số liệu/logic: thống kê hợp đồng + bảng đến hạn (trang chủ), thống kê + bộ lọc + Xuất Excel (`/cam-do`), ẩn ô tài sản khi chọn tín chấp.
 - [ ] Dọn cấu hình shadcn còn sót (chưa duyệt gỡ): element `ui` trong `eslint.config.mjs`, `components.json`, deps `radix-ui`, `class-variance-authority`, `cn`, `tw-animate-css`, `shadcn`.
 - [ ] Hỏi khách xác nhận mọi GIẢ ĐỊNH TẠM ở core-spec mục 2: hoãn tới khi bản dùng thử xong (Decision `2026-10-21-pilot-scope.txt`).
@@ -57,6 +58,7 @@
 - [ ] Production: tách role migrate (sở hữu bảng) và role runtime (chỉ SELECT/INSERT sổ két) — data-model mục 5.
 - **Lưu ý:**
   - Next 16 khác dữ liệu huấn luyện: đọc `node_modules/next/dist/docs/` trước khi viết code Next.
+  - E2E: Next giữ trang cũ trong DOM (Activity, `display: none`); sau click chuyển trang phải chờ `toHaveURL` / phần tử của trang mới trước khi click tiếp, nếu không locator bám vào phần tử đã ẩn (worklog 2c).
   - `npm audit`: 5 high trong chuỗi devDependency `eslint-config-next` (`braces`), không vào bản build; bản fix đề xuất hạ về 14.x nên không áp dụng.
   - Giả định tạm vẫn mang nhãn GIẢ ĐỊNH TẠM; không gỡ nhãn khi chưa có xác nhận tường minh.
   - Người dùng không muốn dùng Artifact tool (đã lưu memory); mockup làm bằng HTML local.

@@ -1,0 +1,13 @@
+# 2026-10-22: Lát 2c lọc sổ quỹ, điều hướng ngày — [verified: lint, typecheck, 143 unit/DB test, 24 e2e ×3 lần liền]
+
+- Commit: xem commit "Lát 2c: lọc sổ quỹ, điều hướng ngày" ngay sau 495e7cb
+- Đã làm:
+  1. `application/cash-filter.ts`: `CASH_TYPE_GROUPS` (khoá = tham số `loai` trên URL: giai-ngan, dong-lai, tra-goc, thu-khac, chi-khac, nap-von gồm cả quỹ đầu két, dao). Chưa có nhóm trả góp vì trả góp hoãn.
+  2. `GetCashDay.execute(shopId, ngày, sau, filter, now)`: quy nhóm về loại cụ thể (`CashLineQuery`), trả thêm `prevDate` / `nextDate` (null khi xem hôm nay). 4 ô tổng két không đổi theo bộ lọc.
+  3. Repository: `listDay` nhận `CashLineQuery` (`inArray` loại, `created_by`); `listActors` (mọi tài khoản của cửa hàng, chủ tiệm trước; `listStaff` của identity loại chủ tiệm nên không dùng lại). Use case `ListCashActors`.
+  4. Giao diện `/quy-ket`: thanh "Chọn ngày" (‹, ô ngày + Xem, ›, Hôm nay), form "Lọc giao dịch" (Loại giao dịch, Người thực hiện, Lọc, Bỏ lọc). Mọi link (ngày, Xem tiếp) giữ bộ lọc qua `cashHref`; tham số sai thì bỏ qua.
+  5. Sửa race e2e có sẵn ở `pawn-cash.spec.ts` test 2 (fail 2/5 lần chạy ở lát 2b, 2c). Nguyên nhân: `cacheComponents` làm Next giữ trang cũ trong DOM bằng Activity (`display: none`); test bấm "Thêm hồ sơ" 24ms sau khi bấm "Cầm đồ", locator bám vào link cùng tên trên trang chủ, trang chủ bị ẩn chứ không bị gỡ nên Playwright không tìm lại, chờ hết 30s (xác nhận bằng trace). Sửa: chờ `toHaveURL("/cam-do")` trước khi click. Worklog 2b ghi nhầm là timeout ngẫu nhiên.
+  6. Docs: data-model 3.9 (index cho bộ lọc), handoff (lưu ý e2e).
+- Trạng thái: xong lát 2c; kế tiếp lát 2d (trang chủ thống kê + hợp đồng đến hạn).
+- Lưu ý cho phiên sau:
+  - Prettier mặc định 80 cột; code dự án theo 140 (`--print-width 140`), không có file cấu hình prettier.

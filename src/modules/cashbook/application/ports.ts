@@ -45,6 +45,12 @@ export type OpeningBalanceResult = "ok" | "already_set";
 /** `amount` là độ lớn (dương); `note` là nội dung phiếu. */
 export type ManualEntry = { type: ManualEntryType; amount: Money; note: string | null };
 
+/** Người thực hiện giao dịch (chủ tiệm + KTV) cho bộ lọc sổ quỹ. */
+export type CashActor = { id: string; name: string };
+
+/** Điều kiện lọc đã quy về loại cụ thể. */
+export type CashLineQuery = { types: readonly CashTransactionType[] | null; createdBy: string | null };
+
 export type ReverseManualResult = "ok" | "not_found" | "not_manual" | "already_reversed";
 
 /** Sổ két của một cửa hàng; mọi truy vấn lọc theo shopId của phiên. */
@@ -58,5 +64,7 @@ export interface CashbookRepository {
   hasOpeningBalance(shopId: string): Promise<boolean>;
   dayTotals(shopId: string, date: LocalDate): Promise<CashDayTotals>;
   /** Giao dịch trong ngày, mới nhất trước; `after` là id dòng cuối của trang trước (keyset). */
-  listDay(shopId: string, date: LocalDate, after: string | null, limit: number): Promise<CashLine[]>;
+  listDay(shopId: string, date: LocalDate, query: CashLineQuery, after: string | null, limit: number): Promise<CashLine[]>;
+  /** Mọi tài khoản của cửa hàng (kể cả đã khoá), chủ tiệm trước. */
+  listActors(shopId: string): Promise<CashActor[]>;
 }

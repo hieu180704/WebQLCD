@@ -119,3 +119,34 @@ test("chủ tiệm huỷ phiếu chi khác: bút toán đảo kèm lý do; dòng
   await disbursement.getByRole("link", { name: "CD-1" }).click();
   await expect(page).toHaveURL(/\/cam-do\/[0-9a-f-]+$/);
 });
+
+test("lọc theo loại / người thực hiện, chuyển ngày giữ bộ lọc", async ({ page }) => {
+  await signIn(page, OWNER.username, OWNER.password);
+  await page.goto("/quy-ket");
+  const filter = page.getByRole("form", { name: "Lọc giao dịch" });
+
+  await filter.getByLabel("Loại giao dịch").selectOption({ label: "Chi khác" });
+  await filter.getByRole("button", { name: "Lọc" }).click();
+  await expect(page).toHaveURL(/loai=chi-khac/);
+  await expect(page.getByRole("row", { name: /Tiền điện tháng 10/ })).toBeVisible();
+  await expect(page.getByRole("row", { name: /Mua nước/ })).toBeVisible();
+  await expect(page.getByRole("row", { name: /Nạp vốn|Giải ngân|Bút toán đảo/ })).toHaveCount(0);
+  // 4 ô tổng két không đổi theo bộ lọc.
+  await expect(stat(page, "Tiền cuối ngày")).toContainText("57.400.000");
+
+  await filter.getByLabel("Loại giao dịch").selectOption({ label: "Tất cả" });
+  await filter.getByLabel("Người thực hiện").selectOption({ label: "KTV Quỹ" });
+  await filter.getByRole("button", { name: "Lọc" }).click();
+  await expect(page.getByRole("row", { name: /Mua nước/ })).toBeVisible();
+  await expect(page.getByRole("row", { name: /Chủ Quỹ Két/ })).toHaveCount(0);
+
+  await page.getByRole("link", { name: "Ngày trước" }).click();
+  await expect(page).toHaveURL(/ngay=\d{4}-\d{2}-\d{2}.*nv=|nv=.*ngay=/);
+  await expect(page.getByText("Không có giao dịch phù hợp.")).toBeVisible();
+  await page.getByRole("link", { name: "Ngày sau" }).click();
+  await expect(page.getByRole("row", { name: /Mua nước/ })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Ngày sau" })).toHaveCount(0);
+
+  await page.getByRole("link", { name: "Bỏ lọc" }).click();
+  await expect(page.getByRole("row", { name: /Giải ngân/ })).toBeVisible();
+});

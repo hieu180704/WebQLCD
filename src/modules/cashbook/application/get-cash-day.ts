@@ -1,5 +1,6 @@
-import { businessDate, diffDays, type LocalDate } from "@/shared/kernel/local-date";
+import { addDays, businessDate, diffDays, type LocalDate } from "@/shared/kernel/local-date";
 import { isManualEntryType, summarizeDay, type CashDaySummary } from "../domain/cash-entry";
+import { CASH_TYPE_GROUPS, type CashLineFilter } from "./cash-filter";
 import type { CashLine, CashbookRepository } from "./ports";
 
 export const CASH_PAGE_SIZE = 50;
@@ -10,6 +11,9 @@ export type CashDayLine = CashLine & { reversible: boolean };
 export type CashDayView = {
   date: LocalDate;
   today: LocalDate;
+  /** Ngày trước / sau để điều hướng; `nextDate` null khi đang xem hôm nay. */
+  prevDate: LocalDate;
+  nextDate: LocalDate | null;
   summary: CashDaySummary;
   lines: CashDayLine[];
   /** Id để xem trang sau; null nếu hết. */
@@ -22,12 +26,19 @@ export class GetCashDay {
   constructor(private readonly cashbook: CashbookRepository) {}
 
   /** `shopId` lấy từ session (guard), không từ input của client. */
-  async execute(shopId: string, requested: LocalDate | null, after: string | null, now = new Date()): Promise<CashDayView> {
+  async execute(
+    shopId: string,
+    requested: LocalDate | null,
+    after: string | null,
+    filter: CashLineFilter = {},
+    now = new Date(),
+  ): Promise<CashDayView> {
     const today = businessDate(now);
     const date = requested && diffDays(today, requested) <= 0 ? requested : today;
+    const query = { types: filter.group ? CASH_TYPE_GROUPS[filter.group].types : null, createdBy: filter.createdBy ?? null };
     const [totals, rows, openingBalanceSet] = await Promise.all([
       this.cashbook.dayTotals(shopId, date),
-      this.cashbook.listDay(shopId, date, after, CASH_PAGE_SIZE + 1),
+      this.cashbook.listDay(shopId, date, query, after, CASH_PAGE_SIZE + 1),
       this.cashbook.hasOpeningBalance(shopId),
     ]);
     const hasMore = rows.length > CASH_PAGE_SIZE;
@@ -35,6 +46,8 @@ export class GetCashDay {
     return {
       date,
       today,
+      prevDate: addDays(date, -1),
+      nextDate: date === today ? null : addDays(date, 1),
       summary: summarizeDay(totals.opening, totals.income, totals.expense),
       lines: lines.map((line) => ({ ...line, reversible: isManualEntryType(line.type) && !line.reversed })),
       nextAfter: hasMore ? lines[lines.length - 1].id : null,

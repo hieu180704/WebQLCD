@@ -14,6 +14,7 @@ import { DrizzleCashbookRepository } from "./drizzle-cashbook-repository";
 const url = process.env.DATABASE_URL;
 const OPENED = "2026-10-18";
 const vnd = (n: number) => Money.fromNumber(n);
+const ALL = { types: null, createdBy: null };
 
 describe.skipIf(!url)("DrizzleCashbookRepository", () => {
   let pool: Pool;
@@ -104,7 +105,7 @@ describe.skipIf(!url)("DrizzleCashbookRepository", () => {
 
       const t = await repo.dayTotals(s.shopId, "2026-10-20");
       expect([t.opening, t.income, t.expense].map((m) => m.toBigInt())).toEqual([0n, 52_500_000n, -1_250_000n]);
-      const lines = await repo.listDay(s.shopId, "2026-10-20", null, 10);
+      const lines = await repo.listDay(s.shopId, "2026-10-20", ALL, null, 10);
       expect(lines.map((l) => [l.type, l.amount.toBigInt(), l.note, l.contractCode])).toEqual([
         ["capital_in", 50_000_000n, null, null],
         ["manual_expense", -1_250_000n, "Tiền điện", null],
@@ -125,7 +126,7 @@ describe.skipIf(!url)("DrizzleCashbookRepository", () => {
       const repo = new DrizzleCashbookRepository(db);
       await repo.recordManualEntry(s, { type: "manual_expense", amount: vnd(1_250_000), note: "Tiền điện" }, "2026-10-19");
       await disburse(db, s, "2026-10-19", 1_000_000);
-      const day19 = await repo.listDay(s.shopId, "2026-10-19", null, 10);
+      const day19 = await repo.listDay(s.shopId, "2026-10-19", ALL, null, 10);
       const expense = day19.find((l) => l.type === "manual_expense")!;
       const disbursement = day19.find((l) => l.type === "disbursement")!;
 
@@ -135,8 +136,8 @@ describe.skipIf(!url)("DrizzleCashbookRepository", () => {
       expect(await repo.reverseManualEntry(s, expense.id, "Lần hai", "2026-10-20")).toBe("already_reversed");
 
       // Dòng gốc ngày 19 mang nhãn đã huỷ; dòng đảo nằm ngày 20, nêu dòng gốc và lý do.
-      expect((await repo.listDay(s.shopId, "2026-10-19", null, 10)).find((l) => l.id === expense.id)?.reversed).toBe(true);
-      const [rev] = await repo.listDay(s.shopId, "2026-10-20", null, 10);
+      expect((await repo.listDay(s.shopId, "2026-10-19", ALL, null, 10)).find((l) => l.id === expense.id)?.reversed).toBe(true);
+      const [rev] = await repo.listDay(s.shopId, "2026-10-20", ALL, null, 10);
       expect(rev).toMatchObject({ type: "reversal", note: "Nhập nhầm", reversed: false, reverses: { type: "manual_expense" } });
       expect(rev.amount.toBigInt()).toBe(1_250_000n);
       expect(rev.reverses?.occurredAt).toEqual(expense.occurredAt);
@@ -148,6 +149,26 @@ describe.skipIf(!url)("DrizzleCashbookRepository", () => {
       expect(audit.a).toBe("{create,reverse}");
     }));
 
+  it("lọc theo loại và người thực hiện; danh sách người thực hiện chủ tiệm trước", () =>
+    inTx(async (db) => {
+      const s = await seedShop(db);
+      const staff = await one(
+        db,
+        sql`INSERT INTO users (shop_id, name, email, username, role) VALUES (${s.shopId}, 'KTV Lan', ${`ktv_${s.userId}@test.local`}, ${`ktv_${s.userId}`}, 'staff') RETURNING id`,
+      );
+      const repo = new DrizzleCashbookRepository(db);
+      await disburse(db, s, "2026-10-20", 1_000_000);
+      await repo.recordManualEntry({ shopId: s.shopId, userId: staff.id }, { type: "manual_expense", amount: vnd(100_000), note: "Nước" }, "2026-10-20");
+      await repo.recordManualEntry(s, { type: "capital_in", amount: vnd(5_000_000), note: null }, "2026-10-20");
+
+      const types = async (query: { types: ("manual_expense" | "capital_in" | "disbursement" | "additional_loan")[] | null; createdBy: string | null }) =>
+        (await repo.listDay(s.shopId, "2026-10-20", query, null, 10)).map((l) => l.type);
+      expect(await types({ types: ["disbursement", "additional_loan"], createdBy: null })).toEqual(["disbursement"]);
+      expect(await types({ types: null, createdBy: staff.id })).toEqual(["manual_expense"]);
+      expect(await types({ types: ["capital_in"], createdBy: staff.id })).toEqual([]);
+      expect((await repo.listActors(s.shopId)).map((a) => a.name)).toEqual(["Chủ Test", "KTV Lan"]);
+    }));
+
   it("cách ly cửa hàng và phân trang keyset danh sách trong ngày", () =>
     inTx(async (db) => {
       const a = await seedShop(db);
@@ -157,13 +178,15 @@ describe.skipIf(!url)("DrizzleCashbookRepository", () => {
       await disburse(db, a, "2026-10-20", 2_000_000);
 
       expect((await repo.dayTotals(b.shopId, "2026-10-20")).expense.isZero()).toBe(true);
-      expect(await repo.listDay(b.shopId, "2026-10-20", null, 10)).toEqual([]);
+      expect(await repo.listDay(b.shopId, "2026-10-20", ALL, null, 10)).toEqual([]);
+      expect(await repo.listDay(b.shopId, "2026-10-20", { types: null, createdBy: a.userId }, null, 10)).toEqual([]);
+      expect((await repo.listActors(b.shopId)).map((u) => u.name)).toEqual(["Chủ Test"]);
       expect(await repo.recordOpeningBalance(b, vnd(5_000))).toBe("ok"); // A chưa nhập, B nhập độc lập.
 
-      const page1 = await repo.listDay(a.shopId, "2026-10-20", null, 3);
+      const page1 = await repo.listDay(a.shopId, "2026-10-20", ALL, null, 3);
       expect(page1.map((l) => l.amount.toBigInt())).toEqual([20_000n, -2_000_000n, 10_000n]);
       expect(page1[0]).toMatchObject({ type: "interest_payment", contractCode: "CD-1", createdByName: "Chủ Test" });
-      const page2 = await repo.listDay(a.shopId, "2026-10-20", page1[2].id, 3);
+      const page2 = await repo.listDay(a.shopId, "2026-10-20", ALL, page1[2].id, 3);
       expect(page2.map((l) => l.type)).toEqual(["disbursement"]);
     }));
 });

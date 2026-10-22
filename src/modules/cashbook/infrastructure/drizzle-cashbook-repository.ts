@@ -1,6 +1,6 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
-import { and, desc, eq, lt, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, lt, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import type { Db } from "@/shared/infrastructure/db/client";
 import { dbCause, uniqueViolation } from "@/shared/infrastructure/db/errors";
@@ -9,8 +9,10 @@ import type { LocalDate } from "@/shared/kernel/local-date";
 import { Money } from "@/shared/kernel/money";
 import type {
   Actor,
+  CashActor,
   CashDayTotals,
   CashLine,
+  CashLineQuery,
   CashbookRepository,
   ManualEntry,
   OpeningBalanceResult,
@@ -86,6 +88,15 @@ export class DrizzleCashbookRepository implements CashbookRepository {
     }
   }
 
+  async listActors(shopId: string): Promise<CashActor[]> {
+    return this.db
+      .select({ id: users.id, name: users.name })
+      .from(users)
+      .where(eq(users.shopId, shopId))
+      .orderBy(desc(sql`${users.role} = 'owner'`), asc(users.createdAt))
+      .limit(ACTOR_LIMIT);
+  }
+
   async hasOpeningBalance(shopId: string): Promise<boolean> {
     const rows = await this.db
       .select({ id: cashTransactions.id })
@@ -110,7 +121,7 @@ export class DrizzleCashbookRepository implements CashbookRepository {
     return { opening: toMoney(row.opening), income: toMoney(row.income), expense: toMoney(row.expense) };
   }
 
-  async listDay(shopId: string, date: LocalDate, after: string | null, limit: number): Promise<CashLine[]> {
+  async listDay(shopId: string, date: LocalDate, query: CashLineQuery, after: string | null, limit: number): Promise<CashLine[]> {
     const t = cashTransactions;
     const rows = await this.db
       .select({
@@ -132,7 +143,16 @@ export class DrizzleCashbookRepository implements CashbookRepository {
       .innerJoin(users, and(eq(users.shopId, t.shopId), eq(users.id, t.createdBy)))
       .leftJoin(original, and(eq(original.shopId, t.shopId), eq(original.id, t.reversesId)))
       .leftJoin(reversal, and(eq(reversal.shopId, t.shopId), eq(reversal.reversesId, t.id)))
-      .where(and(eq(t.shopId, shopId), eq(t.businessDate, date), after ? lt(t.id, after) : undefined))
+      // Lọc trong một ngày của một cửa hàng: index (shop_id, business_date) đã thu hẹp đủ, không cần index theo loại / người.
+      .where(
+        and(
+          eq(t.shopId, shopId),
+          eq(t.businessDate, date),
+          query.types ? inArray(t.type, [...query.types]) : undefined,
+          query.createdBy ? eq(t.createdBy, query.createdBy) : undefined,
+          after ? lt(t.id, after) : undefined,
+        ),
+      )
       .orderBy(desc(t.id)) // uuid v7 tăng theo thời gian tạo.
       .limit(limit);
     return rows.map(({ reversalId, originalType, originalAt, ...row }) => ({
@@ -143,6 +163,9 @@ export class DrizzleCashbookRepository implements CashbookRepository {
     }));
   }
 }
+
+// Một tiệm chỉ có vài tài khoản; giới hạn cứng thay cho phân trang.
+const ACTOR_LIMIT = 200;
 
 function toMoney(value: string | number): Money {
   return Money.of(BigInt(value));
