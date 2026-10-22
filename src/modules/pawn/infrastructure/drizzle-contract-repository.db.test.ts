@@ -10,13 +10,14 @@ import { CccdCipher, DrizzleCustomerWriter, type NewCustomer } from "@/modules/c
 import type { Db } from "@/shared/infrastructure/db/client";
 import * as schema from "@/shared/infrastructure/db/schema";
 import { Money } from "@/shared/kernel/money";
-import type { Actor, ContractDraft } from "../application/ports";
+import type { Actor, ContractDraft, ContractFilter } from "../application/ports";
 import { planDisbursement, type ContractTerms } from "../domain/contract";
 import { DrizzleContractRepository } from "./drizzle-contract-repository";
 
 const url = process.env.DATABASE_URL;
 const TODAY = "2026-10-20";
 const cipher = new CccdCipher(randomBytes(32), randomBytes(32));
+const ALL: ContractFilter = { search: null, cccd: null, kind: null, status: null };
 
 describe.skipIf(!url)("DrizzleContractRepository", () => {
   let pool: Pool;
@@ -75,7 +76,7 @@ describe.skipIf(!url)("DrizzleContractRepository", () => {
       );
     }
   };
-  const repo = (db: Db) => new DrizzleContractRepository(db, new DrizzleCustomerWriter(() => cipher), appendCash);
+  const repo = (db: Db) => new DrizzleContractRepository(db, new DrizzleCustomerWriter(() => cipher), appendCash, (shopId, cccd) => cipher.hash(shopId, cccd));
 
   const draft = (terms: Partial<ContractTerms> = {}, customer: Partial<NewCustomer> = {}): ContractDraft => {
     const fullTerms: ContractTerms = {
@@ -194,7 +195,7 @@ describe.skipIf(!url)("DrizzleContractRepository", () => {
       const inB = await repo(db).create(b, draft({}, { cccd }));
       expect(inB.customer.reused).toBe(false);
       expect(inB.customer.id).not.toBe(inA.customer.id);
-      const listB = await repo(db).list(b.shopId, null, 50);
+      const listB = await repo(db).list(b.shopId, ALL, TODAY, null, 50);
       expect(listB.map((c) => c.code)).toEqual(["CD-1"]);
       expect(listB[0].customerName).toBe("Nguyễn Văn A");
     }));
@@ -218,12 +219,53 @@ describe.skipIf(!url)("DrizzleContractRepository", () => {
     inTx(async (db) => {
       const actor = await seedShop(db);
       for (let i = 0; i < 3; i++) await repo(db).create(actor, draft({ interestType: "percent_per_month", interestRate: 15_000n }));
-      const page1 = await repo(db).list(actor.shopId, null, 2);
+      const page1 = await repo(db).list(actor.shopId, ALL, TODAY, null, 2);
       expect(page1.map((c) => c.code)).toEqual(["CD-3", "CD-2"]);
       expect(page1[0]).toMatchObject({ customerPhone: "091****678", interestRate: 15_000n, interestType: "percent_per_month" });
       expect(page1[0].principal.toBigInt()).toBe(5_000_000n);
-      const page2 = await repo(db).list(actor.shopId, page1[1].id, 2);
+      const page2 = await repo(db).list(actor.shopId, ALL, TODAY, page1[1].id, 2);
       expect(page2.map((c) => c.code)).toEqual(["CD-1"]);
+    }));
+
+  it("lọc: trạng thái (hạn theo hôm nay, lãi suất 0 không đến hạn), loại, tìm mã / tên / tài sản không dấu / SĐT, CCCD; cách ly cửa hàng", () =>
+    inTx(async (db) => {
+      const actor = await seedShop(db);
+      const make = async (terms: Partial<ContractTerms>, customer: Partial<NewCustomer>, paidUntil: string) => {
+        const { code } = await repo(db).create(actor, draft(terms, customer));
+        await db.execute(sql`UPDATE contracts SET interest_paid_until = ${paidUntil} WHERE shop_id = ${actor.shopId} AND code = ${code}`);
+      };
+      // Hôm nay 20/10, kỳ 10 ngày, thu lãi sau: hạn = ngày trả đến + 10.
+      await make({ assetName: "Nhẫn vàng 24K" }, { fullName: "Nguyễn Văn Bình", cccd: "001099012345" }, "2026-10-01"); // CD-1 quá hạn
+      await make({ kind: "unsecured", assetName: null }, { fullName: "Đặng Thị Hoa", phone: "0987000111" }, "2026-10-10"); // TC-1 hôm nay
+      await make({}, { fullName: "Lê Văn C" }, "2026-10-12"); // CD-2 hạn 22/10
+      await make({}, { fullName: "Lê Văn D" }, TODAY); // CD-3 hạn 30/10
+      await make({ interestRate: 0n }, { fullName: "Lê Văn E" }, "2026-09-01"); // CD-4 lãi suất 0
+      await make({}, { fullName: "Lê Văn F" }, TODAY); // CD-5 đã chuộc
+      await make({}, { fullName: "Lê Văn G" }, TODAY); // CD-6 đã xoá
+      await db.execute(sql`UPDATE contracts SET status = 'closed', closed_at = now() WHERE shop_id = ${actor.shopId} AND code = 'CD-5'`);
+      await db.execute(sql`UPDATE contracts SET deleted_at = now(), deleted_by = ${actor.userId}, deleted_reason = 'Nhập sai'
+        WHERE shop_id = ${actor.shopId} AND code = 'CD-6'`);
+
+      const codes = async (filter: Partial<ContractFilter>, shopId = actor.shopId) =>
+        (await repo(db).list(shopId, { ...ALL, ...filter }, TODAY, null, 50)).map((c) => c.code);
+      expect(await codes({})).toEqual(["CD-5", "CD-4", "CD-3", "CD-2", "TC-1", "CD-1"]);
+      expect(await codes({ status: "open" })).toEqual(["CD-4", "CD-3", "CD-2", "TC-1", "CD-1"]);
+      expect(await codes({ status: "overdue" })).toEqual(["CD-1"]);
+      expect(await codes({ status: "due_today" })).toEqual(["TC-1"]);
+      expect(await codes({ status: "due_soon" })).toEqual(["CD-2", "TC-1", "CD-1"]);
+      expect(await codes({ status: "closed" })).toEqual(["CD-5"]);
+      expect(await codes({ status: "deleted" })).toEqual(["CD-6"]);
+      expect(await codes({ kind: "unsecured" })).toEqual(["TC-1"]);
+      expect(await codes({ kind: "secured", status: "overdue" })).toEqual(["CD-1"]);
+      expect(await codes({ search: "nhan vang" })).toEqual(["CD-1"]);
+      expect(await codes({ search: "DANG thi" })).toEqual(["TC-1"]);
+      expect(await codes({ search: "tc-1" })).toEqual(["TC-1"]);
+      expect(await codes({ search: "000 111" })).toEqual(["TC-1"]);
+      expect(await codes({ search: "%" })).toEqual([]);
+      expect(await codes({ cccd: "001099012345" })).toEqual(["CD-1"]);
+      const other = await seedShop(db);
+      expect(await codes({}, other.shopId)).toEqual([]);
+      expect(await codes({ cccd: "001099012345" }, other.shopId)).toEqual([]);
     }));
   it("đến hạn: hạn theo thu lãi trước/sau, bỏ lãi suất 0 / đã đóng / đã xoá / ngoài khoảng; hạn sớm nhất trước; cách ly cửa hàng", () =>
     inTx(async (db) => {
@@ -698,7 +740,9 @@ describe.skipIf(!url)("DrizzleContractRepository", () => {
       expect(detail?.ledgerNet.toBigInt()).toBe(0n);
       expect(await repo(db).findStanding(actor.shopId, id)).toBeNull();
       expect(await repo(db).findLatestOperation(actor.shopId, id)).toBeNull();
-      expect(await repo(db).list(actor.shopId, null, 10)).toEqual([]);
+      expect(await repo(db).list(actor.shopId, ALL, TODAY, null, 10)).toEqual([]);
+      const [deleted] = await repo(db).list(actor.shopId, { ...ALL, status: "deleted" }, TODAY, null, 10);
+      expect(deleted).toMatchObject({ id, deleted: true });
       const audits = await rows<{ changed_fields: string[] }>(db, sql`SELECT changed_fields FROM audit_logs WHERE entity_id = ${id} AND action = 'delete'`);
       expect(audits).toEqual([{ changed_fields: ["deleted_at", "deleted_reason"] }]);
     }));

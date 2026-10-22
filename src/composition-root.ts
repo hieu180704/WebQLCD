@@ -71,7 +71,8 @@ const customerWriter = new DrizzleCustomerWriter(lazyCccdCipher);
 const customerRepository = new DrizzleCustomerRepository(db, lazyCccdCipher);
 export const editCustomer = new EditCustomer(customerRepository);
 export const revealCccd = new RevealCccd(customerRepository);
-const contracts = new DrizzleContractRepository(db, customerWriter, appendCashEntries);
+const hashCccd = (shopId: string, cccd: string) => lazyCccdCipher().hash(shopId, cccd);
+const contracts = new DrizzleContractRepository(db, customerWriter, appendCashEntries, hashCccd);
 export const createContract = new CreateContract(contracts);
 export const listContracts = new ListContracts(contracts);
 export const listDueContracts = new ListDueContracts(contracts);
@@ -86,6 +87,6 @@ export const editContract = new EditContract(contracts);
 
 export const getDashboardStats = new GetDashboardStats(new DrizzleDashboardStats(db));
 export const listCustomers = new ListCustomers(
-  new DrizzleCustomerDirectory(db, (shopId, cccd) => lazyCccdCipher().hash(shopId, cccd)),
+  new DrizzleCustomerDirectory(db, hashCccd),
 );
 export const getCustomerDetail = new GetCustomerDetail(new DrizzleCustomerProfile(db));

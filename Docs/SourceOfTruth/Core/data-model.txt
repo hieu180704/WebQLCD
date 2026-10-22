@@ -118,7 +118,7 @@
 - `installment_contracts (shop_id, status)`, `audit_logs (shop_id, entity, entity_id)`.
 - `contract_operations (shop_id, contract_id, created_at)`: thao tác mới nhất của hợp đồng.
 - `customers (shop_id, cccd_hash)`: tìm khớp chính xác CCCD (đã có qua UNIQUE).
-- `pg_trgm` GIN: `search_text(customers.full_name)`, `customers.phone`, `contracts.code`, `contracts.asset_name`, `installment_contracts.code`.
+- `pg_trgm` GIN: `search_text(customers.full_name)`, `customers.phone`, `contracts.code`, `search_text(contracts.asset_name)` (migration 0008), `installment_contracts.code`.
 
 ---
 

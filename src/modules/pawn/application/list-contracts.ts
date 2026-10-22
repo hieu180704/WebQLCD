@@ -2,7 +2,7 @@ import { businessDate, type LocalDate } from "@/shared/kernel/local-date";
 import type { Money } from "@/shared/kernel/money";
 import { accruedInterest, nextInterestDue } from "../domain/contract";
 import { formatRate } from "../domain/interest/rate";
-import type { ContractListRow, ContractRepository } from "./ports";
+import type { ContractFilter, ContractListRow, ContractRepository } from "./ports";
 
 export const CONTRACT_PAGE_SIZE = 50;
 
@@ -20,13 +20,14 @@ export class ListContracts {
   constructor(private readonly contracts: ContractRepository) {}
 
   /** `shopId` lấy từ session (guard), không từ input của client. */
-  async execute(shopId: string, after: string | null, now = new Date()): Promise<ContractListView> {
+  async execute(shopId: string, filter: ContractFilter, after: string | null, now = new Date()): Promise<ContractListView> {
     const today = businessDate(now);
-    const rows = await this.contracts.list(shopId, after, CONTRACT_PAGE_SIZE + 1);
+    const rows = await this.contracts.list(shopId, filter, today, after, CONTRACT_PAGE_SIZE + 1);
     const hasMore = rows.length > CONTRACT_PAGE_SIZE;
     const page = hasMore ? rows.slice(0, CONTRACT_PAGE_SIZE) : rows;
     const items = page.map((row) => {
-      const active = row.status === "active";
+      // Hợp đồng đã xoá không còn lãi, hạn (kể cả khi xoá lúc đang mở).
+      const active = row.status === "active" && !row.deleted;
       return {
         ...row,
         rateText: formatRate(row.interestRate),

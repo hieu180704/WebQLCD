@@ -1,10 +1,11 @@
 import "server-only";
-import { and, asc, desc, eq, isNotNull, isNull, lt, lte, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, ilike, isNotNull, isNull, lt, lte, or, sql, type SQL } from "drizzle-orm";
 import type { AppendCashEntries, CashEntry } from "@/modules/cashbook";
 // Chỉ kiểu: index của customer kéo theo presentation, mà presentation import composition-root (vòng import).
 import type { DrizzleCustomerWriter } from "@/modules/customer";
 import type { Db, Tx } from "@/shared/infrastructure/db/client";
 import { dbCause } from "@/shared/infrastructure/db/errors";
+import { escapeLike } from "@/shared/infrastructure/db/like";
 import {
   auditLogs,
   cashTransactions,
@@ -17,6 +18,7 @@ import {
 import { businessDate, type LocalDate } from "@/shared/kernel/local-date";
 import { Money } from "@/shared/kernel/money";
 import { maskPhone } from "@/shared/kernel/personal-data";
+import { DUE_WINDOW_DAYS } from "../application/list-due-contracts";
 import { CODE_PREFIX, type ContractKind, type OperationKind } from "../domain/contract";
 import { formatRate, parseRate } from "../domain/interest/rate";
 import type {
@@ -24,9 +26,11 @@ import type {
   ContractCashType,
   ContractDetailRow,
   ContractDraft,
+  ContractFilter,
   ContractListRow,
   ContractRepository,
   ContractStanding,
+  ContractStatusFilter,
   ContractTransaction,
   CreatedContract,
   DeletionDraft,
@@ -40,11 +44,21 @@ import type {
   ReversalDraft,
 } from "../application/ports";
 
+/** HMAC CCCD theo cửa hàng (CccdCipher.hash), ghép qua composition-root. */
+export type HashCccd = (shopId: string, cccd: string) => string;
+
+/** Tìm SĐT khi ô tìm có ít nhất chừng này chữ số. */
+const MIN_PHONE_DIGITS = 3;
+
+// Hàm SQL contract_interest_due (migration 0007) tính như `nextInterestDue`.
+const interestDue = sql`contract_interest_due(${contracts.interestPaidUntil}, ${contracts.prepaidInterest}, ${contracts.interestPeriodDays})`;
+
 export class DrizzleContractRepository implements ContractRepository {
   constructor(
     private readonly db: Db,
     private readonly customerWriter: DrizzleCustomerWriter,
     private readonly appendCashEntries: AppendCashEntries,
+    private readonly hashCccd: HashCccd,
   ) {}
 
   async create(actor: Actor, draft: ContractDraft): Promise<CreatedContract> {
@@ -91,7 +105,7 @@ export class DrizzleContractRepository implements ContractRepository {
     }
   }
 
-  async list(shopId: string, after: string | null, limit: number): Promise<ContractListRow[]> {
+  async list(shopId: string, filter: ContractFilter, today: LocalDate, after: string | null, limit: number): Promise<ContractListRow[]> {
     const rows = await this.db
       .select({
         id: contracts.id,
@@ -110,14 +124,25 @@ export class DrizzleContractRepository implements ContractRepository {
         interestPaidUntil: contracts.interestPaidUntil,
         prepaidInterest: contracts.prepaidInterest,
         status: contracts.status,
+        deletedAt: contracts.deletedAt,
       })
       .from(contracts)
       .innerJoin(customers, and(eq(customers.shopId, contracts.shopId), eq(customers.id, contracts.customerId)))
-      .where(and(eq(contracts.shopId, shopId), isNull(contracts.deletedAt), after ? lt(contracts.id, after) : undefined))
+      .where(
+        and(
+          eq(contracts.shopId, shopId),
+          statusCondition(filter.status, today),
+          filter.kind ? eq(contracts.kind, filter.kind) : undefined,
+          searchCondition(filter.search),
+          filter.cccd ? eq(customers.cccdHash, this.hashCccd(shopId, filter.cccd)) : undefined,
+          after ? lt(contracts.id, after) : undefined,
+        ),
+      )
       .orderBy(desc(contracts.id)) // uuid v7 tăng theo thời gian tạo; index UNIQUE (shop_id, id).
       .limit(limit);
-    return rows.map((row) => ({
+    return rows.map(({ deletedAt, ...row }) => ({
       ...row,
+      deleted: deletedAt !== null,
       customerPhone: row.customerPhone ? maskPhone(row.customerPhone) : null,
       principal: Money.of(row.principal),
       outstandingPrincipal: Money.of(row.outstandingPrincipal),
@@ -126,9 +151,8 @@ export class DrizzleContractRepository implements ContractRepository {
   }
 
   async listDue(shopId: string, until: LocalDate, limit: number): Promise<DueContractRow[]> {
-    // Hàm SQL contract_interest_due (migration 0007) tính như `nextInterestDue`; hạn >= ngày trả đến nên lọc trước
-    // `interest_paid_until <= until` chạy được trên index (shop_id, status, interest_paid_until).
-    const due = sql`contract_interest_due(${contracts.interestPaidUntil}, ${contracts.prepaidInterest}, ${contracts.interestPeriodDays})`;
+    // Hạn >= ngày trả đến nên lọc trước `interest_paid_until <= until` chạy được trên index (shop_id, status, interest_paid_until).
+    const due = interestDue;
     const rows = await this.db
       .select({
         id: contracts.id,
@@ -649,4 +673,44 @@ function rateFromDb(value: string): bigint {
   const rate = parseRate(value);
   if (rate === null) throw new Error("Lãi suất trong DB sai định dạng numeric(9,4)");
   return rate;
+}
+
+/** Điều kiện trạng thái của bộ lọc danh sách (ContractStatusFilter); null = mọi hợp đồng chưa xoá. */
+function statusCondition(status: ContractStatusFilter | null, today: LocalDate): SQL | undefined {
+  const notDeleted = isNull(contracts.deletedAt);
+  const open = and(eq(contracts.status, "active"), notDeleted);
+  // Lãi suất 0 không có thao tác đóng lãi (core-spec mục 2), không bao giờ "đến hạn".
+  const dueBy = (bound: SQL) => and(open, sql`${contracts.interestRate} > 0`, bound);
+  switch (status) {
+    case null:
+      return notDeleted;
+    case "open":
+      return open;
+    case "overdue":
+      return dueBy(sql`${interestDue} < ${today}`);
+    case "due_today":
+      return dueBy(sql`${interestDue} = ${today}`);
+    case "due_soon":
+      return dueBy(sql`${interestDue} <= ${today}::date + ${DUE_WINDOW_DAYS}::int`);
+    case "closed":
+      return and(eq(contracts.status, "closed"), notDeleted);
+    case "deleted":
+      return isNotNull(contracts.deletedAt);
+  }
+}
+
+/**
+ * Mã HĐ, tên khách, tên tài sản (không dấu, không phân biệt hoa thường; index trigram trên search_text(...) và code),
+ * SĐT khi ô tìm có từ MIN_PHONE_DIGITS chữ số.
+ */
+function searchCondition(search: string | null): SQL | undefined {
+  if (!search) return undefined;
+  const pattern = sql`'%' || search_text(${escapeLike(search)}) || '%'`;
+  const digits = search.replace(/\D/g, "");
+  return or(
+    ilike(contracts.code, `%${escapeLike(search)}%`),
+    sql`search_text(${customers.fullName}) LIKE ${pattern}`,
+    sql`search_text(${contracts.assetName}) LIKE ${pattern}`,
+    digits.length >= MIN_PHONE_DIGITS ? sql`${customers.phone} LIKE ${`%${digits}%`}` : undefined,
+  );
 }

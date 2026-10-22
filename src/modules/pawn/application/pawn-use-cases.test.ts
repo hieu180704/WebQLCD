@@ -13,6 +13,7 @@ import { PayInterest, type PayInterestInput } from "./pay-interest";
 import type {
   ContractDetailRow,
   ContractDraft,
+  ContractFilter,
   ContractListRow,
   ContractRepository,
   ContractStanding,
@@ -68,12 +69,16 @@ function fakeRepo(
   const deletions: DeletionDraft[] = [];
   const edits: EditDraft[] = [];
   const dueQueries: { until: string; limit: number }[] = [];
+  const listQueries: { filter: ContractFilter; today: string }[] = [];
   const repo: ContractRepository = {
     create: async (_actor, draft) => {
       drafts.push(draft);
       return { code: "CD-1", customer: { id: "c", fullName: "Khách Cũ", reused } };
     },
-    list: async (_shop, _after, limit) => rows.slice(0, limit),
+    list: async (_shop, filter, today, _after, limit) => {
+      listQueries.push({ filter, today });
+      return rows.slice(0, limit);
+    },
     listDue: async (_shop, until, limit) => {
       dueQueries.push({ until, limit });
       return rows.slice(0, limit);
@@ -111,7 +116,7 @@ function fakeRepo(
       return saves;
     },
   };
-  return { repo, drafts, payments, redemptions, principalChanges, extensions, reversals, deletions, edits, dueQueries };
+  return { repo, drafts, payments, redemptions, principalChanges, extensions, reversals, deletions, edits, dueQueries, listQueries };
 }
 
 describe("CreateContract", () => {
@@ -156,20 +161,26 @@ describe("ListContracts", () => {
     interestPaidUntil: "2026-10-10",
     prepaidInterest: false,
     status: "active",
+    deleted: false,
     ...overrides,
   });
+  const ALL: ContractFilter = { search: null, cccd: null, kind: null, status: null };
 
-  it("lãi đến hôm nay, hạn đóng lãi; hợp đồng đã đóng thì không tính", async () => {
-    const view = await new ListContracts(fakeRepo([row(2), row(1, { status: "closed" })]).repo).execute("s", null, now);
+  it("lãi đến hôm nay, hạn đóng lãi; hợp đồng đã đóng hoặc đã xoá thì không tính; bộ lọc chuyển nguyên cho repository", async () => {
+    const fake = fakeRepo([row(3), row(2, { status: "closed" }), row(1, { deleted: true })]);
+    const filter: ContractFilter = { search: "binh", cccd: null, kind: "secured", status: "deleted" };
+    const view = await new ListContracts(fake.repo).execute("s", filter, null, now);
+    expect(fake.listQueries).toEqual([{ filter, today: "2026-10-20" }]);
     expect(view.items[0]).toMatchObject({ rateText: "3", nextInterestDue: "2026-11-09" });
     expect(view.items[0].accruedInterest?.toBigInt()).toBe(100_000n);
     expect(view.items[1]).toMatchObject({ accruedInterest: null, nextInterestDue: null });
+    expect(view.items[2]).toMatchObject({ accruedInterest: null, nextInterestDue: null });
     expect(view.nextAfter).toBeNull();
   });
 
   it("lấy thừa 1 dòng để biết còn trang sau", async () => {
     const rows = Array.from({ length: CONTRACT_PAGE_SIZE + 1 }, (_, i) => row(i));
-    const view = await new ListContracts(fakeRepo(rows).repo).execute("s", null, now);
+    const view = await new ListContracts(fakeRepo(rows).repo).execute("s", ALL, null, now);
     expect(view.items).toHaveLength(CONTRACT_PAGE_SIZE);
     expect(view.nextAfter).toBe(`id-${CONTRACT_PAGE_SIZE - 1}`);
   });
@@ -193,6 +204,7 @@ describe("ListDueContracts", () => {
     interestPaidUntil: "2026-09-21",
     prepaidInterest: false,
     status: "active",
+    deleted: false,
     ...overrides,
   });
 

@@ -26,7 +26,7 @@ export function DashboardStatTiles({ stats }: { stats: DashboardStats }) {
       <div className="card p-5">
         <div className="text-sm text-slate-500">Quá hạn đóng lãi</div>
         <div className={`mt-1 text-2xl font-bold num ${stats.overdue > 0 ? "text-red-700" : ""}`}>{stats.overdue}</div>
-        <Link href="/cam-do" className="mt-1 text-xs text-teal-700 hover:underline inline-block">
+        <Link href="/cam-do?tt=qua-han" className="mt-1 text-xs text-teal-700 hover:underline inline-block">
           Xem danh sách
         </Link>
       </div>

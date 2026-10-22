@@ -176,3 +176,32 @@ test("KTV xem trang khách thấy CCCD đã che, không có nút xem số đầy
   await expect(info.getByRole("button", { name: "Hiện số đầy đủ" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Sửa thông tin" })).toBeVisible();
 });
+
+test("/cam-do: tìm tên không dấu, tìm tài sản, CCCD, lọc loại, bỏ lọc", async ({ page }) => {
+  await signIn(page);
+  await page.goto("/cam-do");
+  const contracts = page.getByRole("region", { name: "Danh sách hợp đồng" });
+  const form = page.getByRole("search");
+
+  await form.getByLabel("Tìm kiếm").fill("dang thi");
+  await form.getByRole("button", { name: "Lọc" }).click();
+  await expect(page).toHaveURL(/q=dang\+thi/);
+  await expect(contracts.getByRole("row", { name: /Đặng Thị Hoa/ })).toBeVisible();
+  await expect(contracts.getByRole("row", { name: /Nguyễn Văn Bình/ })).toHaveCount(0);
+
+  await form.getByLabel("Tìm kiếm").fill("HONDA vision");
+  await form.getByLabel("Số CCCD").fill(CCCD);
+  await form.getByRole("button", { name: "Lọc" }).click();
+  await expect(page).toHaveURL(/cccd=001099012345/);
+  await expect(contracts.getByRole("row", { name: /Nguyễn Văn Bình/ })).toBeVisible();
+  await expect(contracts.getByRole("row", { name: /Đặng Thị Hoa/ })).toHaveCount(0);
+
+  await form.getByLabel("Loại").selectOption("tin-chap");
+  await form.getByRole("button", { name: "Lọc" }).click();
+  await expect(page).toHaveURL(/loai=tin-chap/);
+  await expect(contracts.getByText("Không tìm thấy hợp đồng phù hợp.")).toBeVisible();
+
+  await page.getByRole("link", { name: "Bỏ lọc" }).click();
+  await expect(page).toHaveURL("/cam-do");
+  await expect(contracts.getByRole("row", { name: /Đặng Thị Hoa/ })).toBeVisible();
+});

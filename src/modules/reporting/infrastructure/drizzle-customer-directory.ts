@@ -1,6 +1,7 @@
 import "server-only";
 import { and, desc, eq, lt, or, sql, type SQL } from "drizzle-orm";
 import type { Db } from "@/shared/infrastructure/db/client";
+import { escapeLike } from "@/shared/infrastructure/db/like";
 import { contracts, customers } from "@/shared/infrastructure/db/schema";
 import type { LocalDate } from "@/shared/kernel/local-date";
 import { Money } from "@/shared/kernel/money";
@@ -13,9 +14,6 @@ export type HashCccd = (shopId: string, cccd: string) => string;
 
 /** Tìm SĐT khi ô tìm có ít nhất chừng này chữ số. */
 const MIN_PHONE_DIGITS = 3;
-
-// Ký tự đặc biệt của LIKE trong chuỗi người dùng nhập được tìm đúng nghĩa đen (ESCAPE mặc định là \).
-const escapeLike = (text: string) => text.replace(/[\\%_]/g, "\\$&");
 
 // reporting được truy vấn thẳng bảng của module khác, chỉ đọc (architecture-spec mục 2.2).
 export class DrizzleCustomerDirectory implements CustomerDirectory {

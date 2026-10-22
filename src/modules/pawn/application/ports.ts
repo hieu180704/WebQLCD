@@ -47,6 +47,23 @@ export type ContractListRow = {
   interestPaidUntil: LocalDate;
   prepaidInterest: boolean;
   status: "active" | "closed";
+  /** Chỉ có khi lọc "Đã xoá"; mặc định danh sách bỏ hợp đồng đã xoá. */
+  deleted: boolean;
+};
+
+/**
+ * Trạng thái lọc ở danh sách hợp đồng. "Quá hạn", "đến hạn" theo core-spec mục 2 (hạn đóng lãi; lãi suất 0 không bao giờ
+ * đến hạn); `due_soon` = hạn không sau hôm nay + DUE_WINDOW_DAYS, gồm cả quá hạn (như bảng đến hạn ở trang chủ).
+ */
+export type ContractStatusFilter = "open" | "overdue" | "due_today" | "due_soon" | "closed" | "deleted";
+
+/** `search`: mã HĐ, tên khách (không dấu), SĐT, tên tài sản (không dấu); `cccd`: đã chuẩn hoá, khớp đủ số qua hash. */
+export type ContractFilter = {
+  search: string | null;
+  cccd: string | null;
+  kind: ContractKind | null;
+  /** null = mọi hợp đồng chưa xoá. */
+  status: ContractStatusFilter | null;
 };
 
 /** Hợp đồng đang mở cần đóng lãi (trang chủ). */
@@ -64,7 +81,7 @@ export type DueContractRow = Pick<
   | "prepaidInterest"
 >;
 
-export type ContractDetailRow = Omit<ContractListRow, "customerPhone"> & {
+export type ContractDetailRow = Omit<ContractListRow, "customerPhone" | "deleted"> & {
   termDays: number;
   note: string | null;
   staffName: string;
@@ -165,8 +182,8 @@ export type ExtensionDraft = {
 /** Hợp đồng cầm đồ/tín chấp của một cửa hàng; mọi truy vấn lọc theo shopId của phiên. */
 export interface ContractRepository {
   create(actor: Actor, draft: ContractDraft): Promise<CreatedContract>;
-  /** Hợp đồng chưa xoá, mới nhất trước; `after` là id dòng cuối của trang trước (keyset). */
-  list(shopId: string, after: string | null, limit: number): Promise<ContractListRow[]>;
+  /** Hợp đồng khớp bộ lọc, mới nhất trước; `after` là id dòng cuối của trang trước (keyset). Hạn tính tới `today`. */
+  list(shopId: string, filter: ContractFilter, today: LocalDate, after: string | null, limit: number): Promise<ContractListRow[]>;
   /**
    * Hợp đồng đang mở, chưa xoá, lãi suất > 0, hạn đóng lãi (`nextInterestDue`) không sau `until`; hạn sớm nhất trước,
    * tối đa `limit` dòng.

@@ -59,7 +59,7 @@ export default async function Home() {
             <h2 id="due-title" className="font-semibold">
               Đến hạn đóng lãi
             </h2>
-            <Link href="/cam-do" className="ml-auto text-sm text-teal-700 hover:underline">
+            <Link href="/cam-do?tt=sap-den-han" className="ml-auto text-sm text-teal-700 hover:underline">
               Tất cả
             </Link>
           </div>

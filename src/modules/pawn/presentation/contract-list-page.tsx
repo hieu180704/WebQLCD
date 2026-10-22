@@ -1,20 +1,67 @@
 import Link from "next/link";
 import { z } from "zod";
 import { listContracts, requireSession } from "@/composition-root";
+import { normalizeCccd } from "@/modules/customer";
 import { formatVnd } from "@/shared/kernel/vnd";
+import type { ContractFilter, ContractStatusFilter } from "../application/ports";
 import { DueBadge, INTEREST_UNIT, formatDay } from "./format";
 
-// Tham số URL sai định dạng thì bỏ qua, không báo lỗi.
+// Khoá = giá trị tham số trên URL (trang chủ trỏ vào `tt=qua-han`, `tt=sap-den-han`).
+const KINDS: Record<string, { label: string; value: NonNullable<ContractFilter["kind"]> }> = {
+  "the-chap": { label: "Thế chấp (cầm đồ)", value: "secured" },
+  "tin-chap": { label: "Tín chấp", value: "unsecured" },
+};
+const STATUSES: Record<string, { label: string; value: ContractStatusFilter }> = {
+  "dang-mo": { label: "Đang mở", value: "open" },
+  "qua-han": { label: "Quá hạn", value: "overdue" },
+  "hom-nay": { label: "Đến hạn hôm nay", value: "due_today" },
+  "sap-den-han": { label: "Đến hạn trong 3 ngày (gồm quá hạn)", value: "due_soon" },
+  "da-dong": { label: "Đã chuộc / Đã đóng", value: "closed" },
+  "da-xoa": { label: "Đã xoá", value: "deleted" },
+};
+
+const keyOf = (record: Record<string, unknown>) =>
+  z
+    .enum(Object.keys(record) as [string, ...string[]])
+    .nullable()
+    .catch(null);
+
+// Tham số URL sai định dạng thì bỏ qua, không báo lỗi; CCCD sai định dạng thì báo để người nhập sửa.
 const querySchema = z.object({
+  q: z.string().trim().max(100).nullable().catch(null),
+  cccd: z.string().trim().max(30).nullable().catch(null),
+  loai: keyOf(KINDS),
+  tt: keyOf(STATUSES),
   sau: z.uuid().nullable().catch(null),
   moi: z.string().regex(/^(CD|TC)-\d{1,18}$/).nullable().catch(null),
   khach: z.literal("cu").nullable().catch(null),
 });
 
+type Params = { q?: string; cccd?: string; loai?: string; tt?: string; sau?: string };
+
+function contractHref(params: Params) {
+  const query = Object.fromEntries(Object.entries(params).filter(([, value]) => value));
+  return { pathname: "/cam-do", query };
+}
+
 export async function ContractListPage({ query }: { query: Record<string, string | string[] | undefined> }) {
   const principal = await requireSession();
-  const { sau, moi, khach } = querySchema.parse({ sau: first(query.sau), moi: first(query.moi), khach: first(query.khach) });
-  const view = await listContracts.execute(principal.shopId, sau);
+  const params = querySchema.parse(Object.fromEntries(Object.keys(querySchema.shape).map((key) => [key, first(query[key])])));
+  const { moi, khach } = params;
+  const q = params.q || null;
+  const cccdText = params.cccd || null;
+  const cccd = cccdText ? normalizeCccd(cccdText) : null;
+  const filter: ContractFilter = {
+    search: q,
+    cccd,
+    kind: params.loai ? KINDS[params.loai].value : null,
+    status: params.tt ? STATUSES[params.tt].value : null,
+  };
+  // CCCD nhập sai định dạng: không tìm, không trả danh sách đầy đủ (người dùng tưởng là kết quả tìm).
+  const invalidCccd = cccdText !== null && cccd === null;
+  const view = invalidCccd ? null : await listContracts.execute(principal.shopId, filter, params.sau);
+  const filtered = Boolean(q || cccdText || params.loai || params.tt);
+  const kept: Params = { q: q ?? undefined, cccd: cccdText ?? undefined, loai: params.loai ?? undefined, tt: params.tt ?? undefined };
 
   return (
     <>
@@ -35,9 +82,73 @@ export async function ContractListPage({ query }: { query: Record<string, string
       )}
 
       <section className="card mt-6" aria-label="Danh sách hợp đồng">
-        {view.items.length === 0 ? (
-          <p className="p-5 text-sm text-slate-500">Chưa có hợp đồng nào.</p>
-        ) : (
+        <form action="/cam-do" className="p-4 flex flex-wrap gap-3 items-end border-b border-slate-200" role="search">
+          <div className="field flex-1 min-w-[240px]">
+            <label htmlFor="q">Tìm kiếm</label>
+            <input
+              id="q"
+              name="q"
+              defaultValue={q ?? ""}
+              maxLength={100}
+              className="input"
+              placeholder="Mã HĐ, tên khách, SĐT, tên tài sản"
+            />
+          </div>
+          <div className="field w-full sm:w-52">
+            <label htmlFor="cccd">Số CCCD (khớp đủ số)</label>
+            <input
+              id="cccd"
+              name="cccd"
+              defaultValue={cccdText ?? ""}
+              inputMode="numeric"
+              maxLength={30}
+              className="input num"
+              placeholder="0xxxxxxxxxxx"
+              aria-invalid={invalidCccd || undefined}
+              aria-describedby={invalidCccd ? "cccd-error" : undefined}
+            />
+          </div>
+          <div className="field w-[calc(50%-6px)] sm:w-44">
+            <label htmlFor="loai">Loại</label>
+            <select id="loai" name="loai" defaultValue={params.loai ?? ""} className="input">
+              <option value="">Tất cả</option>
+              {Object.entries(KINDS).map(([key, { label }]) => (
+                <option key={key} value={key}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="field w-[calc(50%-6px)] sm:w-56">
+            <label htmlFor="tt">Trạng thái</label>
+            <select id="tt" name="tt" defaultValue={params.tt ?? ""} className="input">
+              <option value="">Tất cả (chưa xoá)</option>
+              {Object.entries(STATUSES).map(([key, { label }]) => (
+                <option key={key} value={key}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <button type="submit" className="btn btn-outline">
+            Lọc
+          </button>
+          {filtered && (
+            <Link href="/cam-do" className="btn btn-outline">
+              Bỏ lọc
+            </Link>
+          )}
+        </form>
+
+        {invalidCccd && (
+          <p id="cccd-error" role="alert" className="p-5 text-sm text-red-700">
+            Số CCCD phải đủ 12 số (hoặc CMND 9 số).
+          </p>
+        )}
+        {view && view.items.length === 0 && (
+          <p className="p-5 text-sm text-slate-500">{filtered ? "Không tìm thấy hợp đồng phù hợp." : "Chưa có hợp đồng nào."}</p>
+        )}
+        {view && view.items.length > 0 && (
           <div className="overflow-x-auto">
             <table className="table">
               <thead>
@@ -55,9 +166,9 @@ export async function ContractListPage({ query }: { query: Record<string, string
               </thead>
               <tbody>
                 {view.items.map((c) => (
-                  <tr key={c.id}>
+                  <tr key={c.id} className={c.deleted ? "text-slate-400" : undefined}>
                     <td className="font-medium">
-                      <Link href={`/cam-do/${c.id}`} className="text-teal-700 hover:underline">
+                      <Link href={`/cam-do/${c.id}`} className={c.deleted ? "line-through hover:underline" : "text-teal-700 hover:underline"}>
                         {c.code}
                       </Link>
                     </td>
@@ -78,7 +189,11 @@ export async function ContractListPage({ query }: { query: Record<string, string
                     <td>
                       {c.nextInterestDue && <div className="num">{formatDay(c.nextInterestDue)}</div>}
                       <div className={c.nextInterestDue ? "mt-1" : ""}>
-                        <DueBadge due={c.nextInterestDue} today={view.today} kind={c.kind} />
+                        {c.deleted ? (
+                          <span className="badge badge-late">Đã xoá</span>
+                        ) : (
+                          <DueBadge due={c.nextInterestDue} today={view.today} kind={c.kind} />
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -87,9 +202,9 @@ export async function ContractListPage({ query }: { query: Record<string, string
             </table>
           </div>
         )}
-        {view.nextAfter && (
+        {view?.nextAfter && (
           <div className="p-4">
-            <Link href={{ pathname: "/cam-do", query: { sau: view.nextAfter } }} className="btn btn-outline !h-9">
+            <Link href={contractHref({ ...kept, sau: view.nextAfter })} className="btn btn-outline !h-9">
               Xem tiếp
             </Link>
           </div>

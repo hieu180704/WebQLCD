@@ -261,7 +261,8 @@ export const contracts = pgTable(
     index("contracts_shop_status_paid_until_idx").on(t.shopId, t.status, t.interestPaidUntil),
     index("contracts_shop_customer_idx").on(t.shopId, t.customerId),
     index("contracts_code_trgm_idx").using("gin", t.code.op("gin_trgm_ops")),
-    index("contracts_asset_name_trgm_idx").using("gin", t.assetName.op("gin_trgm_ops")),
+    // Tìm tài sản không dấu như tên khách (search_text, migration 0007).
+    index("contracts_asset_name_search_trgm_idx").using("gin", sql`search_text(${t.assetName}) gin_trgm_ops`),
   ],
 );
 

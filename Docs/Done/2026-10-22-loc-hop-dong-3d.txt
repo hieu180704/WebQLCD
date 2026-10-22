@@ -1,0 +1,15 @@
+# 2026-10-22: Lát 3d tìm/lọc danh sách hợp đồng — [verified: lint, typecheck, 168 unit/DB test, 30 e2e]
+
+- Commit: xem commit "Lát 3d: tìm, lọc danh sách hợp đồng" ngay sau 0820512
+- Đã làm:
+  1. Pawn `ContractRepository.list(shopId, filter, today, after, limit)`: lọc bằng SQL, keyset theo id giữ nguyên. Tìm: mã HĐ (`ILIKE`, index trigram `code`), tên khách và tên tài sản qua `search_text` (không dấu), SĐT khi ô tìm có ≥ 3 chữ số; ký tự LIKE thoát bằng `escapeLike` (chuyển từ reporting sang `src/shared/infrastructure/db/like.ts`, dùng chung). CCCD khớp `cccd_hash` (repository nhận hàm băm qua composition-root như reporting). Trạng thái: Tất cả (chưa xoá) / Đang mở / Quá hạn / Đến hạn hôm nay / Đến hạn trong 3 ngày (`DUE_WINDOW_DAYS`, gồm quá hạn) / Đã chuộc-đã đóng / Đã xoá; lọc hạn bỏ lãi suất 0 như trang chủ. `ContractListRow` thêm `deleted`; `ListContracts` không tính lãi/hạn cho hợp đồng đã xoá.
+  2. Trang `/cam-do`: form GET (Tìm kiếm, Số CCCD, Loại, Trạng thái, Bỏ lọc), CCCD sai định dạng thì báo lỗi, không trả danh sách; "Xem tiếp" giữ bộ lọc; dòng đã xoá mờ, gạch mã, nhãn "Đã xoá".
+  3. Trang chủ: "Tất cả" (bảng đến hạn) → `/cam-do?tt=sap-den-han`; "Xem danh sách" (ô quá hạn) → `/cam-do?tt=qua-han`.
+  4. Migration 0008 (drizzle-kit sinh): index trigram `search_text(asset_name)` thay index trên `asset_name` thô (luật cấm LIKE '%x%' trên cột không có index trigram).
+  5. Test: unit `ListContracts` (bộ lọc chuyển nguyên, đã xoá không tính lãi); DB test lọc (7 trạng thái, loại, tìm mã/tên/tài sản/SĐT, LIKE nghĩa đen, CCCD, cách ly cửa hàng) + hợp đồng đã xoá hiện ở lọc "Đã xoá"; e2e lọc `/cam-do` (customers.spec) và hai nút trang chủ (dashboard.spec).
+  6. Docs: core-spec mục 2 (tìm/lọc hợp đồng, nút trang chủ), data-model 3.9, handoff.
+- Trạng thái: xong lát 3d, xong mục 3 pilot-scope. Kế tiếp mục 4 (khoá KTV, đổi/đặt lại mật khẩu), chưa chia lát.
+- Lưu ý cho phiên sau:
+  - Khác mockup: trạng thái mặc định "Tất cả (chưa xoá)" (mockup mặc định "Đang mở"), thêm "Đến hạn trong 3 ngày" để khớp bảng trang chủ. 4 ô thống kê và Xuất Excel của mockup chưa làm.
+  - Tìm là OR giữa cột của `contracts` và `customers` nên planner khó dùng từng index trigram; đã lọc `shop_id` trước. Chưa đo `EXPLAIN ANALYZE` với dữ liệu lớn; cần đo khi có dữ liệu thật.
+  - Badge trạng thái theo `DueBadge`: hợp đồng lãi suất 0 vẫn có thể hiện "Quá N ngày" nhưng không vào lọc "Quá hạn" (lệch có sẵn, ghi ở worklog 3b).
