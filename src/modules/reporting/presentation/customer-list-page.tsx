@@ -132,7 +132,9 @@ export async function CustomerListPage({ query }: { query: Record<string, string
                 {view.items.map((c) => (
                   <tr key={c.id}>
                     <td>
-                      <div className="font-medium">{c.fullName}</div>
+                      <Link href={`/khach-hang/${c.id}`} className="font-medium text-teal-700 hover:underline">
+                        {c.fullName}
+                      </Link>
                       {c.phone && <div className="text-xs text-slate-500 num">{c.phone}</div>}
                     </td>
                     <td className={c.cccdMasked ? "num" : "text-slate-400"}>{c.cccdMasked ?? "Chưa có"}</td>

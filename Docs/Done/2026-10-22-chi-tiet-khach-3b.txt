@@ -1,0 +1,16 @@
+# 2026-10-22: Lát 3b chi tiết khách hàng — [verified: lint, typecheck, 161 unit/DB test, 27 e2e ×2 lần liền]
+
+- Commit: xem commit "Lát 3b: chi tiết khách hàng" ngay sau 5362f46
+- Đã làm:
+  1. Read-model `reporting`: `GetCustomerDetail` + `DrizzleCustomerProfile`, 3 truy vấn song song đều lọc `shop_id`: khách kèm số liệu gộp bằng SQL (HĐ mở, quá hạn qua `overdueCondition`, dư nợ, Σ lãi `interest_payment` không có dòng đảo); hợp đồng của khách kể cả đã đóng/đã xoá (hạn đóng lãi qua hàm `contract_interest_due`, chỉ với HĐ đang mở); 20 giao dịch két gần nhất JOIN `contracts` theo `customer_id`, `occurred_at` rồi `id` giảm dần.
+  2. Trang `/khach-hang/[id]` theo mockup: 4 ô, nhãn "N hợp đồng quá hạn" ở tiêu đề, bảng hợp đồng (đã xoá: mờ, gạch ngang mã, nhãn "Đã xoá"), bảng giao dịch (nhãn "Đã huỷ", dòng đảo nêu lý do), khung thông tin khách (SĐT đầy đủ, CCCD 4 số cuối). Không có nút: "Sửa thông tin", "Hiện số đầy đủ" để 3c; "+ Cầm đồ" hoãn; "+ Trả góp" ẩn. id sai định dạng hoặc khách của cửa hàng khác → 404.
+  3. Link tên khách sang trang chi tiết: `/khach-hang`, `/cam-do`, khung Khách hàng ở `/cam-do/[id]`. Pawn thêm `customerId` vào `ContractListRow` (list + findDetail).
+  4. Dùng lại của pawn qua `pawn/index.ts`: `DueBadge`, `CONTRACT_CASH_LABEL` (chuyển từ `contract-detail-page.tsx` sang `format.tsx`), type `ContractCashType`.
+  5. Test: unit `GetCustomerDetail`; DB test 4 ca (số liệu + lãi bị đảo + HĐ đã xoá, bảng hợp đồng, giao dịch gần đây + giới hạn, cách ly cửa hàng A/B); e2e ca thứ hai trong `e2e/customers.spec.ts` (chuyển file sang `mode: "serial"` vì dùng cửa hàng ca đầu tạo).
+  6. Docs: core-spec mục 2 ("Chi tiết khách hàng"), architecture-spec 3.1 (vai trò reporting), handoff.
+- Trạng thái: xong lát 3b; kế tiếp lát 3c.
+- Lưu ý cho phiên sau:
+  - Khác mockup: mã hợp đồng đã xoá vẫn là link (trang chi tiết hợp đồng xem được hợp đồng đã xoá, có lý do xoá); mockup để chữ thường.
+  - Bảng hợp đồng của khách không phân trang (một khách ít hợp đồng). Nếu thực tế có khách hàng trăm hợp đồng thì thêm giới hạn + "Xem tiếp".
+  - Badge trạng thái theo `DueBadge` như `/cam-do`: HĐ lãi suất 0 vẫn có hạn, có thể hiện "Quá N ngày", trong khi ô đếm quá hạn (theo `overdueCondition`) bỏ qua lãi suất 0. Lệch có sẵn từ trước giữa `/cam-do` và trang chủ, không sửa ở lát này.
+  - Prettier chỉ chạy trên file mới (bề rộng mặc định 80), file cũ giữ nguyên.

@@ -65,7 +65,7 @@
 - `pawn`: hợp đồng cầm đồ và tín chấp; tạo, sửa, đóng lãi, chuộc, đóng hợp đồng.
 - `installment`: hợp đồng trả góp.
 - `cashbook`: quỹ két và sổ giao dịch thu/chi; nguồn sự thật duy nhất về tiền.
-- `reporting`: báo cáo, tra cứu lịch sử, thống kê trang chủ, danh sách khách hàng kèm số liệu hợp đồng (lọc, phân trang trên số liệu gộp nên phải là một truy vấn), xuất Excel; chỉ đọc. Ghi/sửa khách vẫn thuộc `customer`.
+- `reporting`: báo cáo, tra cứu lịch sử, thống kê trang chủ, danh sách khách hàng kèm số liệu hợp đồng (lọc, phân trang trên số liệu gộp nên phải là một truy vấn), chi tiết khách hàng (hợp đồng và giao dịch két của khách), xuất Excel; chỉ đọc. Ghi/sửa khách vẫn thuộc `customer`.
 
 ## 3.2 Cấu trúc thư mục
 ```

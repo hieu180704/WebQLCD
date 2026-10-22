@@ -94,6 +94,7 @@ export class DrizzleContractRepository implements ContractRepository {
       .select({
         id: contracts.id,
         code: contracts.code,
+        customerId: contracts.customerId,
         customerName: customers.fullName,
         customerPhone: customers.phone,
         kind: contracts.kind,
@@ -166,6 +167,7 @@ export class DrizzleContractRepository implements ContractRepository {
       .select({
         id: contracts.id,
         code: contracts.code,
+        customerId: contracts.customerId,
         customerName: customers.fullName,
         kind: contracts.kind,
         assetName: contracts.assetName,

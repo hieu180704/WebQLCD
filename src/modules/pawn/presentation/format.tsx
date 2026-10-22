@@ -1,6 +1,15 @@
 import { diffDays } from "@/shared/kernel/local-date";
-import type { ContractListRow } from "../application/ports";
+import type { ContractCashType, ContractListRow } from "../application/ports";
 import type { InterestType } from "../application/preview";
+
+/** Nội dung dòng sổ két của hợp đồng (lịch sử giao dịch ở chi tiết hợp đồng, chi tiết khách). */
+export const CONTRACT_CASH_LABEL: Record<ContractCashType, string> = {
+  disbursement: "Giải ngân, tạo hợp đồng",
+  additional_loan: "Vay thêm",
+  interest_payment: "Đóng lãi",
+  principal_repayment: "Trả gốc",
+  reversal: "Huỷ giao dịch",
+};
 
 export const INTEREST_UNIT: Record<InterestType, string> = {
   per_million_per_day: "k/triệu/ngày",

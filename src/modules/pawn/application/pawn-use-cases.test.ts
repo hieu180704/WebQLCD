@@ -142,6 +142,7 @@ describe("ListContracts", () => {
   const row = (i: number, overrides: Partial<ContractListRow> = {}): ContractListRow => ({
     id: `id-${i}`,
     code: `CD-${i}`,
+    customerId: "khach",
     customerName: "Khách",
     customerPhone: null,
     kind: "secured",
@@ -178,6 +179,7 @@ describe("ListDueContracts", () => {
   const row = (overrides: Partial<ContractListRow> = {}): ContractListRow => ({
     id: "id",
     code: "CD-1",
+    customerId: "khach",
     customerName: "Khách",
     customerPhone: null,
     kind: "secured",
@@ -499,6 +501,7 @@ describe("EditContract", () => {
   const detail = (overrides: Partial<ContractDetailRow> = {}): ContractDetailRow => ({
     id: "k",
     code: "CD-7",
+    customerId: "khach",
     customerName: "Khách",
     kind: "secured",
     assetName: "Xe Vision",

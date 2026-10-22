@@ -32,6 +32,7 @@ export type CreatedContract = { code: string; customer: ResolvedCustomer };
 export type ContractListRow = {
   id: string;
   code: string;
+  customerId: string;
   customerName: string;
   /** Đã che giữa (web-security). */
   customerPhone: string | null;

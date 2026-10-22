@@ -62,7 +62,9 @@ export async function ContractListPage({ query }: { query: Record<string, string
                       </Link>
                     </td>
                     <td>
-                      <div className="font-medium">{c.customerName}</div>
+                      <Link href={`/khach-hang/${c.customerId}`} className="font-medium hover:underline">
+                        {c.customerName}
+                      </Link>
                       {c.customerPhone && <div className="text-xs text-slate-500 num">{c.customerPhone}</div>}
                     </td>
                     <td>{c.kind === "secured" ? "Thế chấp" : "Tín chấp"}</td>

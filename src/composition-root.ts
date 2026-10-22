@@ -29,9 +29,11 @@ import { PayInterest } from "@/modules/pawn/application/pay-interest";
 import { RedeemContract } from "@/modules/pawn/application/redeem-contract";
 import { ReverseOperation } from "@/modules/pawn/application/reverse-operation";
 import { DrizzleContractRepository } from "@/modules/pawn/infrastructure/drizzle-contract-repository";
+import { GetCustomerDetail } from "@/modules/reporting/application/get-customer-detail";
 import { GetDashboardStats } from "@/modules/reporting/application/get-dashboard-stats";
 import { ListCustomers } from "@/modules/reporting/application/list-customers";
 import { DrizzleCustomerDirectory } from "@/modules/reporting/infrastructure/drizzle-customer-directory";
+import { DrizzleCustomerProfile } from "@/modules/reporting/infrastructure/drizzle-customer-profile";
 import { DrizzleDashboardStats } from "@/modules/reporting/infrastructure/drizzle-dashboard-stats";
 import { DrizzleShopRepository } from "@/modules/shop/infrastructure/drizzle-shop-repository";
 import { db } from "@/shared/infrastructure/db/client";
@@ -79,3 +81,4 @@ export const getDashboardStats = new GetDashboardStats(new DrizzleDashboardStats
 export const listCustomers = new ListCustomers(
   new DrizzleCustomerDirectory(db, (shopId, cccd) => (cccdCipher ??= CccdCipher.fromEnv()).hash(shopId, cccd)),
 );
+export const getCustomerDetail = new GetCustomerDetail(new DrizzleCustomerProfile(db));

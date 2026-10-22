@@ -6,6 +6,8 @@ const RUN = Date.now().toString(36);
 const OWNER = { username: `e2e_kh_${RUN}`, password: "matkhau123", email: `e2e_kh_${RUN}@example.com` };
 const CCCD = "001099012345";
 
+// Test sau dùng cửa hàng và hợp đồng test đầu tạo.
+test.describe.configure({ mode: "serial" });
 test.beforeEach(clearLoginThrottles);
 
 /** Ngày nghiệp vụ (giờ Việt Nam) lùi `days` ngày, dạng YYYY-MM-DD. */
@@ -84,4 +86,41 @@ test("danh sách khách: số liệu hợp đồng, tìm không dấu, tìm CCCD
   await page.getByRole("link", { name: "Bỏ lọc" }).click();
   await expect(page).toHaveURL("/khach-hang");
   await expect(list(page).getByRole("row", { name: /Đặng Thị Hoa/ })).toBeVisible();
+});
+
+test("chi tiết khách: số liệu, hợp đồng, giao dịch; tên khách ở /cam-do và chi tiết hợp đồng là link", async ({ page }) => {
+  await page.goto("/dang-nhap");
+  await page.getByLabel("Tên đăng nhập").fill(OWNER.username);
+  await page.getByLabel("Mật khẩu").fill(OWNER.password);
+  await page.getByRole("button", { name: "Đăng nhập" }).click();
+  await expect(page).toHaveURL("/");
+
+  await page.goto("/khach-hang");
+  await list(page).getByRole("link", { name: "Nguyễn Văn Bình" }).click();
+  await expect(page).toHaveURL(/\/khach-hang\/[0-9a-f-]{36}$/);
+  const customerUrl = page.url();
+  await expect(page.getByRole("heading", { level: 1, name: "Nguyễn Văn Bình" })).toBeVisible();
+  await expect(page.getByText("1 hợp đồng quá hạn")).toBeVisible();
+  const stats = page.getByRole("region", { name: "Số liệu" });
+  await expect(stats).toContainText("HĐ đang mở1");
+  await expect(stats).toContainText("Dư nợ hiện tại5.000.000");
+  await expect(stats).toContainText("Tổng lãi đã đóng0");
+  const info = page.getByRole("region", { name: "Thông tin khách" });
+  await expect(info).toContainText("0912345678");
+  await expect(info).toContainText("********2345");
+  await expect(page.getByRole("region", { name: "Giao dịch gần đây" }).getByRole("row", { name: /Giải ngân, tạo hợp đồng/ })).toContainText(
+    "5.000.000",
+  );
+  const contract = page.getByRole("region", { name: "Hợp đồng của khách" }).getByRole("row", { name: /Honda Vision 2022/ });
+  await expect(contract).toContainText("Quá");
+
+  await contract.getByRole("link").click();
+  await expect(page).toHaveURL(/\/cam-do\/[0-9a-f-]{36}$/);
+  await page.getByRole("region", { name: "Khách hàng" }).getByRole("link", { name: "Nguyễn Văn Bình" }).click();
+  await expect(page).toHaveURL(customerUrl);
+
+  await page.goto("/cam-do");
+  await page.getByRole("link", { name: "Đặng Thị Hoa" }).click();
+  await expect(page).toHaveURL(/\/khach-hang\/[0-9a-f-]{36}$/);
+  await expect(page.getByRole("heading", { level: 1, name: "Đặng Thị Hoa" })).toBeVisible();
 });

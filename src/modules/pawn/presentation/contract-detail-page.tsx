@@ -6,24 +6,16 @@ import { getContractDetail, requireSession } from "@/composition-root";
 import { BUSINESS_TIME_ZONE, businessDate, diffDays } from "@/shared/kernel/local-date";
 import { formatVnd } from "@/shared/kernel/vnd";
 import type { ContractDetailView } from "../application/get-contract-detail";
-import type { ContractCashType, ContractTransaction, LatestOperation } from "../application/ports";
+import type { ContractTransaction, LatestOperation } from "../application/ports";
 import { DeleteDialog } from "./delete-dialog";
 import { EditDialog } from "./edit-dialog";
 import { ExtendDialog } from "./extend-dialog";
-import { DueBadge, INTEREST_UNIT, formatDay } from "./format";
+import { CONTRACT_CASH_LABEL, DueBadge, INTEREST_UNIT, formatDay } from "./format";
 import { OperationStatus, OperationStatusMessage } from "./operation-status";
 import { PayInterestDialog } from "./pay-interest-dialog";
 import { PrincipalDialog } from "./principal-dialog";
 import { RedeemDialog } from "./redeem-dialog";
 import { ReverseDialog } from "./reverse-dialog";
-
-const TYPE_LABEL: Record<ContractCashType, string> = {
-  disbursement: "Giải ngân, tạo hợp đồng",
-  additional_loan: "Vay thêm",
-  interest_payment: "Đóng lãi",
-  principal_repayment: "Trả gốc",
-  reversal: "Huỷ giao dịch",
-};
 
 const formatTime = new Intl.DateTimeFormat("vi-VN", { timeZone: BUSINESS_TIME_ZONE, timeStyle: "short" }).format;
 
@@ -192,7 +184,11 @@ export async function ContractDetailPage({ id }: { id: string }) {
             </h2>
             <dl className="mt-4 grid grid-cols-[110px_1fr] gap-y-3 text-sm">
               <dt className="text-slate-500">Họ tên</dt>
-              <dd className="font-medium">{contract.customerName}</dd>
+              <dd className="font-medium">
+                <Link href={`/khach-hang/${contract.customerId}`} className="text-teal-700 hover:underline">
+                  {contract.customerName}
+                </Link>
+              </dd>
               <dt className="text-slate-500">Số CCCD</dt>
               <dd className="num">{contract.customer.cccdMasked ?? "—"}</dd>
               <dt className="text-slate-500">SĐT</dt>
@@ -332,7 +328,7 @@ function History({ history, reverse }: { history: ContractTransaction[]; reverse
               <tr key={t.id} className={t.reversed ? "text-slate-400" : undefined}>
                 <td className="num">{formatDateTime(t.occurredAt)}</td>
                 <td>
-                  {TYPE_LABEL[t.type]}
+                  {CONTRACT_CASH_LABEL[t.type]}
                   {t.periodFrom && t.periodTo && ` ${formatDay(t.periodFrom)} – ${formatDay(t.periodTo)}`}
                   {t.type === "reversal" && t.note && ` — ${t.note}`}
                   {t.reversed && <span className="badge badge-muted ml-2">Đã huỷ</span>}
