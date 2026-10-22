@@ -7,6 +7,7 @@ import {
   changePrincipal,
   createContract,
   deleteContract,
+  editContract,
   extendContract,
   payInterest,
   redeemContract,
@@ -17,6 +18,7 @@ import { formatVnd } from "@/shared/kernel/vnd";
 import type { ChangePrincipalError } from "../application/change-principal";
 import type { ContractRuleViolation } from "../application/create-contract";
 import type { DeleteContractError } from "../application/delete-contract";
+import type { EditContractError } from "../application/edit-contract";
 import type { ExtendContractError } from "../application/extend-contract";
 import type { PayInterestError } from "../application/pay-interest";
 import type { RedeemContractError } from "../application/redeem-contract";
@@ -27,6 +29,7 @@ import {
   changePrincipalSchema,
   contractFormSchema,
   deleteSchema,
+  editSchema,
   extendSchema,
   payInterestSchema,
   redeemSchema,
@@ -320,4 +323,45 @@ export async function deleteContractAction(previous: ContractOperationState, for
   // Hợp đồng đã xoá vẫn xem được: trang tải lại hiện nhãn "Đã xoá" kèm lý do.
   refresh();
   return { error: null, message: null, done: previous.done + 1 };
+}
+
+const EDIT_MESSAGE: Record<EditContractError, string> = {
+  not_found: "Không tìm thấy hợp đồng.",
+  deleted: "Hợp đồng đã xoá, không sửa được.",
+  stale: "Thông tin hợp đồng vừa được người khác sửa. Số liệu đã tải lại, kiểm tra rồi thử lại.",
+  asset_required: "Hợp đồng thế chấp phải có tên tài sản.",
+};
+
+export async function editContractAction(previous: ContractOperationState, formData: FormData): Promise<ContractOperationState> {
+  const fail = (error: string): ContractOperationState => ({ ...previous, error, message: null });
+  let actor;
+  try {
+    actor = await requireSession({ write: true });
+  } catch (error) {
+    if (error instanceof AccessDeniedError) return fail(OPERATION_DENIED[error.reason]);
+    throw error;
+  }
+
+  const field = (name: string) => String(formData.get(name) ?? "");
+  const parsed = editSchema.safeParse({
+    contractId: formData.get("contractId"),
+    assetName: field("assetName"),
+    note: field("note"),
+    expectedAssetName: field("expectedAssetName"),
+    expectedNote: field("expectedNote"),
+  });
+  if (!parsed.success) return fail(parsed.error.issues[0].message);
+  const { contractId, assetName, note, expectedAssetName, expectedNote } = parsed.data;
+
+  const result = await editContract.execute(
+    { userId: actor.userId, shopId: actor.shopId },
+    { contractId, expected: { assetName: expectedAssetName, note: expectedNote }, info: { assetName, note } },
+  );
+  if (!result.ok) {
+    if (result.error === "stale") refresh();
+    return fail(EDIT_MESSAGE[result.error]);
+  }
+  refresh();
+  const message = result.changed.length ? "Đã lưu thông tin hợp đồng." : "Không có thay đổi nào.";
+  return { error: null, message, done: previous.done + 1 };
 }

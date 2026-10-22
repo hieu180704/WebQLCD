@@ -5,15 +5,18 @@ import type { ContractTerms } from "../domain/contract";
 import { ChangePrincipal, type ChangePrincipalInput } from "./change-principal";
 import { CreateContract, type CreateContractInput } from "./create-contract";
 import { DeleteContract } from "./delete-contract";
+import { EditContract } from "./edit-contract";
 import { ExtendContract, type ExtendContractInput } from "./extend-contract";
 import { CONTRACT_PAGE_SIZE, ListContracts } from "./list-contracts";
 import { PayInterest, type PayInterestInput } from "./pay-interest";
 import type {
+  ContractDetailRow,
   ContractDraft,
   ContractListRow,
   ContractRepository,
   ContractStanding,
   DeletionDraft,
+  EditDraft,
   ExtensionDraft,
   InterestPaymentDraft,
   LatestOperation,
@@ -53,6 +56,7 @@ function fakeRepo(
   standing: ContractStanding | null = null,
   saves = true,
   latest: LatestOperation | null = null,
+  detail: ContractDetailRow | null = null,
 ) {
   const drafts: ContractDraft[] = [];
   const payments: InterestPaymentDraft[] = [];
@@ -61,13 +65,14 @@ function fakeRepo(
   const extensions: ExtensionDraft[] = [];
   const reversals: ReversalDraft[] = [];
   const deletions: DeletionDraft[] = [];
+  const edits: EditDraft[] = [];
   const repo: ContractRepository = {
     create: async (_actor, draft) => {
       drafts.push(draft);
       return { code: "CD-1", customer: { id: "c", fullName: "Khách Cũ", reused } };
     },
     list: async (_shop, _after, limit) => rows.slice(0, limit),
-    findDetail: async () => null,
+    findDetail: async () => detail,
     listTransactions: async () => [],
     findStanding: async () => standing,
     recordInterestPayment: async (_actor, draft) => {
@@ -95,8 +100,12 @@ function fakeRepo(
       deletions.push(draft);
       return saves;
     },
+    recordEdit: async (_actor, draft) => {
+      edits.push(draft);
+      return saves;
+    },
   };
-  return { repo, drafts, payments, redemptions, principalChanges, extensions, reversals, deletions };
+  return { repo, drafts, payments, redemptions, principalChanges, extensions, reversals, deletions, edits };
 }
 
 describe("CreateContract", () => {
@@ -447,5 +456,70 @@ describe("DeleteContract", () => {
       ok: false,
       error: "not_found",
     });
+  });
+});
+
+describe("EditContract", () => {
+  const detail = (overrides: Partial<ContractDetailRow> = {}): ContractDetailRow => ({
+    id: "k",
+    code: "CD-7",
+    customerName: "Khách",
+    kind: "secured",
+    assetName: "Xe Vision",
+    principal: Money.fromNumber(5_000_000),
+    outstandingPrincipal: Money.fromNumber(5_000_000),
+    loanDate: "2026-10-15",
+    interestType: "per_million_per_day",
+    interestRate: 30_000n,
+    interestPeriodDays: 10,
+    interestPaidUntil: "2026-10-15",
+    prepaidInterest: false,
+    status: "active",
+    termDays: 30,
+    note: null,
+    staffName: "Chủ",
+    closedOn: null,
+    customer: { phone: null, address: null, cccdMasked: null },
+    interestPaid: Money.ZERO,
+    ledgerNet: Money.fromNumber(-5_000_000),
+    deleted: null,
+    ...overrides,
+  });
+  const expected = { assetName: "Xe Vision", note: null };
+
+  it("ghi field đã đổi, khoá theo giá trị đang thấy", async () => {
+    const { repo, edits } = fakeRepo([], false, null, true, null, detail());
+    const result = await new EditContract(repo).execute(actor, { contractId: "k", expected, info: { assetName: "Xe Vision 2022", note: null } });
+    expect(result).toEqual({ ok: true, changed: ["assetName"] });
+    expect(edits[0]).toMatchObject({ expected, info: { assetName: "Xe Vision 2022", note: null }, changed: ["assetName"] });
+  });
+
+  it("không đổi gì thì không ghi", async () => {
+    const { repo, edits } = fakeRepo([], false, null, true, null, detail());
+    expect(await new EditContract(repo).execute(actor, { contractId: "k", expected, info: expected })).toEqual({ ok: true, changed: [] });
+    expect(edits).toHaveLength(0);
+  });
+
+  it("cầm đồ phải có tên tài sản; tín chấp được bỏ trống", async () => {
+    const info = { assetName: null, note: "ghi chú" };
+    const secured = fakeRepo([], false, null, true, null, detail());
+    expect(await new EditContract(secured.repo).execute(actor, { contractId: "k", expected, info })).toEqual({ ok: false, error: "asset_required" });
+    const unsecured = fakeRepo([], false, null, true, null, detail({ kind: "unsecured" }));
+    expect(await new EditContract(unsecured.repo).execute(actor, { contractId: "k", expected, info })).toEqual({
+      ok: true,
+      changed: ["assetName", "note"],
+    });
+  });
+
+  it("không thấy, đã xoá, người khác vừa sửa, repository không khớp: không ghi", async () => {
+    const info = { assetName: "Xe", note: null };
+    expect(await new EditContract(fakeRepo().repo).execute(actor, { contractId: "k", expected, info })).toEqual({ ok: false, error: "not_found" });
+    const deleted = fakeRepo([], false, null, true, null, detail({ deleted: { on: "2026-10-20", reason: "x" } }));
+    expect(await new EditContract(deleted.repo).execute(actor, { contractId: "k", expected, info })).toEqual({ ok: false, error: "deleted" });
+    const stale = fakeRepo([], false, null, true, null, detail({ note: "người khác vừa ghi" }));
+    expect(await new EditContract(stale.repo).execute(actor, { contractId: "k", expected, info })).toEqual({ ok: false, error: "stale" });
+    expect([...deleted.edits, ...stale.edits]).toHaveLength(0);
+    const conflict = fakeRepo([], false, null, false, null, detail());
+    expect(await new EditContract(conflict.repo).execute(actor, { contractId: "k", expected, info })).toEqual({ ok: false, error: "stale" });
   });
 });

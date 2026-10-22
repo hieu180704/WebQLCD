@@ -198,3 +198,12 @@ export const deleteSchema = z.object({
   confirmCode: z.string().max(30),
   reason: reason("Lý do xoá"),
 });
+
+export const editSchema = z.object({
+  contractId: z.uuid("Hợp đồng không hợp lệ."),
+  assetName: optionalText(200, "Tên tài sản"),
+  note: optionalText(500, "Ghi chú"),
+  // Giá trị lúc mở hộp thoại (khoá lạc quan), cùng cách chuẩn hoá với giá trị mới.
+  expectedAssetName: optionalText(200, "Tên tài sản"),
+  expectedNote: optionalText(500, "Ghi chú"),
+});

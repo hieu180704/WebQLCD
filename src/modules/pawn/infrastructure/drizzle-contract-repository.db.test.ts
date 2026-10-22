@@ -680,4 +680,30 @@ describe.skipIf(!url)("DrizzleContractRepository", () => {
       expect(await repo(db).findStanding(a.shopId, id)).toMatchObject({ outstandingPrincipal: Money.fromNumber(3_000_000) });
       expect(await latestId(db, a.shopId, id)).toBe(opId);
     }));
+
+  it("sửa thông tin: đổi tên tài sản / ghi chú, audit edit, không sinh giao dịch; giá trị đã đổi, đã xoá, cửa hàng khác thì không ghi", () =>
+    inTx(async (db) => {
+      const a = await seedShop(db);
+      const b = await seedShop(db);
+      await repo(db).create(a, draft());
+      const [{ id }] = await rows<{ id: string }>(db, sql`SELECT id FROM contracts WHERE shop_id = ${a.shopId}`);
+      const edit = {
+        contractId: id,
+        expected: { assetName: "Honda Vision", note: null },
+        info: { assetName: "Honda Vision 2022", note: "Trầy yếm" },
+        changed: ["assetName" as const, "note" as const],
+      };
+      expect(await repo(db).recordEdit(b, edit)).toBe(false);
+      expect(await repo(db).recordEdit(a, edit)).toBe(true);
+      expect(await repo(db).recordEdit(a, edit)).toBe(false);
+      expect(await repo(db).findDetail(a.shopId, id)).toMatchObject({ assetName: "Honda Vision 2022", note: "Trầy yếm" });
+      const audits = await rows<{ changed_fields: string[] }>(db, sql`SELECT changed_fields FROM audit_logs WHERE entity_id = ${id} AND action = 'edit'`);
+      expect(audits).toEqual([{ changed_fields: ["asset_name", "note"] }]);
+      const [cash] = await rows<{ n: string }>(db, sql`SELECT count(*)::text AS n FROM cash_transactions WHERE contract_id = ${id}`);
+      expect(cash.n).toBe("1");
+
+      expect(await repo(db).deleteContract(a, { contractId: id, reason: "x", businessDate: TODAY })).toBe(true);
+      const again = { ...edit, expected: edit.info, info: { assetName: "Xe khác", note: null } };
+      expect(await repo(db).recordEdit(a, again)).toBe(false);
+    }));
 });

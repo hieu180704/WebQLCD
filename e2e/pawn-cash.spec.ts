@@ -283,6 +283,32 @@ test("chủ tiệm huỷ giao dịch mới nhất (huỷ chuộc mở lại hợ
   await expect(page.getByRole("link", { name: "CD-4" })).toHaveCount(0);
 });
 
+test("sửa thông tin: tên tài sản, ghi chú; không sinh giao dịch", async ({ page }) => {
+  await signIn(page);
+  await page.goto("/cam-do");
+  await page.getByRole("link", { name: "CD-3" }).click();
+  await expect(page.getByRole("heading", { name: "Hợp đồng CD-3" })).toBeVisible();
+  const historyRows = page.getByRole("region", { name: "Lịch sử giao dịch" }).getByRole("row");
+  const before = await historyRows.count();
+
+  await page.getByRole("button", { name: "Sửa thông tin" }).click();
+  const edit = page.getByRole("dialog", { name: "Sửa thông tin — CD-3" });
+  await expect(edit.getByLabel("Tên tài sản")).toHaveValue("Honda Vision 2022");
+  await edit.getByLabel("Tên tài sản").fill("Honda Vision 2022 đỏ");
+  await edit.getByLabel("Ghi chú").fill("Trầy yếm trái");
+  await edit.getByRole("button", { name: "Lưu thông tin" }).click();
+  await expect(edit).toBeHidden();
+  await expect(page.getByRole("status")).toHaveText("Đã lưu thông tin hợp đồng.");
+  const loan = page.getByRole("region", { name: "Khoản vay" });
+  await expect(loan).toContainText("Honda Vision 2022 đỏ");
+  await expect(loan).toContainText("Trầy yếm trái");
+  await expect(historyRows).toHaveCount(before);
+
+  await page.getByRole("button", { name: "Sửa thông tin" }).click();
+  await edit.getByRole("button", { name: "Lưu thông tin" }).click();
+  await expect(page.getByRole("status")).toHaveText("Không có thay đổi nào.");
+});
+
 test("dữ liệu sai: báo lỗi, giữ lại giá trị đã nhập", async ({ page }) => {
   await signIn(page);
   await fillContract(page, "Khách Lỗi");

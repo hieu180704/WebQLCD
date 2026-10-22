@@ -28,6 +28,7 @@ import type {
   ContractTransaction,
   CreatedContract,
   DeletionDraft,
+  EditDraft,
   ExtensionDraft,
   InterestPaymentDraft,
   LatestOperation,
@@ -511,6 +512,39 @@ export class DrizzleContractRepository implements ContractRepository {
     }
   }
 
+  async recordEdit(actor: Actor, draft: EditDraft): Promise<boolean> {
+    const { contractId, expected, info } = draft;
+    try {
+      return await this.db.transaction(async (tx) => {
+        const updated = await tx
+          .update(contracts)
+          .set({ assetName: info.assetName, note: info.note })
+          .where(
+            and(
+              eq(contracts.shopId, actor.shopId),
+              eq(contracts.id, contractId),
+              isNull(contracts.deletedAt),
+              sql`${contracts.assetName} IS NOT DISTINCT FROM ${expected.assetName}`,
+              sql`${contracts.note} IS NOT DISTINCT FROM ${expected.note}`,
+            ),
+          )
+          .returning({ id: contracts.id });
+        if (updated.length === 0) return false;
+        await tx.insert(auditLogs).values({
+          shopId: actor.shopId,
+          userId: actor.userId,
+          entity: "contract",
+          entityId: contractId,
+          action: "edit",
+          changedFields: draft.changed.map((field) => EDIT_COLUMNS[field]),
+        });
+        return true;
+      });
+    } catch (error) {
+      throw dbCause(error);
+    }
+  }
+
   /** Đảo mọi dòng chưa đảo khớp `filter` trong cửa hàng, chung một operation_id mới, ghi chú là lý do. */
   private async reverseCash(tx: Tx, actor: Actor, date: LocalDate, reason: string, filter: SQL): Promise<void> {
     const t = cashTransactions;
@@ -533,6 +567,8 @@ export class DrizzleContractRepository implements ContractRepository {
     );
   }
 }
+
+const EDIT_COLUMNS: Record<EditDraft["changed"][number], string> = { assetName: "asset_name", note: "note" };
 
 /** Field hợp đồng đổi khi huỷ từng loại thao tác (audit chỉ lưu tên field). */
 const REVERSED_FIELDS: Record<OperationKind, string[]> = {

@@ -8,6 +8,7 @@ import { formatVnd } from "@/shared/kernel/vnd";
 import type { ContractDetailView } from "../application/get-contract-detail";
 import type { ContractCashType, ContractTransaction, LatestOperation } from "../application/ports";
 import { DeleteDialog } from "./delete-dialog";
+import { EditDialog } from "./edit-dialog";
 import { ExtendDialog } from "./extend-dialog";
 import { DueBadge, INTEREST_UNIT, formatDay } from "./format";
 import { OperationStatus, OperationStatusMessage } from "./operation-status";
@@ -59,7 +60,7 @@ function operationLabel(op: LatestOperation, contractKind: ContractDetailView["c
   }
 }
 
-/** Trang chi tiết hợp đồng cầm đồ/tín chấp (mockup cam-do-chi-tiet.html). Thao tác: đóng lãi, trả bớt gốc, vay thêm, gia hạn, chuộc đồ / đóng hợp đồng; chủ tiệm huỷ giao dịch, xoá hợp đồng. */
+/** Trang chi tiết hợp đồng cầm đồ/tín chấp (mockup cam-do-chi-tiet.html). Thao tác: đóng lãi, trả bớt gốc, vay thêm, gia hạn, chuộc đồ / đóng hợp đồng; sửa thông tin; chủ tiệm huỷ giao dịch, xoá hợp đồng. */
 export async function ContractDetailPage({ id }: { id: string }) {
   const principal = await requireSession();
   const contractId = z.uuid().safeParse(id);
@@ -92,9 +93,18 @@ export async function ContractDetailPage({ id }: { id: string }) {
         ) : (
           <DueBadge due={open?.nextInterestDue ?? null} today={view.today} kind={contract.kind} closedOn={contract.closedOn} />
         )}
-        {isOwner && !contract.deleted && (
-          <div className="sm:ml-auto">
-            <DeleteDialog contractId={contract.id} code={contract.code} cashChangeText={formatSigned(contract.ledgerNet.negate())} />
+        {!contract.deleted && (
+          <div className="sm:ml-auto flex flex-wrap gap-2">
+            <EditDialog
+              contractId={contract.id}
+              code={contract.code}
+              secured={contract.kind === "secured"}
+              assetName={contract.assetName}
+              note={contract.note}
+            />
+            {isOwner && (
+              <DeleteDialog contractId={contract.id} code={contract.code} cashChangeText={formatSigned(contract.ledgerNet.negate())} />
+            )}
           </div>
         )}
       </div>

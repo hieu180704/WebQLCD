@@ -319,3 +319,11 @@ export type OperationKind = "disbursement" | "pay_interest" | "repay_principal" 
  * riêng giải ngân; muốn bỏ hợp đồng thì xoá.
  */
 export const isReversible = (kind: OperationKind) => kind !== "disbursement";
+
+/**
+ * Sửa thông tin hồ sơ (GIẢ ĐỊNH TẠM, core-spec mục 2): chỉ tên tài sản và ghi chú, không sinh giao dịch. Field tiền,
+ * loại tài sản, số ngày vay không sửa ở đây (nhập sai thì xoá rồi tạo lại; số ngày vay đổi bằng gia hạn).
+ */
+export function checkInfoEdit(kind: ContractKind, assetName: string | null): "asset_required" | null {
+  return kind === "secured" && !assetName?.trim() ? "asset_required" : null;
+}

@@ -96,6 +96,17 @@ export type ReversalDraft = { contractId: string; operationId: string; reason: s
 
 export type DeletionDraft = { contractId: string; reason: string; businessDate: LocalDate };
 
+/** Field hồ sơ sửa được (core-spec mục 2, "Sửa"); null = để trống. */
+export type EditableInfo = { assetName: string | null; note: string | null };
+
+export type EditDraft = {
+  contractId: string;
+  /** Khoá lạc quan: chỉ ghi khi DB vẫn đúng giá trị này. */
+  expected: EditableInfo;
+  info: EditableInfo;
+  changed: (keyof EditableInfo)[];
+};
+
 export type ContractStanding = PayableStanding & { status: "active" | "closed"; termDays: number; code: string };
 
 export type InterestPaymentDraft = {
@@ -172,4 +183,6 @@ export interface ContractRepository {
   reverseOperation(actor: Actor, draft: ReversalDraft): Promise<boolean>;
   /** Xoá mềm hợp đồng chưa xoá kèm lý do, đảo mọi dòng sổ két chưa đảo trong một thao tác, audit; không thấy thì false. */
   deleteContract(actor: Actor, draft: DeletionDraft): Promise<boolean>;
+  /** Sửa thông tin hồ sơ của hợp đồng chưa xoá + audit `edit`; giá trị trong DB khác `expected` thì trả false. */
+  recordEdit(actor: Actor, draft: EditDraft): Promise<boolean>;
 }

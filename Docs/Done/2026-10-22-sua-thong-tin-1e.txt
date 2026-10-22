@@ -1,0 +1,12 @@
+# 2026-10-22: Lát 1e sửa thông tin hồ sơ — [verified: lint, typecheck, 133 unit/DB test, 20 e2e]
+
+- Commit: xem commit "Lát 1e: sửa thông tin hồ sơ" ngay sau d715f36
+- Đã làm:
+  1. Nghiệp vụ (phương án E2, người dùng duyệt 2026-10-22): "Sửa" chỉ đổi tên tài sản và ghi chú, không sinh giao dịch; field tiền, loại tài sản, số ngày vay không sửa được (nhập sai thì xoá rồi tạo lại; số ngày vay đổi bằng gia hạn). Đã sửa câu "Sửa" ở core-spec mục 2: trước đây cho sửa field tiền khi chưa có giao dịch ngoài giải ngân, nhưng làm vậy sẽ sai dòng giải ngân / lãi thu trước trong sổ két.
+  2. Domain `checkInfoEdit` (cầm đồ bắt buộc tên tài sản); use case `EditContract` (`application/edit-contract.ts`), không đổi gì thì không ghi.
+  3. Repository `recordEdit`: khoá lạc quan bằng giá trị cũ của chính các field được sửa (`IS NOT DISTINCT FROM`), không dùng `updated_at`, vì `$onUpdate` ghi `Date` độ chính xác ms còn `defaultNow()` của DB lưu tới micro giây, so khớp sẽ lệch. Audit `edit` với tên cột đã đổi.
+  4. Giao diện: `edit-dialog.tsx`, nút "Sửa thông tin" cạnh "Xoá" (mọi vai trò, ẩn khi hợp đồng đã xoá).
+- Trạng thái: xong lát 1 (vòng đời hợp đồng cầm đồ/tín chấp). Kế tiếp: mục 2 của Decision `2026-10-21-pilot-scope.txt`.
+- Lưu ý cho phiên sau:
+  - Sửa thông tin khách (tên, SĐT, địa chỉ, CCCD) để sang mục Khách hàng; CCCD đổi phải mã hoá + băm lại, có thể trùng khách khác trong cửa hàng.
+  - Chọn KTV khác trên hồ sơ vẫn chưa làm (core-spec mục 2).
