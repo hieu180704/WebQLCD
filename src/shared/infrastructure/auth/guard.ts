@@ -12,7 +12,8 @@ export const SIGN_IN_ROUTE = "/dang-nhap";
 const loadSession = cache(async () => {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) return undefined;
-  return loadAccess(db, session.user.id);
+  const row = await loadAccess(db, session.user.id);
+  return row && { ...row, sessionId: session.session.id };
 });
 
 /**
@@ -24,6 +25,13 @@ export async function requireSession(options: AccessOptions = {}): Promise<Princ
   const row = await loadSession();
   if (!row?.isActive) redirect(SIGN_IN_ROUTE);
   return checkAccess(row, options);
+}
+
+/** Như requireSession (mọi vai trò, không đòi quyền ghi), kèm id phiên hiện tại: đổi mật khẩu giữ phiên này, xoá các phiên khác. */
+export async function requireCurrentSession(): Promise<Principal & { sessionId: string }> {
+  const row = await loadSession();
+  if (!row?.isActive) redirect(SIGN_IN_ROUTE);
+  return { ...checkAccess(row), sessionId: row.sessionId };
 }
 
 /** Như requireSession, kèm tên người dùng và cửa hàng cho khung trang. */

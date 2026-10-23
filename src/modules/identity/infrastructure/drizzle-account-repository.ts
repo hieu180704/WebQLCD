@@ -137,7 +137,7 @@ async function insertUser(tx: Tx, user: NewUser, passwordHash: string): Promise<
 }
 
 // DrizzleQueryError mang theo tham số truy vấn (có hash mật khẩu): chỉ ném lại lỗi gốc của PostgreSQL, tránh lọt vào log.
-function dbCause(error: unknown): unknown {
+export function dbCause(error: unknown): unknown {
   return error instanceof DrizzleQueryError && error.cause ? error.cause : error;
 }
 

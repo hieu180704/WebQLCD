@@ -1,0 +1,14 @@
+# 2026-10-23: Lát 4c tự đổi mật khẩu — [verified: lint, typecheck, 175 unit/DB test, 35 e2e]
+
+- Commit: xem commit "Lát 4c: tự đổi mật khẩu ở Cài đặt" ngay sau 1a5e35a
+- Đã làm:
+  1. Guard: `requireCurrentSession()` (mọi vai trò, không đòi quyền ghi) trả thêm `sessionId` của phiên hiện tại; `loadSession` (React.cache) giữ id phiên từ `auth.api.getSession`.
+  2. Module `identity`: port `PasswordChanger`, use case `ChangeOwnPassword`; adapter `ThrottledPasswordChanger`: đọc username + hash theo `userId` + `shopId`, giữ chỗ một lần thử trong `login_throttles` (cùng bộ đếm tài khoản + IP với đăng nhập; khoá → `locked`), sai mật khẩu hiện tại → `wrong_password` (lần sai được tính), đúng thì trả chỗ; băm mật khẩu mới rồi trong một transaction cập nhật `accounts.password`, xoá các phiên khác (`id <> sessionId`), audit `change_password`. Lỗi DB ném lỗi gốc PostgreSQL qua `dbCause` (export từ `drizzle-account-repository.ts`). IP lấy qua tham số `clientIp` (mặc định đọc header như khoá đăng nhập) để DB test truyền IP giả.
+  3. Presentation: `changePasswordAction` + Zod (mật khẩu hiện tại bắt buộc, mật khẩu mới theo `newPasswordSchema`, nhập lại phải khớp), `ChangePasswordForm`, `AccountSettings`; trang `/cai-dat` chỉ có mục "Tài khoản của tôi" (các mục cài đặt cửa hàng hoãn theo pilot-scope); menu "Cài đặt cửa hàng" bật link cho mọi vai trò.
+  4. Test: DB test 3 ca (đổi đúng: giữ phiên hiện tại, xoá phiên khác, audit; sai 5 lần thì lần nhập đúng cũng bị `locked`, không đổi gì; actor mang shopId cửa hàng khác bị từ chối); e2e 2 ca (KTV đổi mật khẩu: sai mật khẩu hiện tại, nhập lại không khớp, thành công, phiên đang dùng còn, phiên khác bị đẩy về `/dang-nhap`; hết hạn chủ tiệm vẫn đổi được).
+  5. Docs: core-spec mục 2 ("Nhân viên"), data-model (`login_throttles`, `change_password`), handoff.
+- Trạng thái: xong lát 4c, xong mục 4 của pilot-scope; kế tiếp mục 5 (deploy kèm sao lưu tự động), chưa chia lát.
+- Lưu ý cho phiên sau:
+  - Phiên hiện tại giữ nguyên token sau khi đổi mật khẩu (không xoay token như `auth.api.changePassword`); các phiên khác đã bị xoá. Người dùng đã duyệt đánh đổi này.
+  - Người cầm phiên cố tình nhập sai mật khẩu hiện tại có thể khoá đăng nhập của chính tài khoản đó 15 phút (cùng rủi ro DoS đã ghi ở mục 4 handoff).
+  - Form đổi mật khẩu tự xoá trắng sau mỗi lần gửi (React reset form sau action), kể cả khi báo lỗi.

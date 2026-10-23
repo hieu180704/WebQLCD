@@ -47,6 +47,18 @@ export interface StaffRepository {
   resetStaffPassword(actor: Actor, staffId: string, password: string): Promise<ResetStaffPasswordResult>;
 }
 
+export type PasswordChange = { currentPassword: string; newPassword: string };
+
+export type ChangePasswordResult = "ok" | "wrong_password" | "locked";
+
+/**
+ * Đổi mật khẩu của chính người đang đăng nhập. Mật khẩu hiện tại sai thì đếm như đăng nhập sai
+ * (cùng bộ đếm tài khoản + IP); đổi xong xoá mọi phiên khác, giữ phiên `sessionId`.
+ */
+export interface PasswordChanger {
+  changeOwnPassword(actor: Actor, sessionId: string, input: PasswordChange): Promise<ChangePasswordResult>;
+}
+
 /** Giới hạn số lần đăng ký theo nguồn gửi (IP). Trả `false` khi đã hết lượt. */
 export interface SignupLimiter {
   tryAcquire(): Promise<boolean>;

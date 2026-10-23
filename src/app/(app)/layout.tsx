@@ -18,7 +18,7 @@ const NAV: NavItem[] = [
   { label: "Báo cáo", icon: "report" },
   { label: "Sao lưu & Xuất Excel", icon: "backup" },
   { label: "Nhân viên", icon: "staff", href: "/nhan-vien", ownerOnly: true },
-  { label: "Cài đặt cửa hàng", icon: "settings" },
+  { label: "Cài đặt cửa hàng", icon: "settings", href: "/cai-dat" },
 ];
 
 const ROLE_LABEL = { owner: "Chủ tiệm", staff: "KTV" } as const;

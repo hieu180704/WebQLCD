@@ -11,6 +11,7 @@ import { EditCustomer, RevealCccd } from "@/modules/customer/application/edit-cu
 import { CccdCipher } from "@/modules/customer/infrastructure/cccd-cipher";
 import { DrizzleCustomerRepository } from "@/modules/customer/infrastructure/drizzle-customer-repository";
 import { DrizzleCustomerWriter } from "@/modules/customer/infrastructure/drizzle-customer-writer";
+import { ChangeOwnPassword } from "@/modules/identity/application/change-own-password";
 import { CreateStaff } from "@/modules/identity/application/create-staff";
 import { ListStaff } from "@/modules/identity/application/list-staff";
 import { ResetStaffPassword } from "@/modules/identity/application/reset-staff-password";
@@ -21,6 +22,7 @@ import { SignOut } from "@/modules/identity/application/sign-out";
 import { BetterAuthAuthenticator } from "@/modules/identity/infrastructure/better-auth-authenticator";
 import { DrizzleAccountRepository } from "@/modules/identity/infrastructure/drizzle-account-repository";
 import { IpSignupLimiter } from "@/modules/identity/infrastructure/ip-signup-limiter";
+import { ThrottledPasswordChanger } from "@/modules/identity/infrastructure/throttled-password-changer";
 import { GetSubscription } from "@/modules/shop/application/get-subscription";
 import { ChangePrincipal } from "@/modules/pawn/application/change-principal";
 import { CreateContract } from "@/modules/pawn/application/create-contract";
@@ -44,7 +46,7 @@ import { DrizzleShopRepository } from "@/modules/shop/infrastructure/drizzle-sho
 import { db } from "@/shared/infrastructure/db/client";
 
 // Lớp presentation không import thẳng shared/infrastructure, nên guard và luật mật khẩu được đưa ra qua đây.
-export { requireProfile, requireSession } from "@/shared/infrastructure/auth/guard";
+export { requireCurrentSession, requireProfile, requireSession } from "@/shared/infrastructure/auth/guard";
 export { AccessDeniedError } from "@/shared/infrastructure/auth/access";
 export { MIN_PASSWORD_LENGTH } from "@/shared/infrastructure/auth/password";
 
@@ -58,6 +60,7 @@ export const createStaff = new CreateStaff(accounts);
 export const listStaff = new ListStaff(accounts);
 export const setStaffActive = new SetStaffActive(accounts);
 export const resetStaffPassword = new ResetStaffPassword(accounts);
+export const changeOwnPassword = new ChangeOwnPassword(new ThrottledPasswordChanger(db));
 
 export const getSubscription = new GetSubscription(new DrizzleShopRepository(db));
 

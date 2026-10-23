@@ -135,6 +135,39 @@ test("chủ tiệm đặt lại mật khẩu KTV: phiên đang mở bị đăng 
   }
 });
 
+async function changeOwnPassword(page: Page, current: string, next: string, confirm = next) {
+  await page.getByLabel("Mật khẩu hiện tại").fill(current);
+  await page.getByLabel("Mật khẩu mới", { exact: true }).fill(next);
+  await page.getByLabel("Nhập lại mật khẩu mới").fill(confirm);
+  await page.getByRole("button", { name: "Đổi mật khẩu" }).click();
+}
+
+test("KTV tự đổi mật khẩu ở Cài đặt: giữ phiên đang dùng, phiên khác bị đăng xuất", async ({ page, browser }) => {
+  const otherContext = await browser.newContext();
+  try {
+    const otherPage = await otherContext.newPage();
+    await signIn(otherPage, STAFF.username, STAFF.newPassword);
+
+    await signIn(page, STAFF.username, STAFF.newPassword);
+    await page.getByRole("link", { name: "Cài đặt cửa hàng" }).click();
+    await expect(page).toHaveURL("/cai-dat");
+    await changeOwnPassword(page, "saimatkhau", STAFF.password);
+    await expect(formAlert(page)).toHaveText("Sai mật khẩu hiện tại.");
+    await changeOwnPassword(page, STAFF.newPassword, STAFF.password, "khongkhop1");
+    await expect(formAlert(page)).toHaveText("Mật khẩu nhập lại không khớp.");
+    await changeOwnPassword(page, STAFF.newPassword, STAFF.password);
+    await expect(page.getByRole("status")).toHaveText("Đã đổi mật khẩu. Các phiên đăng nhập khác của tài khoản này bị đăng xuất.");
+
+    await page.reload();
+    await expect(page).toHaveURL("/cai-dat");
+    await otherPage.goto("/");
+    await expect(otherPage).toHaveURL("/dang-nhap");
+    await signIn(otherPage, STAFF.username, STAFF.password);
+  } finally {
+    await otherContext.close();
+  }
+});
+
 test("hết hạn dùng thử: báo chỉ xem, không tạo thêm KTV được", async ({ page }) => {
   await expireTrial(OWNER.username);
   await signIn(page, OWNER.username, OWNER.password);
@@ -159,6 +192,13 @@ test("hết hạn dùng thử: vẫn đặt lại mật khẩu và khoá đượ
   await expect(page.getByRole("dialog").getByRole("alert")).toHaveText("Cửa hàng đã hết hạn sử dụng, không mở khoá nhân viên được.");
   await page.reload();
   await expect(staffRow(page)).toContainText("Đã khoá");
+});
+
+test("hết hạn dùng thử: chủ tiệm vẫn tự đổi được mật khẩu", async ({ page }) => {
+  await signIn(page, OWNER.username, OWNER.password);
+  await page.goto("/cai-dat");
+  await changeOwnPassword(page, OWNER.password, "matkhauchu456");
+  await expect(page.getByRole("status")).toHaveText("Đã đổi mật khẩu. Các phiên đăng nhập khác của tài khoản này bị đăng xuất.");
 });
 
 test("đăng ký quá 5 lần trong 1 giờ từ một IP thì bị chặn", async ({ page }) => {

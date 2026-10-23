@@ -44,7 +44,7 @@
 - Mật khẩu KHÔNG nằm ở `users`: Better Auth lưu ở `accounts.password` (dòng có `provider_id = 'credential'`).
 - `sessions`, `accounts`, `verifications`: bảng của Better Auth, khoá ngoại tới `users` có `ON DELETE CASCADE`.
 - `shop_id`, `role` khai với Better Auth là `additionalFields` có `input: false` (client không gửi được). `is_active = false` thì không tạo được phiên.
-- `login_throttles`: đếm lần đăng nhập, PK `(scope, key)`; `scope` là `ip`, `user` (key = username viết thường, kể cả username không tồn tại) hoặc `signup` (key = IP, đếm lần đăng ký); `attempts`, `window_started_at`, `locked_until`. Không có `shop_id` vì đếm trước khi biết cửa hàng. Luật đếm: `Docs/Decisions/2026-10-20-login-throttle.txt`, `signup`: `Docs/Decisions/2026-10-20-signup-direct-insert.txt`.
+- `login_throttles`: đếm lần đăng nhập, PK `(scope, key)`; `scope` là `ip`, `user` (key = username viết thường, kể cả username không tồn tại) hoặc `signup` (key = IP, đếm lần đăng ký); `attempts`, `window_started_at`, `locked_until`. Nhập sai mật khẩu hiện tại khi tự đổi mật khẩu cũng đếm vào `user` + `ip` (`throttled-password-changer.ts`). Không có `shop_id` vì đếm trước khi biết cửa hàng. Luật đếm: `Docs/Decisions/2026-10-20-login-throttle.txt`, `signup`: `Docs/Decisions/2026-10-20-signup-direct-insert.txt`.
 
 ## 3.3 `customers`
 - `shop_id`, `full_name`, `phone`, `address`, `cccd_encrypted`, `cccd_hash`, `cccd_masked`.
@@ -101,7 +101,7 @@
 - Chuộc đồ / đóng hợp đồng không có loại riêng: thao tác sinh các dòng `interest_payment` (bỏ qua nếu lãi thu = 0) + `principal_repayment` chung `operation_id`, đặt `outstanding_principal = 0`, `status = 'closed'`; có thu lãi thì `interest_paid_until` = ngày chuộc.
 
 ## 3.7 `audit_logs`
-- `shop_id`, `user_id`, `entity`, `entity_id`, `action` (`create` / `edit` / `extend` / `delete` / `pay_interest` / `repay_principal` / `additional_loan` / `close` / `reverse` / `view_cccd` / `lock` / `unlock` / `reset_password` / ...), `changed_fields` (chỉ tên field, không lưu giá trị), `at`.
+- `shop_id`, `user_id`, `entity`, `entity_id`, `action` (`create` / `edit` / `extend` / `delete` / `pay_interest` / `repay_principal` / `additional_loan` / `close` / `reverse` / `view_cccd` / `lock` / `unlock` / `reset_password` / `change_password` / ...), `changed_fields` (chỉ tên field, không lưu giá trị), `at`.
 - Append-only, trigger chặn UPDATE/DELETE/TRUNCATE giống `cash_transactions`.
 
 ## 3.8 `shop_counters`
