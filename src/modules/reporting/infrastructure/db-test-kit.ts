@@ -88,17 +88,38 @@ export async function seedContract(
   return row.id;
 }
 
+let installmentCode = 0;
+
+/** Trả góp đưa 4.000.000, thu 5.000.000 trong 50 ngày, 2 ngày một kỳ (200.000 mỗi kỳ). */
+export async function seedInstallment(
+  db: Db,
+  shop: SeededShop,
+  c: { customerId?: string; startDate: string; paid?: number; staffId?: string; closed?: boolean; deleted?: boolean },
+): Promise<string> {
+  const [row] = await rows<{ id: string }>(
+    db,
+    sql`INSERT INTO installment_contracts (shop_id, code, customer_id, amount_given, total_due, total_days, period_days, start_date,
+          amount_paid, status, closed_at, staff_id, deleted_at, deleted_by, deleted_reason)
+        VALUES (${shop.shopId}, ${`TG-${++installmentCode}`}, ${c.customerId ?? shop.customerId}, 4000000, 5000000, 50, 2, ${c.startDate},
+          ${c.paid ?? 0}, ${c.closed ? "closed" : "active"}, ${c.closed ? sql`now()` : null}, ${c.staffId ?? shop.userId},
+          ${c.deleted ? sql`now()` : null}, ${c.deleted ? shop.userId : null}, ${c.deleted ? "Nhập sai" : null})
+        RETURNING id`,
+  );
+  return row.id;
+}
+
 export async function seedCash(
   db: Db,
   shop: SeededShop,
-  c: { date: string; type: string; amount: number; contractId?: string; reverses?: string },
+  c: { date: string; type: string; amount: number; contractId?: string; installmentContractId?: string; reverses?: string },
 ): Promise<string> {
   const period = c.type === "interest_payment" ? ["2026-09-01", "2026-09-11"] : [null, null];
   const [row] = await rows<{ id: string }>(
     db,
-    sql`INSERT INTO cash_transactions (shop_id, operation_id, business_date, amount, type, contract_id, period_from, period_to, reverses_id, created_by)
-        VALUES (${shop.shopId}, ${crypto.randomUUID()}, ${c.date}, ${c.amount}, ${c.type}, ${c.contractId ?? null}, ${period[0]}, ${period[1]},
-          ${c.reverses ?? null}, ${shop.userId})
+    sql`INSERT INTO cash_transactions (shop_id, operation_id, business_date, amount, type, contract_id, installment_contract_id, period_from,
+          period_to, reverses_id, created_by)
+        VALUES (${shop.shopId}, ${crypto.randomUUID()}, ${c.date}, ${c.amount}, ${c.type}, ${c.contractId ?? null},
+          ${c.installmentContractId ?? null}, ${period[0]}, ${period[1]}, ${c.reverses ?? null}, ${shop.userId})
         RETURNING id`,
   );
   return row.id;

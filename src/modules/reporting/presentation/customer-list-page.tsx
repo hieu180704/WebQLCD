@@ -160,7 +160,7 @@ export async function CustomerListPage({ query }: { query: Record<string, string
         )}
       </section>
       <p className="mt-3 text-xs text-slate-500">
-        Khách hàng được tạo khi lập hợp đồng. Số CCCD chỉ hiện 4 số cuối; tìm theo CCCD phải nhập đủ số. Số liệu hợp đồng chưa tính trả góp.
+        Khách hàng được tạo khi lập hợp đồng. Số CCCD chỉ hiện 4 số cuối; tìm theo CCCD phải nhập đủ số. Dư nợ = gốc còn lại cầm đồ/tín chấp + trả góp còn phải thu; quá hạn gồm chậm góp.
       </p>
     </>
   );

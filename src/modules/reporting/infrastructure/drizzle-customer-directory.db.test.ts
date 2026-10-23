@@ -3,7 +3,7 @@ import { Pool } from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { Db } from "@/shared/infrastructure/db/client";
 import type { CustomerQuery } from "../application/list-customers";
-import { inRollbackTx, seedCash, seedContract, seedCustomer, seedShop } from "./db-test-kit";
+import { inRollbackTx, seedCash, seedContract, seedCustomer, seedInstallment, seedShop } from "./db-test-kit";
 import { DrizzleCustomerDirectory } from "./drizzle-customer-directory";
 
 const url = process.env.DATABASE_URL;
@@ -27,7 +27,7 @@ describe.skipIf(!url)("DrizzleCustomerDirectory", () => {
   const names = async (db: Db, shopId: string, query: Partial<CustomerQuery>) =>
     (await directory(db).list(shopId, { ...ALL, ...query }, TODAY, null, 50)).map((c) => c.fullName);
 
-  it("số liệu mỗi khách: HĐ mở, quá hạn, dư nợ chỉ tính hợp đồng đang mở chưa xoá; giao dịch gần nhất; SĐT che; tổng", () =>
+  it("số liệu mỗi khách: HĐ mở, quá hạn, dư nợ chỉ tính hợp đồng đang mở chưa xoá (cả trả góp); giao dịch gần nhất; SĐT che; tổng", () =>
     inTx(async (db) => {
       const shop = await seedShop(db); // kèm khách "Khách" chưa có hợp đồng
       const binh = await seedCustomer(db, shop.shopId, { fullName: "Nguyễn Văn Bình", phone: "0912345678", address: "12 Lê Lợi" });
@@ -37,21 +37,33 @@ describe.skipIf(!url)("DrizzleCustomerDirectory", () => {
       await seedContract(db, shop, { customerId: binh, outstanding: 9_000_000, paidUntil: "2026-09-01", deleted: true });
       await seedCash(db, shop, { date: "2026-10-05", type: "interest_payment", amount: 100_000, contractId: overdue });
       await seedCash(db, shop, { date: "2026-09-30", type: "interest_payment", amount: 100_000, contractId: overdue });
+      // Trả góp: chậm góp (bắt đầu 10/10, chưa góp), đúng hạn (góp 400.000), đã đóng, đã xoá; lần góp 06/10 mới hơn dòng lãi.
+      await seedInstallment(db, shop, { customerId: binh, startDate: "2026-10-10" });
+      const onTime = await seedInstallment(db, shop, { customerId: binh, startDate: "2026-10-20", paid: 400_000 });
+      await seedInstallment(db, shop, { customerId: binh, startDate: "2026-10-01", paid: 5_000_000, closed: true });
+      await seedInstallment(db, shop, { customerId: binh, startDate: "2026-10-01", deleted: true });
+      await seedCash(db, shop, { date: "2026-10-06", type: "installment_payment", amount: 400_000, installmentContractId: onTime });
+      // Khách chỉ có trả góp vẫn đếm vào "đang có hợp đồng mở".
+      const hoa = await seedCustomer(db, shop.shopId, { fullName: "Lê Thị Hoa" });
+      await seedInstallment(db, shop, { customerId: hoa, startDate: "2026-10-20" });
 
-      const [first, second] = await directory(db).list(shop.shopId, ALL, TODAY, null, 50);
+      const [onlyInstallment, first, second] = await directory(db).list(shop.shopId, ALL, TODAY, null, 50);
+      expect(onlyInstallment).toMatchObject({ fullName: "Lê Thị Hoa", openContracts: 1, overdueContracts: 0, lastActivity: null });
+      expect(onlyInstallment.debt.toBigInt()).toBe(5_000_000n);
       expect(first).toMatchObject({
         fullName: "Nguyễn Văn Bình",
         phone: "091****678",
         address: "12 Lê Lợi",
         cccdMasked: null,
-        openContracts: 2,
-        overdueContracts: 1,
-        lastActivity: "2026-10-05",
+        openContracts: 4,
+        overdueContracts: 2,
+        lastActivity: "2026-10-06",
       });
-      expect(first.debt.toBigInt()).toBe(8_000_000n);
+      // 8.000.000 gốc + 5.000.000 + 4.600.000 trả góp còn phải thu.
+      expect(first.debt.toBigInt()).toBe(17_600_000n);
       expect(second).toMatchObject({ fullName: "Khách", openContracts: 0, overdueContracts: 0, lastActivity: null });
       expect(second.debt.isZero()).toBe(true);
-      expect(await directory(db).totals(shop.shopId)).toEqual({ customers: 2, withOpenContracts: 1 });
+      expect(await directory(db).totals(shop.shopId)).toEqual({ customers: 3, withOpenContracts: 2 });
     }));
 
   it("tìm tên không dấu / không phân biệt hoa thường, tìm SĐT, ký tự LIKE theo nghĩa đen, CCCD khớp hash", () =>
@@ -71,20 +83,25 @@ describe.skipIf(!url)("DrizzleCustomerDirectory", () => {
       expect(await names(db, shop.shopId, { cccd: "001099099999" })).toEqual([]);
     }));
 
-  it("lọc đang có HĐ mở / có HĐ quá hạn; phân trang keyset mới nhất trước", () =>
+  it("lọc đang có HĐ mở / có HĐ quá hạn (cả trả góp); phân trang keyset mới nhất trước", () =>
     inTx(async (db) => {
       const shop = await seedShop(db);
       const a = await seedCustomer(db, shop.shopId, { fullName: "A" });
       const b = await seedCustomer(db, shop.shopId, { fullName: "B" });
       await seedContract(db, shop, { customerId: a, outstanding: 1_000_000, paidUntil: "2026-10-01" }); // quá hạn
       await seedContract(db, shop, { customerId: b, outstanding: 1_000_000, paidUntil: "2026-10-20" }); // chưa tới hạn
+      // C chỉ có trả góp chậm góp, D chỉ có trả góp đã đóng.
+      const c = await seedCustomer(db, shop.shopId, { fullName: "C" });
+      const d = await seedCustomer(db, shop.shopId, { fullName: "D" });
+      await seedInstallment(db, shop, { customerId: c, startDate: "2026-10-10" });
+      await seedInstallment(db, shop, { customerId: d, startDate: "2026-10-01", paid: 5_000_000, closed: true });
 
-      expect(await names(db, shop.shopId, { filter: "open" })).toEqual(["B", "A"]);
-      expect(await names(db, shop.shopId, { filter: "overdue" })).toEqual(["A"]);
+      expect(await names(db, shop.shopId, { filter: "open" })).toEqual(["C", "B", "A"]);
+      expect(await names(db, shop.shopId, { filter: "overdue" })).toEqual(["C", "A"]);
       const page1 = await directory(db).list(shop.shopId, ALL, TODAY, null, 2);
-      expect(page1.map((c) => c.fullName)).toEqual(["B", "A"]);
+      expect(page1.map((x) => x.fullName)).toEqual(["D", "C"]);
       const page2 = await directory(db).list(shop.shopId, ALL, TODAY, page1[1].id, 2);
-      expect(page2.map((c) => c.fullName)).toEqual(["Khách"]);
+      expect(page2.map((x) => x.fullName)).toEqual(["B", "A"]);
     }));
 
   it("cách ly cửa hàng: B không thấy khách, không khớp CCCD, không đếm khách của A", () =>
@@ -92,6 +109,7 @@ describe.skipIf(!url)("DrizzleCustomerDirectory", () => {
       const a = await seedShop(db);
       await seedCustomer(db, a.shopId, { fullName: "Nguyễn Văn Bình", cccdHash: hash(a.shopId, "001099012345") });
       await seedContract(db, a, { outstanding: 1_000_000, paidUntil: "2026-10-01" });
+      await seedInstallment(db, a, { startDate: "2026-10-10" });
       const b = await seedShop(db);
       expect(await names(db, b.shopId, {})).toEqual(["Khách"]);
       expect(await names(db, b.shopId, { search: "binh" })).toEqual([]);

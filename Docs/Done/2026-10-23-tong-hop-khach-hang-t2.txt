@@ -1,0 +1,11 @@
+# 2026-10-23: Lát T2 trả góp vào số liệu tổng — khách hàng — [verified: lint, typecheck, unit/DB test, e2e]
+
+- Nhánh: `wt-2`. Commit: "Lát T2: trả góp vào trang khách (danh sách + chi tiết)".
+- Đã làm:
+  1. Migration 0015 (drizzle-kit generate): index `installment_contracts (shop_id, customer_id)` cho trang khách.
+  2. Chi tiết khách (`DrizzleCustomerProfile`): HĐ đang mở / quá hạn / dư nợ cộng trả góp đang góp (chậm góp qua hàm SQL `installment_late`, dư nợ cộng còn phải thu); "Tổng lãi đã đóng" giữ chỉ cầm đồ/tín chấp. `listContracts` nhận `today`, trả union `CustomerPawnRow | CustomerInstallmentRow` (sắp theo id uuid v7 cả hai bảng). `recentTransactions` = `unionAll` giao dịch két cầm đồ + trả góp.
+  3. Trang chi tiết: dòng trả góp (link `/tra-gop/{id}`, Loại "Trả góp", Tiền vay = tiền đưa khách, cột "Còn lại", nhãn Chậm góp / Hôm nay / Đang góp / Đã đóng / Đã xoá); nhãn giao dịch "Giải ngân trả góp", "Thu trả góp"; bỏ ghi chú "chưa tính trả góp".
+  4. Danh sách khách (`DrizzleCustomerDirectory`, ngoài danh sách việc gốc, người dùng duyệt): trả góp gộp theo khách rồi join (không nhân dòng cầm đồ), HĐ mở / quá hạn / dư nợ / lọc "Đang có HĐ mở" / "Có HĐ quá hạn" / giao dịch gần nhất / tổng "khách đang có hợp đồng mở" đều tính trả góp.
+  5. Test: `db-test-kit` thêm `seedInstallment`, `seedCash` nhận `installmentContractId`; DB test profile + directory thêm ca trả góp và cách ly cửa hàng; E2E `customers.spec.ts` thêm ca trả góp chậm góp.
+  6. Docs: core-spec (danh sách khách, chi tiết khách), data-model (index 0015).
+- Lưu ý cho phiên sau: nhãn trả góp ở trang khách là "Chậm góp" (không ghi số kỳ như `/tra-gop`) vì số kỳ chậm tính bằng domain installment, reporting chỉ dùng hàm SQL. Migration 0015 đã áp vào `webqlcd_wt2`.

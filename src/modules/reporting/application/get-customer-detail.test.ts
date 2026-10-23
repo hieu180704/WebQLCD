@@ -30,7 +30,10 @@ const source = (
     calls.push(["findCustomer", ...args]);
     return found;
   },
-  listContracts: async () => [],
+  listContracts: async (...args) => {
+    calls.push(["listContracts", ...args]);
+    return [];
+  },
   recentTransactions: async (...args) => {
     calls.push(["recentTransactions", ...args]);
     return [];
@@ -48,6 +51,7 @@ describe("GetCustomerDetail", () => {
     );
     expect(calls).toEqual([
       ["findCustomer", "s", "c", "2026-11-01"],
+      ["listContracts", "s", "c", "2026-11-01"],
       ["recentTransactions", "s", "c", CUSTOMER_RECENT_TRANSACTIONS],
     ]);
     expect(view).toMatchObject({

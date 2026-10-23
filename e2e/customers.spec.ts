@@ -205,3 +205,42 @@ test("/cam-do: tìm tên không dấu, tìm tài sản, CCCD, lọc loại, bỏ
   await expect(page).toHaveURL("/cam-do");
   await expect(contracts.getByRole("row", { name: /Đặng Thị Hoa/ })).toBeVisible();
 });
+
+test("trả góp vào số liệu khách: danh sách, lọc quá hạn, chi tiết (ô, bảng hợp đồng, giao dịch)", async ({ page }) => {
+  await signIn(page);
+  // Bắt đầu cách đây 15 ngày, 2 ngày một kỳ, chưa góp: chậm góp; còn phải thu 5.000.000.
+  await page.goto("/tra-gop/moi");
+  await page.getByLabel("Tên khách hàng").fill("Trần Văn Góp");
+  await page.getByLabel("Tiền đưa khách").fill("4.000.000");
+  await page.getByLabel("Tổng tiền phải thu").fill("5.000.000");
+  await page.getByLabel("Ngày bắt đầu").fill(daysAgo(15));
+  await page.getByLabel("Số ngày góp").fill("50");
+  await page.getByLabel("Số ngày mỗi kỳ").fill("2");
+  await page.getByRole("button", { name: "Lưu hợp đồng" }).click();
+  await expect(page).toHaveURL(/\/tra-gop\?moi=TG-1$/);
+
+  await page.goto("/khach-hang");
+  await expect(page.getByText("3 khách hàng · 3 khách đang có hợp đồng mở")).toBeVisible();
+  const row = list(page).getByRole("row", { name: /Trần Văn Góp/ });
+  await expect(row).toContainText("1 quá hạn");
+  await expect(row).toContainText("5.000.000");
+  await search(page, { loc: "qua-han" });
+  await expect(page).toHaveURL(/loc=qua-han/);
+  await expect(list(page).getByRole("row", { name: /Trần Văn Góp/ })).toBeVisible();
+
+  await list(page).getByRole("link", { name: "Trần Văn Góp" }).click();
+  await expect(page).toHaveURL(/\/khach-hang\/[0-9a-f-]{36}$/);
+  await expect(page.getByText("1 hợp đồng quá hạn")).toBeVisible();
+  const stats = page.getByRole("region", { name: "Số liệu" });
+  await expect(stats).toContainText("HĐ đang mở1");
+  await expect(stats).toContainText("Dư nợ hiện tại5.000.000");
+  const contract = page.getByRole("region", { name: "Hợp đồng của khách" }).getByRole("row", { name: /TG-1/ });
+  await expect(contract).toContainText("Trả góp");
+  await expect(contract).toContainText("4.000.000");
+  await expect(contract).toContainText("Chậm góp");
+  await expect(page.getByRole("region", { name: "Giao dịch gần đây" }).getByRole("row", { name: /Giải ngân trả góp/ })).toContainText(
+    "4.000.000",
+  );
+  await contract.getByRole("link", { name: "TG-1" }).click();
+  await expect(page).toHaveURL(/\/tra-gop\/[0-9a-f-]{36}$/);
+});

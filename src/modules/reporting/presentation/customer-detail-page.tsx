@@ -7,10 +7,18 @@ import { CONTRACT_CASH_LABEL, DueBadge } from "@/modules/pawn";
 import { BUSINESS_TIME_ZONE, businessDate } from "@/shared/kernel/local-date";
 import { formatVnd } from "@/shared/kernel/vnd";
 import type {
-  CustomerContractRow,
+  CustomerCashType,
   CustomerDetailView,
+  CustomerInstallmentRow,
+  CustomerPawnRow,
   CustomerTransactionRow,
 } from "../application/get-customer-detail";
+
+const CASH_LABEL: Record<CustomerCashType, string> = {
+  ...CONTRACT_CASH_LABEL,
+  installment_disbursement: "Giải ngân trả góp",
+  installment_payment: "Thu trả góp",
+};
 
 /** "2026-10-05" → "05/10/2026". */
 const formatDay = (date: string) => date.split("-").reverse().join("/");
@@ -26,7 +34,7 @@ const formatDateTime = (at: Date) =>
 
 /**
  * Trang chi tiết khách hàng (mockup khach-hang-chi-tiet.html). Sửa thông tin và xem CCCD đầy đủ thuộc module customer;
- * nút "+ Cầm đồ / Tín chấp" mở form tạo hợp đồng điền sẵn khách này (nút trả góp chưa làm).
+ * nút "+ Cầm đồ / Tín chấp" mở form tạo hợp đồng điền sẵn khách này. Số liệu gồm cả trả góp.
  */
 export async function CustomerDetailPage({ id }: { id: string }) {
   const principal = await requireSession();
@@ -126,7 +134,10 @@ export async function CustomerDetailPage({ id }: { id: string }) {
           </section>
         </aside>
       </div>
-      <p className="mt-3 text-xs text-slate-500">Số liệu chưa tính trả góp.</p>
+      <p className="mt-3 text-xs text-slate-500">
+        Dư nợ = gốc còn lại cầm đồ/tín chấp + trả góp còn phải thu. Tổng lãi
+        chỉ tính cầm đồ/tín chấp.
+      </p>
     </>
   );
 }
@@ -167,15 +178,19 @@ function Contracts({ view }: { view: CustomerDetailView }) {
                 <th>Loại</th>
                 <th>Tài sản</th>
                 <th className="text-right">Tiền vay</th>
-                <th className="text-right">Gốc còn lại</th>
+                <th className="text-right">Còn lại</th>
                 <th>Ngày vay</th>
                 <th>Trạng thái</th>
               </tr>
             </thead>
             <tbody>
-              {view.contracts.map((c) => (
-                <ContractRow key={c.id} contract={c} today={view.today} />
-              ))}
+              {view.contracts.map((c) =>
+                c.type === "pawn" ? (
+                  <ContractRow key={c.id} contract={c} today={view.today} />
+                ) : (
+                  <InstallmentRow key={c.id} contract={c} />
+                ),
+              )}
             </tbody>
           </table>
         </div>
@@ -188,7 +203,7 @@ function ContractRow({
   contract: c,
   today,
 }: {
-  contract: CustomerContractRow;
+  contract: CustomerPawnRow;
   today: string;
 }) {
   // Hợp đồng đã xoá: gạch ngang, mờ như mockup; vẫn mở được trang chi tiết (xem lý do xoá).
@@ -231,6 +246,57 @@ function ContractRow({
   );
 }
 
+function InstallmentRow({ contract: c }: { contract: CustomerInstallmentRow }) {
+  return (
+    <tr className={c.deleted ? "text-slate-400" : undefined}>
+      <td>
+        <Link
+          href={`/tra-gop/${c.id}`}
+          className={
+            c.deleted
+              ? "line-through hover:underline"
+              : "text-teal-700 font-medium hover:underline"
+          }
+        >
+          {c.code}
+        </Link>
+      </td>
+      <td>Trả góp</td>
+      <td>
+        <span className="text-slate-400">—</span>
+      </td>
+      <td className="text-right num">{formatVnd(c.amountGiven)}</td>
+      <td
+        className={`text-right num ${c.remaining.isZero() ? "text-slate-400" : ""}`}
+      >
+        {formatVnd(c.remaining)}
+      </td>
+      <td className="num">{formatDay(c.startDate)}</td>
+      <td>
+        <InstallmentBadge contract={c} />
+      </td>
+    </tr>
+  );
+}
+
+function InstallmentBadge({ contract: c }: { contract: CustomerInstallmentRow }) {
+  if (c.deleted) return <span className="badge badge-late">Đã xoá</span>;
+  switch (c.dueStatus) {
+    case "late":
+      return <span className="badge badge-late">Chậm góp</span>;
+    case "today":
+      return <span className="badge badge-warn">Hôm nay</span>;
+    case "on_time":
+      return <span className="badge badge-ok">Đang góp</span>;
+    default:
+      return (
+        <span className="badge badge-muted">
+          {c.closedOn ? `Đã đóng ${formatDay(c.closedOn)}` : "Đã đóng"}
+        </span>
+      );
+  }
+}
+
 function Transactions({
   transactions,
 }: {
@@ -266,7 +332,7 @@ function Transactions({
                   <td className="num">{formatDateTime(t.occurredAt)}</td>
                   <td>{t.contractCode}</td>
                   <td>
-                    {CONTRACT_CASH_LABEL[t.type]}
+                    {CASH_LABEL[t.type]}
                     {t.periodFrom &&
                       t.periodTo &&
                       ` ${formatDay(t.periodFrom)} – ${formatDay(t.periodTo)}`}

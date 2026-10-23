@@ -128,7 +128,7 @@
 - `cash_transactions (shop_id, contract_id)`, `(shop_id, installment_contract_id)`: lịch sử giao dịch của một hợp đồng.
 - `cash_transactions (shop_id, operation_id)`: đảo cả một thao tác.
 - `cash_transactions (shop_id) WHERE type = 'opening_balance'` UNIQUE: một quỹ đầu két mỗi cửa hàng.
-- `installment_contracts (shop_id, status)`: danh sách, ô thống kê và lọc chậm góp / đến hạn (lọc thô theo trạng thái rồi tính hạn bằng hàm SQL trên từng dòng; chưa cần index riêng). `audit_logs (shop_id, entity, entity_id)`.
+- `installment_contracts (shop_id, status)`: danh sách, ô thống kê và lọc chậm góp / đến hạn (lọc thô theo trạng thái rồi tính hạn bằng hàm SQL trên từng dòng; chưa cần index riêng). `installment_contracts (shop_id, customer_id)` (migration 0015): trả góp của một khách ở trang khách. `audit_logs (shop_id, entity, entity_id)`.
 - `contract_operations (shop_id, contract_id, created_at)`: thao tác mới nhất của hợp đồng.
 - `customers (shop_id, cccd_hash)`: tìm khớp chính xác CCCD (đã có qua UNIQUE).
 - `pg_trgm` GIN: `search_text(customers.full_name)`, `customers.phone`, `contracts.code`, `search_text(contracts.asset_name)` (migration 0008), `installment_contracts.code`.

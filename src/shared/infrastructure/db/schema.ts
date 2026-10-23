@@ -347,6 +347,7 @@ export const installmentContracts = pgTable(
       sql`(${t.deletedAt} IS NULL) = (${t.deletedReason} IS NULL) AND btrim(coalesce(${t.deletedReason}, 'x')) <> ''`,
     ),
     index("installment_contracts_shop_status_idx").on(t.shopId, t.status),
+    index("installment_contracts_shop_customer_idx").on(t.shopId, t.customerId),
     index("installment_contracts_code_trgm_idx").using("gin", t.code.op("gin_trgm_ops")),
   ],
 );

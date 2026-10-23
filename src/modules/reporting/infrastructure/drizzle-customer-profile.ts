@@ -1,20 +1,31 @@
 import "server-only";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, isNull, sql } from "drizzle-orm";
+import { unionAll } from "drizzle-orm/pg-core";
 import type { Db } from "@/shared/infrastructure/db/client";
 import {
   cashTransactions,
   contracts,
   customers,
+  installmentContracts,
 } from "@/shared/infrastructure/db/schema";
 import { businessDate, type LocalDate } from "@/shared/kernel/local-date";
 import { Money } from "@/shared/kernel/money";
 import type {
+  CustomerCashType,
   CustomerContractRow,
+  CustomerInstallmentRow,
   CustomerProfileSource,
   CustomerSummary,
   CustomerTransactionRow,
 } from "../application/get-customer-detail";
 import { overdueCondition } from "./contract-sql";
+
+const i = installmentContracts;
+// Hàm SQL migration 0013, tính như progress()/dueStatus() của domain installment.
+const installmentLate = (today: LocalDate) =>
+  sql`installment_late(${i.totalDue}, ${i.totalDays}, ${i.periodDays}, ${i.startDate}, ${i.amountPaid}, ${today}::date)`;
+const installmentDueToday = (today: LocalDate) =>
+  sql`installment_due_today(${i.totalDue}, ${i.totalDays}, ${i.periodDays}, ${i.startDate}, ${i.amountPaid}, ${today}::date)`;
 
 // reporting được truy vấn thẳng bảng của module khác, chỉ đọc (architecture-spec mục 2.2).
 export class DrizzleCustomerProfile implements CustomerProfileSource {
@@ -28,7 +39,7 @@ export class DrizzleCustomerProfile implements CustomerProfileSource {
     const cu = customers;
     const c = contracts;
     const open = sql`${c.status} = 'active' AND ${c.deletedAt} IS NULL`;
-    const [row] = await this.db
+    const customerQuery = this.db
       .select({
         id: cu.id,
         fullName: cu.fullName,
@@ -56,10 +67,34 @@ export class DrizzleCustomerProfile implements CustomerProfileSource {
       .leftJoin(c, and(eq(c.shopId, cu.shopId), eq(c.customerId, cu.id)))
       .where(and(eq(cu.shopId, shopId), eq(cu.id, customerId)))
       .groupBy(cu.id);
+    // Trả góp đang góp của khách: index (shop_id, customer_id).
+    const installmentQuery = this.db
+      .select({
+        open: sql<number>`count(*)`.mapWith(Number),
+        late: sql<number>`count(*) FILTER (WHERE ${installmentLate(today)})`.mapWith(
+          Number,
+        ),
+        remaining: sql<string>`coalesce(sum(${i.totalDue} - ${i.amountPaid}), 0)`,
+      })
+      .from(i)
+      .where(
+        and(
+          eq(i.shopId, shopId),
+          eq(i.customerId, customerId),
+          eq(i.status, "active"),
+          isNull(i.deletedAt),
+        ),
+      );
+    const [[row], [installment]] = await Promise.all([
+      customerQuery,
+      installmentQuery,
+    ]);
     if (!row) return null;
     return {
       ...row,
-      debt: Money.of(BigInt(row.debt)),
+      openContracts: row.openContracts + installment.open,
+      overdueContracts: row.overdueContracts + installment.late,
+      debt: Money.of(BigInt(row.debt) + BigInt(installment.remaining)),
       interestPaid: Money.of(BigInt(row.interestPaid)),
     };
   }
@@ -67,9 +102,10 @@ export class DrizzleCustomerProfile implements CustomerProfileSource {
   async listContracts(
     shopId: string,
     customerId: string,
+    today: LocalDate,
   ): Promise<CustomerContractRow[]> {
     const c = contracts;
-    const rows = await this.db
+    const pawnQuery = this.db
       .select({
         id: c.id,
         code: c.code,
@@ -87,15 +123,46 @@ export class DrizzleCustomerProfile implements CustomerProfileSource {
         deletedAt: c.deletedAt,
       })
       .from(c)
-      .where(and(eq(c.shopId, shopId), eq(c.customerId, customerId)))
-      .orderBy(desc(c.id)); // uuid v7 tăng theo thời gian tạo.
-    return rows.map(({ closedAt, deletedAt, ...row }) => ({
-      ...row,
-      principal: Money.of(row.principal),
-      outstandingPrincipal: Money.of(row.outstandingPrincipal),
-      closedOn: closedAt ? businessDate(closedAt) : null,
-      deleted: deletedAt !== null,
-    }));
+      .where(and(eq(c.shopId, shopId), eq(c.customerId, customerId)));
+    const open = sql`${i.status} = 'active' AND ${i.deletedAt} IS NULL`;
+    const installmentQuery = this.db
+      .select({
+        id: i.id,
+        code: i.code,
+        amountGiven: i.amountGiven,
+        remaining: sql<string>`CASE WHEN ${open} THEN ${i.totalDue} - ${i.amountPaid} ELSE 0 END`,
+        startDate: i.startDate,
+        dueStatus: sql<CustomerInstallmentRow["dueStatus"]>`CASE WHEN ${open} THEN
+          CASE WHEN ${installmentLate(today)} THEN 'late' WHEN ${installmentDueToday(today)} THEN 'today' ELSE 'on_time' END END`,
+        closedAt: i.closedAt,
+        deletedAt: i.deletedAt,
+      })
+      .from(i)
+      .where(and(eq(i.shopId, shopId), eq(i.customerId, customerId)));
+    const [pawnRows, installmentRows] = await Promise.all([
+      pawnQuery,
+      installmentQuery,
+    ]);
+    const rows: CustomerContractRow[] = [
+      ...pawnRows.map(({ closedAt, deletedAt, ...row }) => ({
+        ...row,
+        type: "pawn" as const,
+        principal: Money.of(row.principal),
+        outstandingPrincipal: Money.of(row.outstandingPrincipal),
+        closedOn: closedAt ? businessDate(closedAt) : null,
+        deleted: deletedAt !== null,
+      })),
+      ...installmentRows.map(({ closedAt, deletedAt, ...row }) => ({
+        ...row,
+        type: "installment" as const,
+        amountGiven: Money.of(row.amountGiven),
+        remaining: Money.of(BigInt(row.remaining)),
+        closedOn: closedAt ? businessDate(closedAt) : null,
+        deleted: deletedAt !== null,
+      })),
+    ];
+    // uuid v7 tăng theo thời gian tạo ở cả hai bảng: so chuỗi id là mới nhất trước.
+    return rows.sort((a, b) => (a.id < b.id ? 1 : a.id > b.id ? -1 : 0));
   }
 
   async recentTransactions(
@@ -105,27 +172,37 @@ export class DrizzleCustomerProfile implements CustomerProfileSource {
   ): Promise<CustomerTransactionRow[]> {
     const t = cashTransactions;
     const c = contracts;
-    const rows = await this.db
-      .select({
-        id: t.id,
-        occurredAt: t.occurredAt,
-        contractCode: c.code,
-        type: t.type,
-        amount: t.amount,
-        periodFrom: t.periodFrom,
-        periodTo: t.periodTo,
-        note: t.note,
-        reversed: sql<boolean>`EXISTS (SELECT 1 FROM cash_transactions r WHERE r.reverses_id = ${t.id})`,
-      })
+    const columns = {
+      id: t.id,
+      occurredAt: t.occurredAt,
+      type: t.type,
+      amount: t.amount,
+      periodFrom: t.periodFrom,
+      periodTo: t.periodTo,
+      note: t.note,
+      reversed: sql<boolean>`EXISTS (SELECT 1 FROM cash_transactions r WHERE r.reverses_id = ${t.id})`,
+    };
+    // Mỗi nhánh đi index (shop_id, customer_id) của bảng hợp đồng và (shop_id, contract_id | installment_contract_id) của sổ két.
+    const pawn = this.db
+      .select({ ...columns, contractCode: c.code })
       .from(t)
       .innerJoin(c, and(eq(c.shopId, t.shopId), eq(c.id, t.contractId)))
-      .where(and(eq(c.shopId, shopId), eq(c.customerId, customerId)))
-      .orderBy(desc(t.occurredAt), desc(t.id))
+      .where(and(eq(c.shopId, shopId), eq(c.customerId, customerId)));
+    const installment = this.db
+      .select({ ...columns, contractCode: i.code })
+      .from(t)
+      .innerJoin(
+        i,
+        and(eq(i.shopId, t.shopId), eq(i.id, t.installmentContractId)),
+      )
+      .where(and(eq(i.shopId, shopId), eq(i.customerId, customerId)));
+    const rows = await unionAll(pawn, installment)
+      .orderBy(desc(sql`occurred_at`), desc(sql`id`))
       .limit(limit);
-    // Dòng có contract_id chỉ mang type của hợp đồng (CHECK cash_transactions_type_rules).
+    // Dòng gắn hợp đồng chỉ mang type của hợp đồng (CHECK cash_transactions_type_rules).
     return rows.map((row) => ({
       ...row,
-      type: row.type as CustomerTransactionRow["type"],
+      type: row.type as CustomerCashType,
       amount: Money.of(row.amount),
     }));
   }
