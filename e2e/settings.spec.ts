@@ -68,3 +68,37 @@ test("KTV chỉ thấy mục Tài khoản của tôi ở trang Cài đặt", asy
   await expect(shopSection(page)).toHaveCount(0);
   await expect(page.getByText("Cầm đồ Minh Phát E2E", { exact: true })).toBeVisible();
 });
+
+const defaultsSection = (page: Page) => page.getByRole("region", { name: "Mặc định khi tạo hợp đồng" });
+
+test("chủ tiệm đặt mặc định khi tạo hợp đồng: form /cam-do/moi điền sẵn, kỳ lãi dài hơn số ngày vay bị từ chối", async ({ page }) => {
+  await signIn(page);
+  await page.goto("/cam-do/moi");
+  await expect(page.getByLabel("Hình thức lãi")).toHaveValue("per_million_per_day");
+  await expect(page.getByLabel("Lãi *", { exact: true })).toHaveValue("");
+  await expect(page.getByLabel("Số ngày vay")).toHaveValue("30");
+
+  await page.goto("/cai-dat");
+  const section = defaultsSection(page);
+  await section.getByLabel("Hình thức lãi").selectOption("percent_per_month");
+  await section.getByLabel("Lãi", { exact: true }).fill("1,5");
+  await section.getByLabel("Số ngày vay").fill("20");
+  await section.getByLabel("Kỳ lãi (ngày)").fill("30");
+  await section.getByRole("button", { name: "Lưu mặc định" }).click();
+  await expect(section.getByRole("alert")).toHaveText("Kỳ lãi không được dài hơn số ngày vay.");
+  await expect(section.getByLabel("Lãi", { exact: true })).toHaveValue("1,5");
+  await expect(section.getByLabel("Hình thức lãi")).toHaveValue("percent_per_month");
+
+  await section.getByLabel("Số ngày vay").fill("60");
+  await section.getByLabel("Kỳ lãi (ngày)").fill("15");
+  await section.getByLabel('Mặc định bật "Thu lãi trước"').check();
+  await section.getByRole("button", { name: "Lưu mặc định" }).click();
+  await expect(section.getByRole("status")).toHaveText("Đã lưu mặc định.");
+
+  await page.goto("/cam-do/moi");
+  await expect(page.getByLabel("Hình thức lãi")).toHaveValue("percent_per_month");
+  await expect(page.getByLabel("Lãi *", { exact: true })).toHaveValue("1,5");
+  await expect(page.getByLabel("Số ngày vay")).toHaveValue("60");
+  await expect(page.getByLabel("Kỳ lãi")).toHaveValue("15");
+  await expect(page.getByLabel("Thu lãi trước")).toBeChecked();
+});

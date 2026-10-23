@@ -5,12 +5,7 @@ import { useActionState, useState, type ComponentProps, type FormEvent } from "r
 import { formatVnd, parseVnd } from "@/shared/kernel/vnd";
 import { parseRate, previewContract, type InterestType } from "../application/preview";
 import { createContractAction, type CreateContractState } from "./actions";
-
-const INTEREST_TYPES: { value: InterestType; label: string }[] = [
-  { value: "per_million_per_day", label: "Lãi ngày (k / triệu / ngày)" },
-  { value: "percent_per_month", label: "Lãi tháng (% / tháng)" },
-  { value: "percent_per_week", label: "Lãi tuần (% / tuần)" },
-];
+import { INTEREST_TYPE_OPTIONS as INTEREST_TYPES } from "./format";
 
 const RATE_UNIT: Record<InterestType, string> = {
   per_million_per_day: "(k / triệu / ngày)",
@@ -20,10 +15,27 @@ const RATE_UNIT: Record<InterestType, string> = {
 
 type Snapshot = { kind: string; principal: string; interestType: string; interestRate: string; interestPeriodDays: string; prepaidInterest: boolean };
 
-export function ContractForm({ today }: { today: string }) {
+/** Giá trị điền sẵn theo cài đặt của cửa hàng; `interestRate` null = không điền sẵn. */
+export type FormDefaults = {
+  interestType: InterestType;
+  interestRate: string | null;
+  termDays: number;
+  interestPeriodDays: number;
+  prepaidInterest: boolean;
+};
+
+export function ContractForm({ today, defaults }: { today: string; defaults: FormDefaults }) {
   const initialState: CreateContractState = {
     error: null,
-    values: { kind: "secured", loanDate: today, interestType: "per_million_per_day", termDays: "30", interestPeriodDays: "10" },
+    values: {
+      kind: "secured",
+      loanDate: today,
+      interestType: defaults.interestType,
+      interestRate: defaults.interestRate?.replace(".", ",") ?? "",
+      termDays: String(defaults.termDays),
+      interestPeriodDays: String(defaults.interestPeriodDays),
+      prepaidInterest: defaults.prepaidInterest ? "on" : "",
+    },
   };
   const [state, formAction, pending] = useActionState(createContractAction, initialState);
   const v = state.values;

@@ -4,7 +4,7 @@ import { useActionState } from "react";
 import type { ShopInfo } from "../application/shop-info";
 import { updateShopInfoAction, type ShopFormState } from "./settings-actions";
 
-const initialState: ShopFormState = { error: null, message: null, values: null };
+const initialState: ShopFormState = { error: null, message: null, values: null, version: 0 };
 
 /** Mục "Thông tin cửa hàng" (mockup cai-dat.html); `openedAt` đã định dạng dd/mm/yyyy, chỉ đọc. */
 export function ShopInfoForm({ info, openedAt }: { info: ShopInfo; openedAt: string }) {

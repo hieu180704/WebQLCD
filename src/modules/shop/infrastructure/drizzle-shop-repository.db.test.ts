@@ -76,4 +76,65 @@ describe.skipIf(!url)("DrizzleShopRepository", () => {
       expect(audits).toEqual([]);
     });
   });
+
+  it("mặc định tạo hợp đồng: giá trị ban đầu, sửa chỉ cửa hàng mình, lãi trả về dạng gọn, audit tên cột", async () => {
+    await inTx(async (db) => {
+      const repo = new DrizzleShopRepository(db);
+      const a = await ownerOf(db, "Tiệm A");
+      const b = await ownerOf(db, "Tiệm B");
+      const initial = {
+        interestType: "per_million_per_day",
+        interestRate: null,
+        termDays: 30,
+        interestPeriodDays: 10,
+        prepaidInterest: false,
+      };
+      expect(await repo.findContractDefaults(a.shopId)).toEqual(initial);
+
+      const next = {
+        interestType: "percent_per_month",
+        interestRate: "1.5",
+        termDays: 60,
+        interestPeriodDays: 15,
+        prepaidInterest: true,
+      } as const;
+      expect(await repo.updateContractDefaults(a, next)).toEqual([
+        "interestType",
+        "interestRate",
+        "termDays",
+        "interestPeriodDays",
+        "prepaidInterest",
+      ]);
+      expect(await repo.findContractDefaults(a.shopId)).toEqual(next);
+      expect(await repo.findContractDefaults(b.shopId)).toEqual(initial);
+      expect(await repo.updateContractDefaults(a, { ...next, interestRate: "3" })).toEqual(["interestRate"]);
+      expect(await repo.updateContractDefaults(a, { ...next, interestRate: "3" })).toEqual([]);
+
+      const audits = await db
+        .select({ changedFields: schema.auditLogs.changedFields })
+        .from(schema.auditLogs)
+        .where(eq(schema.auditLogs.entityId, a.shopId))
+        .orderBy(schema.auditLogs.id); // uuidv7 tăng dần; `at` trùng nhau trong một transaction.
+      expect(audits.map((row) => row.changedFields)).toEqual([
+        ["default_interest_type", "default_interest_rate", "default_term_days", "default_interest_period_days", "default_prepaid_interest"],
+        ["default_interest_rate"],
+      ]);
+    });
+  });
+
+  it("DB chặn kỳ lãi dài hơn số ngày vay", async () => {
+    await inTx(async (db) => {
+      const repo = new DrizzleShopRepository(db);
+      const a = await ownerOf(db, "Tiệm A");
+      await expect(
+        repo.updateContractDefaults(a, {
+          interestType: "per_million_per_day",
+          interestRate: null,
+          termDays: 10,
+          interestPeriodDays: 11,
+          prepaidInterest: false,
+        }),
+      ).rejects.toThrow();
+    });
+  });
 });

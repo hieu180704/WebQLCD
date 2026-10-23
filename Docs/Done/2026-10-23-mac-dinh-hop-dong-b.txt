@@ -1,0 +1,11 @@
+# 2026-10-23: Lát B mặc định khi tạo hợp đồng — [verified: lint, typecheck, 181 unit/DB test, e2e settings 3 ca + pawn-cash, customers]
+
+- Nhánh: `feat/cai-dat`. Commit: "Lát B: mặc định khi tạo hợp đồng ở Cài đặt".
+- Đã làm:
+  1. Module `shop`: port `findContractDefaults`, `updateContractDefaults` (khoá dòng, chỉ ghi khi có đổi, audit `edit` entity `shop` với tên cột `default_*`); use case `GetContractDefaults`, `UpdateContractDefaults` (kỳ lãi > số ngày vay thì từ chối; DB còn CHECK `shops_default_days`). Cột đã có từ migration 0010 của lát A.
+  2. Presentation: `updateContractDefaultsAction` (chủ tiệm, quyền ghi; Zod cùng luật form tạo hợp đồng, lãi để trống = null, lưu dạng gọn qua `parseRate`/`formatRate`), `ContractDefaultsForm`, section thứ hai trong `ShopSettings`.
+  3. Module `pawn`: `INTEREST_TYPE_OPTIONS` chuyển sang `format.tsx` để form tạo hợp đồng và trang Cài đặt dùng chung; `index.ts` export thêm `InterestType`, `parseRate`, `formatRate`, `INTEREST_TYPE_OPTIONS`. `NewContractPage` đọc mặc định qua `getContractDefaults`, `ContractForm` nhận prop `defaults` thay giá trị cứng.
+  4. Test: DB test 2 ca (giá trị ban đầu, chỉ sửa cửa hàng mình, lãi trả về dạng gọn, audit tên cột; DB chặn kỳ lãi > số ngày vay); e2e 1 ca (form `/cam-do/moi` trước và sau khi đặt mặc định, lỗi kỳ lãi giữ lại giá trị kể cả ô chọn).
+  5. Docs: core-spec mục 2 (bỏ dòng "hoãn", thêm luật ở khối 2026-10-23).
+- Lưu ý cho phiên sau:
+  - React reset form sau mỗi action và đưa `<select>` về option SSR đánh dấu `selected`, bỏ qua `defaultValue` mới. Form mặc định dùng `key={state.version}` để dựng lại form; form nào có `<select>` mà giữ giá trị khi báo lỗi đều cần cách này.

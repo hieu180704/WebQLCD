@@ -23,6 +23,7 @@ import { BetterAuthAuthenticator } from "@/modules/identity/infrastructure/bette
 import { DrizzleAccountRepository } from "@/modules/identity/infrastructure/drizzle-account-repository";
 import { IpSignupLimiter } from "@/modules/identity/infrastructure/ip-signup-limiter";
 import { ThrottledPasswordChanger } from "@/modules/identity/infrastructure/throttled-password-changer";
+import { GetContractDefaults, UpdateContractDefaults } from "@/modules/shop/application/contract-defaults";
 import { GetSubscription } from "@/modules/shop/application/get-subscription";
 import { GetShopProfile, UpdateShopInfo } from "@/modules/shop/application/shop-info";
 import { ChangePrincipal } from "@/modules/pawn/application/change-principal";
@@ -67,6 +68,8 @@ const shops = new DrizzleShopRepository(db);
 export const getSubscription = new GetSubscription(shops);
 export const getShopProfile = new GetShopProfile(shops);
 export const updateShopInfo = new UpdateShopInfo(shops);
+export const getContractDefaults = new GetContractDefaults(shops);
+export const updateContractDefaults = new UpdateContractDefaults(shops);
 
 const cashbook = new DrizzleCashbookRepository(db);
 export const setOpeningBalance = new SetOpeningBalance(cashbook);
