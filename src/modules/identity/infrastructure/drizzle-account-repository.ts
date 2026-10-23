@@ -12,6 +12,7 @@ import type {
   OwnerRegistrar,
   OwnerRegistration,
   RegisterOwnerResult,
+  ResetStaffPasswordResult,
   SetStaffActiveResult,
   StaffMember,
   StaffRepository,
@@ -96,6 +97,29 @@ export class DrizzleAccountRepository implements OwnerRegistrar, StaffRepository
       await tx.insert(auditLogs).values({ shopId: actor.shopId, userId: actor.userId, entity: "user", entityId: staffId, action: active ? "unlock" : "lock" });
       return "ok";
     });
+  }
+
+  async resetStaffPassword(actor: Actor, staffId: string, password: string): Promise<ResetStaffPasswordResult> {
+    const passwordHash = await hashPassword(password); // Băm trước, không giữ transaction trong lúc băm.
+    try {
+      return await this.db.transaction(async (tx) => {
+        const [staff] = await tx
+          .select({ id: users.id })
+          .from(users)
+          .where(and(eq(users.id, staffId), eq(users.shopId, actor.shopId), eq(users.role, "staff")))
+          .for("update");
+        if (!staff) return "not_found";
+        await tx
+          .update(accounts)
+          .set({ password: passwordHash })
+          .where(and(eq(accounts.userId, staffId), eq(accounts.providerId, "credential")));
+        await tx.delete(sessions).where(eq(sessions.userId, staffId));
+        await tx.insert(auditLogs).values({ shopId: actor.shopId, userId: actor.userId, entity: "user", entityId: staffId, action: "reset_password" });
+        return "ok";
+      });
+    } catch (error) {
+      throw dbCause(error);
+    }
   }
 }
 

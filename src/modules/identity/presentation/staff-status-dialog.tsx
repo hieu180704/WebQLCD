@@ -17,6 +17,11 @@ type Target = { staffId: string; name: string; active: boolean };
 
 const OpenStatus = createContext<(target: Target) => void>(() => {});
 
+// Thông báo chung của các hộp thoại trên bảng KTV: chỉ giữ kết quả của thao tác mới nhất.
+const ReportStatus = createContext<(message: string | null) => void>(() => {});
+
+export const useReportStaffStatus = () => useContext(ReportStatus);
+
 /**
  * Hộp thoại khoá / mở khoá KTV (chỉ chủ tiệm). Một hộp thoại cho cả bảng, đặt ngoài các dòng:
  * đổi trạng thái xong nút trên dòng đổi theo mà hộp thoại vẫn còn để báo kết quả.
@@ -48,15 +53,17 @@ export function StaffStatusDialog({ children }: { children: ReactNode }) {
 
   return (
     <OpenStatus value={open}>
-      {message && (
-        <p
-          role="status"
-          className="mx-5 mb-3 rounded-lg bg-emerald-50 text-emerald-800 px-4 py-3 text-sm"
-        >
-          {message}
-        </p>
-      )}
-      {children}
+      <ReportStatus value={setMessage}>
+        {message && (
+          <p
+            role="status"
+            className="mx-5 mb-3 rounded-lg bg-emerald-50 text-emerald-800 px-4 py-3 text-sm"
+          >
+            {message}
+          </p>
+        )}
+        {children}
+      </ReportStatus>
       <dialog
         ref={dialog}
         aria-labelledby="staff-status-title"

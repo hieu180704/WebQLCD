@@ -2,7 +2,7 @@
 
 import { refresh } from "next/cache";
 import { z } from "zod";
-import { AccessDeniedError, createStaff, requireSession, setStaffActive } from "@/composition-root";
+import { AccessDeniedError, createStaff, requireSession, resetStaffPassword, setStaffActive } from "@/composition-root";
 import { keepValues, newPasswordSchema, personNameSchema, usernameSchema } from "./schemas";
 
 export type CreateStaffState = { error: string | null; created: string | null; values: Record<string, string> };
@@ -65,4 +65,34 @@ export async function setStaffActiveAction(previous: StaffStatusState, formData:
   refresh();
   if (result === "not_found") return fail("Nhân viên không còn hoặc đã đổi trạng thái. Danh sách đã được tải lại.");
   return { error: null, message: active ? "Đã mở khoá nhân viên." : "Đã khoá nhân viên, mọi phiên đăng nhập của người đó bị đăng xuất.", done: previous.done + 1 };
+}
+
+const resetSchema = z.object({ staffId: staffIdSchema, password: newPasswordSchema });
+
+const RESET_DENIED: Record<AccessDeniedError["reason"], string> = {
+  inactive: "Tài khoản đã bị vô hiệu hoá.",
+  role: "Chỉ chủ tiệm được đặt lại mật khẩu nhân viên.",
+  read_only: "Cửa hàng đã hết hạn sử dụng.", // Không xảy ra: không đòi quyền ghi.
+};
+
+/** Làm được cả khi cửa hàng hết hạn (thao tác bảo mật). */
+export async function resetStaffPasswordAction(previous: StaffStatusState, formData: FormData): Promise<StaffStatusState> {
+  const fail = (error: string): StaffStatusState => ({ ...previous, error, message: null });
+  let actor;
+  try {
+    actor = await requireSession({ role: "owner" });
+  } catch (error) {
+    if (error instanceof AccessDeniedError) return fail(RESET_DENIED[error.reason]);
+    throw error;
+  }
+
+  const parsed = resetSchema.safeParse({ staffId: formData.get("staffId"), password: formData.get("password") });
+  if (!parsed.success) return fail(parsed.error.issues[0].message);
+
+  const result = await resetStaffPassword.execute({ userId: actor.userId, shopId: actor.shopId }, parsed.data.staffId, parsed.data.password);
+  if (result === "not_found") {
+    refresh();
+    return fail("Không tìm thấy nhân viên. Danh sách đã được tải lại.");
+  }
+  return { error: null, message: "Đã đặt lại mật khẩu, mọi phiên đăng nhập của nhân viên đó bị đăng xuất.", done: previous.done + 1 };
 }

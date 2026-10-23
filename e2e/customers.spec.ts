@@ -162,7 +162,7 @@ test("KTV xem trang khách thấy CCCD đã che, không có nút xem số đầy
   await page.goto("/nhan-vien");
   await page.getByLabel("Họ tên nhân viên").fill("KTV Khách");
   await page.getByLabel("Tên đăng nhập").fill(STAFF.username);
-  await page.getByLabel("Mật khẩu").fill(STAFF.password);
+  await page.getByLabel("Mật khẩu", { exact: true }).fill(STAFF.password);
   await page.getByRole("button", { name: "Tạo nhân viên" }).click();
   await expect(page.getByRole("status")).toHaveText(`Đã tạo nhân viên ${STAFF.username}.`);
   await page.getByRole("button", { name: "Đăng xuất" }).click();

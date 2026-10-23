@@ -1,0 +1,13 @@
+# 2026-10-23: Lát 4b chủ tiệm đặt lại mật khẩu KTV — [verified: lint, typecheck, 172 unit/DB test, 33 e2e]
+
+- Commit: xem commit "Lát 4b: chủ tiệm đặt lại mật khẩu KTV" ngay sau 1c71aff
+- Đã làm:
+  1. Module `identity`: port `StaffRepository.resetStaffPassword`, use case `ResetStaffPassword`; `DrizzleAccountRepository.resetStaffPassword`: băm argon2 trước, rồi trong một transaction khoá dòng KTV (`FOR UPDATE`, lọc `id` + `shop_id` + `role = 'staff'`, không có → `not_found`), cập nhật `accounts.password` dòng `credential`, xoá mọi `sessions` của KTV, audit `reset_password`. Lỗi DB ném lỗi gốc PostgreSQL (tham số có hash không lọt log), như `createStaff`.
+  2. Presentation: `resetStaffPasswordAction` (`requireSession({ role: "owner" })`, không đòi quyền ghi; Zod `staffId` + `newPasswordSchema`), hộp thoại `ResetPasswordDialog` + nút "Đặt lại mật khẩu" (chỉ hiện với KTV đang hoạt động, theo mockup), xoá ô mật khẩu mỗi lần mở. Hai hộp thoại trên bảng KTV dùng chung dòng thông báo qua `useReportStaffStatus` của `StaffStatusDialog`.
+  3. Test: DB test 2 ca (mật khẩu mới dùng được, cũ hết, xoá phiên KTV giữ phiên chủ tiệm, audit; không đụng chủ tiệm / KTV cửa hàng khác / giả mạo shopId); e2e: đặt lại khi KTV đang đăng nhập (mật khẩu ngắn báo lỗi, phiên KTV bị đẩy về `/dang-nhap`, mật khẩu cũ sai, mới đúng), hết hạn vẫn đặt lại được.
+  4. Sửa e2e cũ (onboarding, cashbook, customers): ô "Mật khẩu" của form tạo KTV dùng `getByLabel(..., { exact: true })` vì trang `/nhan-vien` giờ có hộp thoại "Đặt lại mật khẩu —" và ô "Mật khẩu mới" (hộp thoại đóng vẫn nằm trong DOM).
+  5. Docs: core-spec mục 2 ("Nhân viên"), data-model 3.7 (`reset_password`), handoff.
+- Trạng thái: xong lát 4b; kế tiếp lát 4c (tự đổi mật khẩu ở `/cai-dat`).
+- Lưu ý cho phiên sau:
+  - Server vẫn cho đặt lại mật khẩu KTV đang bị khoá (không mở khoá); chỉ giao diện ẩn nút theo mockup.
+  - `npm run db:start` chạy trong Bash tool có thể treo (pg_ctl giữ stdout) dù DB đã lên; kiểm bằng chạy test thay vì chờ lệnh.

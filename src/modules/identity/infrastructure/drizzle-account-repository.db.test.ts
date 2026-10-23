@@ -202,4 +202,57 @@ describe.skipIf(!url)("DrizzleAccountRepository", () => {
       await expect(repo.setStaffActive({ userId: ownerB.id, shopId: ownerA.shopId }, staffA.id, false)).rejects.toThrow();
       expect((await repo.listStaff(ownerA.shopId, 10))[0].isActive).toBe(true);
     }));
+
+  it("đặt lại mật khẩu KTV: mật khẩu mới dùng được, cũ hết dùng được, xoá mọi phiên KTV, có audit", () =>
+    inTx(async (db) => {
+      const repo = new DrizzleAccountRepository(db);
+      const a = owner();
+      await repo.registerOwner(a, 7);
+      const ownerA = await findUser(db, a.username);
+      const actor = { userId: ownerA.id, shopId: ownerA.shopId };
+      const staffName = `ktv_${Date.now()}_${n++}`;
+      await repo.createStaff(actor, { name: "KTV Quên", username: staffName, password: "matkhau456" });
+      const staff = await findUser(db, staffName);
+      const token = () => `t_${Date.now()}_${n++}`;
+      const expiresAt = new Date(Date.now() + 3_600_000);
+      await db.insert(schema.sessions).values([
+        { userId: staff.id, token: token(), expiresAt },
+        { userId: ownerA.id, token: token(), expiresAt },
+      ]);
+
+      expect(await repo.resetStaffPassword(actor, staff.id, "matkhaumoi789")).toBe("ok");
+      const after = await findUser(db, staffName);
+      expect(await verifyPassword(after.password!, "matkhaumoi789")).toBe(true);
+      expect(await verifyPassword(after.password!, "matkhau456")).toBe(false);
+      const { rows: left } = await db.execute<{ user_id: string }>(
+        sql`SELECT user_id FROM sessions WHERE user_id IN (${staff.id}, ${ownerA.id})`,
+      );
+      expect(left).toEqual([{ user_id: ownerA.id }]);
+
+      const { rows } = await db.execute<{ user_id: string; action: string }>(
+        sql`SELECT user_id, action FROM audit_logs WHERE entity = 'user' AND entity_id = ${staff.id} AND action = 'reset_password'`,
+      );
+      expect(rows).toEqual([{ user_id: ownerA.id, action: "reset_password" }]);
+    }));
+
+  it("đặt lại mật khẩu: không đụng được chủ tiệm, không đụng được KTV cửa hàng khác", () =>
+    inTx(async (db) => {
+      const repo = new DrizzleAccountRepository(db);
+      const a = owner();
+      const b = owner();
+      await repo.registerOwner(a, 7);
+      await repo.registerOwner(b, 7);
+      const ownerA = await findUser(db, a.username);
+      const ownerB = await findUser(db, b.username);
+      const actorA = { userId: ownerA.id, shopId: ownerA.shopId };
+      const staffName = `ktv_${Date.now()}_${n++}`;
+      await repo.createStaff(actorA, { name: "KTV A", username: staffName, password: "matkhau456" });
+      const staffA = await findUser(db, staffName);
+
+      expect(await repo.resetStaffPassword(actorA, ownerA.id, "matkhaumoi789")).toBe("not_found");
+      expect(await repo.resetStaffPassword({ userId: ownerB.id, shopId: ownerB.shopId }, staffA.id, "matkhaumoi789")).toBe("not_found");
+      await expect(repo.resetStaffPassword({ userId: ownerB.id, shopId: ownerA.shopId }, staffA.id, "matkhaumoi789")).rejects.toThrow();
+      expect(await verifyPassword((await findUser(db, staffName)).password!, "matkhau456")).toBe(true);
+      expect(await verifyPassword((await findUser(db, a.username)).password!, a.password)).toBe(true);
+    }));
 });

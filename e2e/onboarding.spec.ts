@@ -4,7 +4,7 @@ import { clearLoginThrottles, expireTrial } from "./db";
 // Mỗi lần chạy tạo một cửa hàng mới trong DB dev (không xoá được: audit_logs append-only).
 const RUN = Date.now().toString(36);
 const OWNER = { username: `e2e_${RUN}`, password: "matkhau123", email: `e2e_${RUN}@example.com` };
-const STAFF = { username: `e2e_ktv_${RUN}`, password: "matkhau456" };
+const STAFF = { username: `e2e_ktv_${RUN}`, password: "matkhau456", newPassword: "matkhaumoi789" };
 
 test.describe.configure({ mode: "serial" });
 test.beforeEach(clearLoginThrottles);
@@ -50,7 +50,7 @@ test("chủ tiệm tạo KTV; KTV đăng nhập được nhưng không vào đư
   await expect(page).toHaveURL("/nhan-vien");
   await page.getByLabel("Họ tên nhân viên").fill("KTV Lan");
   await page.getByLabel("Tên đăng nhập").fill(STAFF.username);
-  await page.getByLabel("Mật khẩu").fill(STAFF.password);
+  await page.getByLabel("Mật khẩu", { exact: true }).fill(STAFF.password);
   await page.getByRole("button", { name: "Tạo nhân viên" }).click();
   await expect(page.getByRole("status")).toHaveText(`Đã tạo nhân viên ${STAFF.username}.`);
   await expect(page.getByRole("cell", { name: STAFF.username })).toBeVisible();
@@ -100,6 +100,41 @@ test("chủ tiệm khoá KTV: phiên đang mở của KTV bị đăng xuất, đ
   }
 });
 
+async function resetStaffPassword(page: Page, password: string) {
+  await page.getByRole("button", { name: "Đặt lại mật khẩu KTV Lan", exact: true }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toHaveAccessibleName("Đặt lại mật khẩu — KTV Lan");
+  await dialog.getByLabel("Mật khẩu mới").fill(password);
+  await dialog.getByRole("button", { name: "Đặt lại" }).click();
+}
+
+test("chủ tiệm đặt lại mật khẩu KTV: phiên đang mở bị đăng xuất, mật khẩu cũ hết dùng được", async ({ page, browser }) => {
+  const staffContext = await browser.newContext();
+  try {
+    const staffPage = await staffContext.newPage();
+    await signIn(staffPage, STAFF.username, STAFF.password);
+
+    await signIn(page, OWNER.username, OWNER.password);
+    await page.goto("/nhan-vien");
+    await resetStaffPassword(page, "ngan");
+    await expect(page.getByRole("dialog").getByRole("alert")).toHaveText("Mật khẩu tối thiểu 8 ký tự.");
+    await page.getByRole("dialog").getByLabel("Mật khẩu mới").fill(STAFF.newPassword);
+    await page.getByRole("dialog").getByRole("button", { name: "Đặt lại" }).click();
+    await expect(page.getByRole("status")).toHaveText("Đã đặt lại mật khẩu, mọi phiên đăng nhập của nhân viên đó bị đăng xuất.");
+
+    await staffPage.goto("/");
+    await expect(staffPage).toHaveURL("/dang-nhap");
+    await staffPage.getByLabel("Tên đăng nhập").fill(STAFF.username);
+    await staffPage.getByLabel("Mật khẩu").fill(STAFF.password);
+    await staffPage.getByRole("button", { name: "Đăng nhập" }).click();
+    await expect(formAlert(staffPage)).toHaveText("Sai tên đăng nhập hoặc mật khẩu.");
+    await expect(staffPage).toHaveURL("/dang-nhap");
+    await signIn(staffPage, STAFF.username, STAFF.newPassword);
+  } finally {
+    await staffContext.close();
+  }
+});
+
 test("hết hạn dùng thử: báo chỉ xem, không tạo thêm KTV được", async ({ page }) => {
   await expireTrial(OWNER.username);
   await signIn(page, OWNER.username, OWNER.password);
@@ -107,15 +142,17 @@ test("hết hạn dùng thử: báo chỉ xem, không tạo thêm KTV được",
   await page.goto("/nhan-vien");
   await page.getByLabel("Họ tên nhân viên").fill("KTV Hết Hạn");
   await page.getByLabel("Tên đăng nhập").fill(`${STAFF.username}_2`);
-  await page.getByLabel("Mật khẩu").fill(STAFF.password);
+  await page.getByLabel("Mật khẩu", { exact: true }).fill(STAFF.password);
   await page.getByRole("button", { name: "Tạo nhân viên" }).click();
   await expect(formAlert(page)).toHaveText("Cửa hàng đã hết hạn sử dụng, không tạo thêm nhân viên được.");
   await expect(page.getByRole("cell", { name: `${STAFF.username}_2` })).toHaveCount(0);
 });
 
-test("hết hạn dùng thử: vẫn khoá được KTV, không mở khoá được", async ({ page }) => {
+test("hết hạn dùng thử: vẫn đặt lại mật khẩu và khoá được KTV, không mở khoá được", async ({ page }) => {
   await signIn(page, OWNER.username, OWNER.password);
   await page.goto("/nhan-vien");
+  await resetStaffPassword(page, STAFF.password);
+  await expect(page.getByRole("status")).toHaveText("Đã đặt lại mật khẩu, mọi phiên đăng nhập của nhân viên đó bị đăng xuất.");
   await setStaffStatus(page, "Khoá");
   await expect(staffRow(page)).toContainText("Đã khoá");
   await setStaffStatus(page, "Mở khoá");

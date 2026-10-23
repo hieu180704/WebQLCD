@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { listStaff, requireSession } from "@/composition-root";
 import { CreateStaffForm } from "./create-staff-form";
+import { ResetPasswordButton, ResetPasswordDialog } from "./reset-password-dialog";
 import { StaffStatusButton, StaffStatusDialog } from "./staff-status-dialog";
 
 const formatDate = new Intl.DateTimeFormat("vi-VN", { timeZone: "Asia/Ho_Chi_Minh", dateStyle: "short" }).format;
@@ -30,6 +31,7 @@ export async function StaffManagement() {
             </h2>
           </div>
           <StaffStatusDialog>
+            <ResetPasswordDialog>
             {members.length === 0 ? (
               <p className="px-5 pb-5 text-sm text-slate-500">Chưa có nhân viên nào.</p>
             ) : (
@@ -54,7 +56,10 @@ export async function StaffManagement() {
                         </td>
                         <td className="num">{formatDate(m.createdAt)}</td>
                         <td>
-                          <StaffStatusButton staffId={m.id} name={m.name} active={m.isActive} />
+                          <div className="flex gap-3 whitespace-nowrap">
+                            {m.isActive && <ResetPasswordButton staffId={m.id} name={m.name} />}
+                            <StaffStatusButton staffId={m.id} name={m.name} active={m.isActive} />
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -62,6 +67,7 @@ export async function StaffManagement() {
                 </table>
               </div>
             )}
+            </ResetPasswordDialog>
           </StaffStatusDialog>
           <p className="px-5 py-3 text-xs text-slate-500">
             Nhân viên bị khoá không đăng nhập được, phiên đang mở bị đăng xuất ngay. Hồ sơ cũ vẫn ghi tên người đó. Không xoá nhân viên để giữ lịch sử.
