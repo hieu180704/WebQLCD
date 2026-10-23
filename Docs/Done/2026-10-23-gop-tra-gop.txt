@@ -1,0 +1,16 @@
+# 2026-10-23: Gộp nhánh feat/tra-gop vào main — [verified: lint, typecheck, vitest 235/235, e2e 48/48]
+
+- Commit: 58b20be (merge `feat/tra-gop`, gồm af62e54 6a, 453cd12 6b, 868e35f 6c, 00324e7 6d, 3df109f 6e)
+- Đã làm:
+  1. Review trước khi gộp: nhánh sửa `modules/cashbook` ngoài bảng phạm vi: thêm bút toán `installment_disbursement` (chi), `installment_payment` (thu), dòng đảo mang `installmentContractId`; có test; hợp lý.
+  2. `/merge-worktree`, 5 conflict:
+     - `core-spec.txt`: union 2 khối GIẢ ĐỊNH TẠM 2026-10-23 (cài đặt, trả góp).
+     - `composition-root.ts`: union import shop + installment.
+     - `drizzle/meta` (`_journal.json`, snapshot 0010/0011): giữ bản `main`.
+  3. Đánh lại số migration của nhánh: `0010_installment_operations` → `0012` (`drizzle-kit generate`, SQL khớp từng dòng bản gốc); `0011_installment_due` viết tay → `0013` (`generate --custom`, chép nguyên SQL). `generate` lần nữa: "No schema changes".
+  4. Đổi tham chiếu "migration 0011" → 0013 ở `data-model.txt` mục trả góp và comment `installment-due.db.test.ts`, `drizzle-installment-repository.ts`. Worklog 6a, 6e của nhánh vẫn ghi 0010/0011 (Frozen, không sửa).
+  5. DB dev `webqlcd` chưa từng nhận migration của nhánh ("DB chung" trong worklog 6a là `webqlcd_tragop`); `db:migrate` lên 0013 rồi verify gate.
+  6. Dọn: `git worktree remove ../WebQLCD-tragop`, `git branch -d feat/tra-gop`. Hết worktree phụ.
+  7. Handoff: sửa lỗi dòng Deploy dính liền dòng "Phần mockup chưa làm" (mất xuống dòng ở lần sửa 70b28e3); mục 3 chuyển sang đợt 2 chờ duyệt.
+- Còn dở (agent bị chặn quyền, người dùng chạy tay): xoá DB `webqlcd_tragop` (và `_baocao`, `_caidat` nếu chưa xoá); xoá thư mục sót `C:/Project/WebQLCD-tragop|-baocao|-caidat` (chỉ còn `.next`).
+- Lưu ý cho phiên sau: DB đã áp 0010/0011 cũ của nhánh (`webqlcd_tragop`) lệch journal mới, không dùng tiếp được, phải xoá; DB triển khai thật chưa có nên không ảnh hưởng.
