@@ -1,0 +1,11 @@
+# 2026-10-23: Gộp wt-3 (xuất Excel) vào main — [verified: lint, typecheck, vitest 241/241, e2e 52/52 (gồm build)]
+
+- Commit: b22e70e (merge `--no-ff` của `wt-3`: 801623b E1 `/cam-do`, 1531bb7 E2 `/tra-gop`, 59ec618 E3 `/quy-ket`); worklog/handoff: commit kế tiếp.
+- Đã làm:
+  1. `/merge-worktree wt-3`: merge sạch, không conflict (`main` chỉ hơn `wt-3` một commit docs d62f291). `npm install` theo lockfile đã gộp (thêm `exceljs`). Phase gom file ignored: bỏ qua, repo không khai data-root.
+  2. Kéo `wt-3`, `wt-4` lên b22e70e (`merge --ff-only`). `wt-2` không đụng: đã có 2 commit riêng và đang sửa dở (A), sẽ gộp khi người dùng báo xong.
+  3. Handoff: đánh dấu B xong, gỡ dòng "nút Xuất Excel ở `/cam-do` chưa làm", thêm lưu ý còn sót từ worklog E3.
+- File: Docs/Handoffs/handoff-webqlcd-mvp.txt, Docs/Done/2026-10-23-gop-wt3-excel.txt (và 2 dòng còn treo của phiên trước ở handoff + worklog dọn shadcn).
+- Lưu ý cho phiên sau:
+  - B không có migration: DB `webqlcd_wt3`, `webqlcd_wt4` không cần tạo lại. `wt-4` chưa `npm install` sau khi kéo lên (thiếu `exceljs`).
+  - Khi gộp A (`wt-2`): A sửa `composition-root.ts`, `installment/application/ports.ts`, `drizzle-installment-repository.ts` mà B cũng sửa → dễ conflict CODE, resolve tay.
