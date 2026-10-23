@@ -1,0 +1,10 @@
+# 2026-10-23: Dọn shadcn, chia đợt 2 thành 2 worktree — [verified: lint, typecheck, vitest 235/235, build, e2e 48/48]
+
+- Commit: 4a8e360 (dọn shadcn), worklog/handoff: commit kế tiếp
+- Đã làm:
+  1. Người dùng duyệt đề xuất đợt 2: A trả góp vào số liệu tổng, B xuất Excel (`/cam-do`, `/tra-gop`, `/quy-ket`; CCCD 4 số cuối), C dọn shadcn trên `main` trước khi chia nhánh.
+  2. C: gỡ `components.json`, element `ui` (`src/shared/ui` không còn tồn tại) trong eslint boundaries, deps `class-variance-authority`, `cn`, `radix-ui`, `tw-animate-css`, `shadcn` (grep: không file nào import). Lockfile chỉ gỡ 278 gói, không gói / phiên bản mới.
+  3. Tạo worktree `C:/Project/WebQLCD-tonghop` (`feat/tong-hop-tra-gop`), `C:/Project/WebQLCD-excel` (`feat/excel`) từ 4a8e360, `npm ci`; DB `webqlcd_tonghop`, `webqlcd_excel` (owner `webqlcd_app`). Phạm vi từng nhánh: handoff mục 3.
+- Lưu ý cho phiên sau:
+  - `npm run build` log lỗi BetterAuth "default secret" nhưng exit 0: build đọc `.env` không có `BETTER_AUTH_SECRET` (đã ghi ở worklog 4c); e2e tự sinh secret nên không lộ ra. Người dùng kiểm `.env`.
+  - `audit_logs.action` là text: thêm action `export` không cần migration.
