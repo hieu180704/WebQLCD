@@ -60,16 +60,35 @@ export const cashTransactionType = pgEnum("cash_transaction_type", [
   "reversal",
 ]);
 
-export const shops = pgTable("shops", {
-  id: id(),
-  name: text("name").notNull(),
-  openedAt: date("opened_at", { mode: "string" }).notNull(),
-  subscriptionStatus: subscriptionStatus("subscription_status").notNull().default("trial"),
-  trialEndsAt: timestamp("trial_ends_at", { withTimezone: true }).notNull(),
-  paidUntil: timestamp("paid_until", { withTimezone: true }),
-  createdAt: createdAt(),
-  updatedAt: updatedAt(),
-});
+export const shops = pgTable(
+  "shops",
+  {
+    id: id(),
+    name: text("name").notNull(),
+    phone: text("phone"),
+    address: text("address"),
+    openedAt: date("opened_at", { mode: "string" }).notNull(),
+    subscriptionStatus: subscriptionStatus("subscription_status").notNull().default("trial"),
+    trialEndsAt: timestamp("trial_ends_at", { withTimezone: true }).notNull(),
+    paidUntil: timestamp("paid_until", { withTimezone: true }),
+    // Giá trị điền sẵn vào form tạo hợp đồng cầm đồ/tín chấp; lãi null = không điền sẵn.
+    defaultInterestType: interestType("default_interest_type").notNull().default("per_million_per_day"),
+    defaultInterestRate: numeric("default_interest_rate", { precision: 9, scale: 4 }),
+    defaultTermDays: integer("default_term_days").notNull().default(30),
+    defaultInterestPeriodDays: integer("default_interest_period_days").notNull().default(10),
+    defaultPrepaidInterest: boolean("default_prepaid_interest").notNull().default(false),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    check("shops_name_not_blank", sql`btrim(${t.name}) <> ''`),
+    check("shops_default_interest_rate_non_negative", sql`${t.defaultInterestRate} >= 0`),
+    check(
+      "shops_default_days",
+      sql`${t.defaultTermDays} BETWEEN 1 AND 3650 AND ${t.defaultInterestPeriodDays} BETWEEN 1 AND ${t.defaultTermDays}`,
+    ),
+  ],
+);
 
 // Bốn bảng users/sessions/accounts/verifications theo hình dạng Better Auth yêu cầu (mật khẩu ở accounts.password).
 export const users = pgTable(

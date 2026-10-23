@@ -1,0 +1,12 @@
+# 2026-10-23: Lát A thông tin cửa hàng ở Cài đặt — [verified: lint, typecheck, 179 unit/DB test, e2e settings + onboarding 12 ca]
+
+- Nhánh: `feat/cai-dat` (worktree, chạy song song với `feat/tra-gop`, `feat/bao-cao`). Commit: "Lát A: sửa thông tin cửa hàng ở Cài đặt".
+- Đã làm:
+  1. Schema `shops`: thêm `phone`, `address` và 5 cột mặc định tạo hợp đồng (`default_interest_type`, `default_interest_rate`, `default_term_days`, `default_interest_period_days`, `default_prepaid_interest`) cùng CHECK; gộp một migration `0010_shop_settings.sql` (drizzle-kit generate) cho cả lát A và B để bớt số migration phải đánh lại khi gộp với nhánh trả góp.
+  2. Module `shop`: port `findProfile`, `updateInfo` (khoá dòng, chỉ ghi field đổi, audit `edit` entity `shop` kèm `changed_fields`); use case `GetShopProfile`, `UpdateShopInfo`; `GetSubscription` chỉ phụ thuộc `findSubscription`.
+  3. Presentation: `updateShopInfoAction` (chủ tiệm, quyền ghi; Zod: tên bắt buộc ≤ 100, SĐT ≤ 30, địa chỉ ≤ 255; báo lỗi giữ lại giá trị đã nhập; lưu xong `refresh()` để tên mới lên đầu trang), `ShopInfoForm`, `ShopSettings` (KTV nhận null). Trang `/cai-dat` ghép `ShopSettings` (cột trái) + `AccountSettings` (cột phải); `AccountSettings` chỉ còn là một section.
+  4. Test: DB test 2 ca (chỉ sửa cửa hàng của người thực hiện + audit; không đổi gì thì không audit); e2e `settings.spec.ts` 2 ca (sửa thông tin, tên trống bị từ chối giữ giá trị; KTV không thấy mục cửa hàng).
+  5. Docs: core-spec mục 2 (khối 2026-10-23) và mục 3, data-model 3.1.
+- Lưu ý cho phiên sau:
+  - Migration 0010 có thể trùng số với nhánh trả góp khi gộp: xoá file của nhánh này, generate lại sau khi gộp, không sửa migration cũ.
+  - SĐT cửa hàng lưu nguyên văn (cho phép số bàn có khoảng trắng), không chuẩn hoá như SĐT khách.

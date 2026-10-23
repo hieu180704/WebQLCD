@@ -24,6 +24,7 @@ import { DrizzleAccountRepository } from "@/modules/identity/infrastructure/driz
 import { IpSignupLimiter } from "@/modules/identity/infrastructure/ip-signup-limiter";
 import { ThrottledPasswordChanger } from "@/modules/identity/infrastructure/throttled-password-changer";
 import { GetSubscription } from "@/modules/shop/application/get-subscription";
+import { GetShopProfile, UpdateShopInfo } from "@/modules/shop/application/shop-info";
 import { ChangePrincipal } from "@/modules/pawn/application/change-principal";
 import { CreateContract } from "@/modules/pawn/application/create-contract";
 import { DeleteContract } from "@/modules/pawn/application/delete-contract";
@@ -62,7 +63,10 @@ export const setStaffActive = new SetStaffActive(accounts);
 export const resetStaffPassword = new ResetStaffPassword(accounts);
 export const changeOwnPassword = new ChangeOwnPassword(new ThrottledPasswordChanger(db));
 
-export const getSubscription = new GetSubscription(new DrizzleShopRepository(db));
+const shops = new DrizzleShopRepository(db);
+export const getSubscription = new GetSubscription(shops);
+export const getShopProfile = new GetShopProfile(shops);
+export const updateShopInfo = new UpdateShopInfo(shops);
 
 const cashbook = new DrizzleCashbookRepository(db);
 export const setOpeningBalance = new SetOpeningBalance(cashbook);
