@@ -36,9 +36,11 @@ import { PayInterest } from "@/modules/pawn/application/pay-interest";
 import { RedeemContract } from "@/modules/pawn/application/redeem-contract";
 import { ReverseOperation } from "@/modules/pawn/application/reverse-operation";
 import { DrizzleContractRepository } from "@/modules/pawn/infrastructure/drizzle-contract-repository";
+import { GetCashReport } from "@/modules/reporting/application/get-cash-report";
 import { GetCustomerDetail } from "@/modules/reporting/application/get-customer-detail";
 import { GetDashboardStats } from "@/modules/reporting/application/get-dashboard-stats";
 import { ListCustomers } from "@/modules/reporting/application/list-customers";
+import { DrizzleCashReport } from "@/modules/reporting/infrastructure/drizzle-cash-report";
 import { DrizzleCustomerDirectory } from "@/modules/reporting/infrastructure/drizzle-customer-directory";
 import { DrizzleCustomerProfile } from "@/modules/reporting/infrastructure/drizzle-customer-profile";
 import { DrizzleDashboardStats } from "@/modules/reporting/infrastructure/drizzle-dashboard-stats";
@@ -97,3 +99,4 @@ export const listCustomers = new ListCustomers(
   new DrizzleCustomerDirectory(db, hashCccd),
 );
 export const getCustomerDetail = new GetCustomerDetail(new DrizzleCustomerProfile(db));
+export const getCashReport = new GetCashReport(new DrizzleCashReport(db));
