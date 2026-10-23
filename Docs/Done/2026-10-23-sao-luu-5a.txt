@@ -1,0 +1,33 @@
+# WORKLOG: LÁT 5A — SAO LƯU CẢ DB TỰ ĐỘNG, MÃ HOÁ GPG
+
+# Mục lục
+1. Mục Tiêu
+2. Đã Làm
+3. File Thay Đổi
+4. Lưu Ý Cho Người Tiếp Quản
+
+---
+
+# 1. Mục Tiêu
+- Mục 5 pilot-scope (deploy kèm sao lưu), chia lát: 5a sao lưu cả DB; 5b đóng gói deploy (Docker, compose, Caddy, migration runner, tách role, `advanced.ipAddress`, dọn `login_throttles`, runbook); trang `/sao-luu` theo cửa hàng hoãn. Người dùng duyệt 2026-10-23.
+
+---
+
+# 2. Đã Làm
+- `backup.sh`: `pg_dump` custom format → gpg public key → giữ 30 bản, bỏ dữ liệu phiên/token/bộ đếm, hook chép ra ngoài VPS.
+- `restore.sh`: chỉ vào DB rỗng, một transaction, đối soát sau khi khôi phục.
+- `verify-restore.sql`: đối soát data-model mục 4 (gốc còn lại, ngày lãi đã trả đến, tiền đã góp), lệch thì lỗi.
+- Smoke test trên PG dev: chi tiết ở Decision `2026-10-23-backup.txt` mục 3. Lint, typecheck, `npm test` (177) qua; không chạy e2e vì không đụng `src/`.
+
+---
+
+# 3. File Thay Đổi
+- Mới: `scripts/backup/backup.sh`, `scripts/backup/restore.sh`, `scripts/backup/verify-restore.sql`, `Docs/Decisions/2026-10-23-backup.txt`.
+- Sửa: `Docs/Handoffs/handoff-webqlcd-mvp.txt`.
+
+---
+
+# 4. Lưu Ý Cho Người Tiếp Quản
+- Git Bash trên Windows: gpg-agent không mở được socket khi `GNUPGHOME` có đường dẫn dài (lỗi "socket name ... is too long"); tạo key test bằng `GNUPGHOME=$(mktemp -d)`. `backup.sh` không cần agent (`--recipient-file`).
+- psql trên Windows mặc định client encoding WIN1252, vỡ thông báo tiếng Việt; `verify-restore.sql` đặt `\encoding UTF8`.
+- Chưa có lịch chạy: cron nằm trong compose ở lát 5b.

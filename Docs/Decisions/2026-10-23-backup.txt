@@ -1,0 +1,42 @@
+# QUYẾT ĐỊNH: SAO LƯU CẢ DB BẰNG PG_DUMP MÃ HOÁ GPG, HOÃN TRANG TẢI BẢN SAO LƯU THEO CỬA HÀNG
+
+# Mục lục
+1. Bối Cảnh & Vấn Đề
+2. Các Phương Án Đã Cân Nhắc
+3. Quyết Định Đã Chốt & Lý Do
+
+---
+
+# 1. Bối Cảnh & Vấn Đề
+- Ngày ghi nhận: 2026-10-23
+- Mục 5 của `2026-10-21-pilot-scope.txt`: deploy kèm sao lưu tự động; sao lưu không được hoãn vì dữ liệu là tiền thật.
+- Core-spec mục 2 (GIẢ ĐỊNH TẠM) và mockup `sao-luu.html` mô tả sao lưu **theo từng cửa hàng**, chủ tiệm tải về sau khi nhập lại mật khẩu, file có CCCD đầy đủ.
+- `pg_dump` chỉ sao lưu cả DB (chung mọi cửa hàng). Bản theo cửa hàng phải tự xuất dữ liệu lọc `shop_id`, giải mã CCCD, mã hoá file bằng khoá chủ tiệm mở được; khôi phục riêng một cửa hàng vướng trigger append-only của sổ két.
+- Rule `web-security.md`: file backup phải mã hoá.
+
+---
+
+# 2. Các Phương Án Đã Cân Nhắc
+- **Phương án A: chỉ sao lưu cả DB ở tầng vận hành.**
+  - Ưu: làm và test thật được ngay; khôi phục bằng công cụ chuẩn; đủ để không mất dữ liệu.
+  - Nhược: chủ tiệm chưa tự tải được bản sao lưu như mockup.
+- **Phương án B: làm luôn bản theo cửa hàng + trang `/sao-luu`.**
+  - Ưu: đúng mockup.
+  - Nhược: thiết kế mới (định dạng file, khoá mã hoá cho chủ tiệm, CCCD rõ trong file tải về), khối lượng gần một mục riêng; vẫn cần bản cả DB để khôi phục khi hỏng máy.
+- **Mã hoá:** gpg (public key) hoặc age. Cả hai đều mã hoá bất đối xứng; gpg có sẵn trên máy dev (Git for Windows) và Alpine nên test được ngay, age chưa có trên máy dev.
+
+---
+
+# 3. Quyết Định Đã Chốt & Lý Do
+- Quyết định: **Phương án A**, mã hoá bằng **gpg public key** (người dùng duyệt 2026-10-23). Trang `/sao-luu` theo cửa hàng hoãn đến sau bản dùng thử.
+- Cách làm (`scripts/backup/`):
+  - `backup.sh`: `pg_dump --format=custom` → `gpg --recipient-file` → `webqlcd-<UTC>.dump.gpg`, giữ `BACKUP_KEEP` bản (mặc định 30); lỗi giữa chừng không để lại file dở.
+  - Không sao lưu dữ liệu `sessions`, `verifications`, `login_throttles` (token phiên, bộ đếm tạm); khôi phục xong mọi người đăng nhập lại.
+  - Server chỉ giữ public key: lộ VPS không giải mã được bản sao lưu. Private key cất ngoài server.
+  - `BACKUP_POST_HOOK`: chỗ cắm lệnh chép bản sao lưu ra ngoài VPS; nơi lưu chọn sau.
+  - `restore.sh`: chỉ khôi phục vào DB rỗng, một transaction, rồi chạy `verify-restore.sql` (đối soát data-model mục 4); lệch thì báo lỗi.
+- Đánh đổi chấp nhận:
+  - Bản cả DB chứa dữ liệu mọi cửa hàng; chỉ đội vận hành giữ private key.
+  - CCCD trong bản sao lưu vẫn là bản mã hoá; mất `CCCD_ENCRYPTION_KEY` thì bản khôi phục không đọc được CCCD. Các khoá và secret phải cất ngoài VPS (runbook deploy).
+  - Bản sao lưu chỉ nằm trên VPS cho tới khi cấu hình `BACKUP_POST_HOOK`.
+- Đã kiểm chứng trên PG 18.6 dev (2026-10-23): sao lưu 3 lần giữ 2 bản, file là gói gpg (không lộ header `PGDMP`), khôi phục vào DB mới khớp số dòng, index `search_text` và trigger còn nguyên, đối soát khớp; sửa tay một hợp đồng thì đối soát báo lệch; DB đích có bảng thì dừng; sai kết nối thì không để lại file.
