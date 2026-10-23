@@ -1,0 +1,10 @@
+# 2026-10-23: Gộp wt-2 (trả góp vào số liệu tổng) vào main — [verified: lint, typecheck, vitest 245/245, e2e 55/55 (gồm build)]
+
+- Commit: c82ac06 (merge `--no-ff` của `wt-2`: c414d4f T1, 2b43732 T2, 4c048e2 T3, 627c70e T4); worklog/handoff: commit kế tiếp.
+- Đã làm:
+  1. `/merge-worktree wt-2`: 2 conflict CODE, người dùng duyệt cách resolve. `src/modules/pawn/index.ts`: giữ `exportContracts` (B) + export từ `list-due-contracts` (A), bỏ `DueContracts` (A đã chuyển sang `reporting/presentation/due-table.tsx`). `installment-use-cases.test.ts`: giữ cả 2 import. Vùng chung còn lại (`composition-root.ts`, installment ports/repository, `core-spec.txt`) auto-merge sạch, đã rà.
+  2. Migration 0014, 0015 nối tiếp 0013, không đánh lại số. `db:migrate` cho `webqlcd`, `webqlcd_wt2|_wt3|_wt4`; không DB nào phải tạo lại.
+  3. Kéo cả 3 tree lên c82ac06 (`merge --ff-only`), `npm install` ở 3 tree (`wt-4` thiếu `exceljs` từ lần trước).
+  4. Handoff: đợt 2 xong, gỡ "(Excel...)" ở dòng deploy (người dùng duyệt), gom lưu ý còn sót từ worklog E3, T1, T4.
+- File: Docs/Handoffs/handoff-webqlcd-mvp.txt, Docs/Done/2026-10-23-gop-wt2-tong-hop.txt.
+- Lưu ý cho phiên sau: core-spec mục quyền ghi "xuất Excel kèm CCCD đầy đủ (mặc định xuất 4 số cuối)", bản đã làm chỉ xuất 4 số cuối; chờ người dùng chọn sửa spec hay thêm tuỳ chọn.
