@@ -148,6 +148,7 @@ export class DrizzleContractRepository implements ContractRepository {
         customerId: contracts.customerId,
         customerName: customers.fullName,
         customerPhone: customers.phone,
+        customerCccdMasked: customers.cccdMasked,
         kind: contracts.kind,
         assetName: contracts.assetName,
         principal: contracts.principal,

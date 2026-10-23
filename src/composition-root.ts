@@ -65,6 +65,8 @@ import { db } from "@/shared/infrastructure/db/client";
 export { requireCurrentSession, requireProfile, requireSession } from "@/shared/infrastructure/auth/guard";
 export { AccessDeniedError } from "@/shared/infrastructure/auth/access";
 export { MIN_PASSWORD_LENGTH } from "@/shared/infrastructure/auth/password";
+export { recordExport } from "@/shared/infrastructure/excel/record-export";
+export { xlsxResponse, type XlsxColumn } from "@/shared/infrastructure/excel/xlsx-stream";
 
 const authenticator = new BetterAuthAuthenticator();
 export const signIn = new SignIn(authenticator);

@@ -41,3 +41,18 @@ export async function expireTrial(username: string) {
     await pool.end();
   }
 }
+
+/** Số dòng nhật ký `action` trên `entity` của cửa hàng có người dùng `username`. */
+export async function countAudit(username: string, entity: string, action: string): Promise<number> {
+  const pool = new Pool({ connectionString: process.env.DATABASE_URL, max: 1 });
+  try {
+    const { rows } = await pool.query(
+      `SELECT count(*)::int AS n FROM audit_logs
+       WHERE entity = $2 AND action = $3 AND shop_id = (SELECT shop_id FROM users WHERE lower(username) = lower($1))`,
+      [username, entity, action],
+    );
+    return rows[0].n;
+  } finally {
+    await pool.end();
+  }
+}

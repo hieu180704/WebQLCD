@@ -7,7 +7,7 @@ import { CreateContract, type CreateContractInput } from "./create-contract";
 import { DeleteContract } from "./delete-contract";
 import { EditContract } from "./edit-contract";
 import { ExtendContract, type ExtendContractInput } from "./extend-contract";
-import { CONTRACT_PAGE_SIZE, ListContracts } from "./list-contracts";
+import { CONTRACT_PAGE_SIZE, EXPORT_BATCH_SIZE, ListContracts } from "./list-contracts";
 import { DUE_LIST_LIMIT, ListDueContracts } from "./list-due-contracts";
 import { PayInterest, type PayInterestInput } from "./pay-interest";
 import type {
@@ -78,9 +78,10 @@ function fakeRepo(
     },
     listStaffOptions: async () => [],
     findCustomerSummary: async () => null,
-    list: async (_shop, filter, today, _after, limit) => {
+    list: async (_shop, filter, today, after, limit) => {
       listQueries.push({ filter, today });
-      return rows.slice(0, limit);
+      const start = after ? rows.findIndex((row) => row.id === after) + 1 : 0;
+      return rows.slice(start, start + limit);
     },
     listDue: async (_shop, until, limit) => {
       dueQueries.push({ until, limit });
@@ -153,6 +154,7 @@ describe("ListContracts", () => {
     customerId: "khach",
     customerName: "Khách",
     customerPhone: null,
+    customerCccdMasked: null,
     kind: "secured",
     assetName: "Xe",
     principal: Money.fromNumber(10_000_000),
@@ -187,6 +189,18 @@ describe("ListContracts", () => {
     expect(view.items).toHaveLength(CONTRACT_PAGE_SIZE);
     expect(view.nextAfter).toBe(`id-${CONTRACT_PAGE_SIZE - 1}`);
   });
+
+  it("xuất theo lô: đi hết keyset, lô cuối ngắn hơn thì dừng, mỗi dòng tính lãi như danh sách", async () => {
+    const rows = Array.from({ length: EXPORT_BATCH_SIZE + 2 }, (_, i) => row(i));
+    const fake = fakeRepo(rows);
+    const sizes: number[] = [];
+    for await (const batch of new ListContracts(fake.repo).batches("s", ALL, now)) {
+      sizes.push(batch.length);
+      expect(batch[0].accruedInterest?.toBigInt()).toBe(100_000n);
+    }
+    expect(sizes).toEqual([EXPORT_BATCH_SIZE, 2]);
+    expect(fake.listQueries).toHaveLength(2);
+  });
 });
 
 describe("ListDueContracts", () => {
@@ -196,6 +210,7 @@ describe("ListDueContracts", () => {
     customerId: "khach",
     customerName: "Khách",
     customerPhone: null,
+    customerCccdMasked: null,
     kind: "secured",
     assetName: "Xe",
     principal: Money.fromNumber(10_000_000),

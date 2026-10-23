@@ -50,6 +50,8 @@ export type ContractListRow = {
   customerName: string;
   /** Đã che giữa (web-security). */
   customerPhone: string | null;
+  /** Chỉ 4 số cuối (cột `cccd_masked`). */
+  customerCccdMasked: string | null;
   kind: ContractKind;
   assetName: string | null;
   principal: Money;
@@ -95,7 +97,7 @@ export type DueContractRow = Pick<
   | "prepaidInterest"
 >;
 
-export type ContractDetailRow = Omit<ContractListRow, "customerPhone" | "deleted"> & {
+export type ContractDetailRow = Omit<ContractListRow, "customerPhone" | "customerCccdMasked" | "deleted"> & {
   termDays: number;
   note: string | null;
   staffName: string;

@@ -1,42 +1,9 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { z } from "zod";
 import { listContracts, requireSession } from "@/composition-root";
-import { normalizeCccd } from "@/modules/customer";
 import { formatVnd } from "@/shared/kernel/vnd";
-import type { ContractFilter, ContractStatusFilter } from "../application/ports";
+import { KINDS, STATUSES, parseContractQuery } from "./contract-query";
 import { DueBadge, INTEREST_UNIT, formatDay } from "./format";
-
-// Khoá = giá trị tham số trên URL (trang chủ trỏ vào `tt=qua-han`, `tt=sap-den-han`).
-const KINDS: Record<string, { label: string; value: NonNullable<ContractFilter["kind"]> }> = {
-  "the-chap": { label: "Thế chấp (cầm đồ)", value: "secured" },
-  "tin-chap": { label: "Tín chấp", value: "unsecured" },
-};
-const STATUSES: Record<string, { label: string; value: ContractStatusFilter }> = {
-  "dang-mo": { label: "Đang mở", value: "open" },
-  "qua-han": { label: "Quá hạn", value: "overdue" },
-  "hom-nay": { label: "Đến hạn hôm nay", value: "due_today" },
-  "sap-den-han": { label: "Đến hạn trong 3 ngày (gồm quá hạn)", value: "due_soon" },
-  "da-dong": { label: "Đã chuộc / Đã đóng", value: "closed" },
-  "da-xoa": { label: "Đã xoá", value: "deleted" },
-};
-
-const keyOf = (record: Record<string, unknown>) =>
-  z
-    .enum(Object.keys(record) as [string, ...string[]])
-    .nullable()
-    .catch(null);
-
-// Tham số URL sai định dạng thì bỏ qua, không báo lỗi; CCCD sai định dạng thì báo để người nhập sửa.
-const querySchema = z.object({
-  q: z.string().trim().max(100).nullable().catch(null),
-  cccd: z.string().trim().max(30).nullable().catch(null),
-  loai: keyOf(KINDS),
-  tt: keyOf(STATUSES),
-  sau: z.uuid().nullable().catch(null),
-  moi: z.string().regex(/^(CD|TC)-\d{1,18}$/).nullable().catch(null),
-  khach: z.literal("cu").nullable().catch(null),
-});
 
 type Params = { q?: string; cccd?: string; loai?: string; tt?: string; sau?: string };
 
@@ -56,22 +23,14 @@ export async function ContractListPage({
   stats?: ReactNode;
 }) {
   const principal = await requireSession();
-  const params = querySchema.parse(Object.fromEntries(Object.keys(querySchema.shape).map((key) => [key, first(query[key])])));
+  const { params, q, cccdText, filter, invalidCccd } = parseContractQuery((key) => first(query[key]));
   const { moi, khach } = params;
-  const q = params.q || null;
-  const cccdText = params.cccd || null;
-  const cccd = cccdText ? normalizeCccd(cccdText) : null;
-  const filter: ContractFilter = {
-    search: q,
-    cccd,
-    kind: params.loai ? KINDS[params.loai].value : null,
-    status: params.tt ? STATUSES[params.tt].value : null,
-  };
-  // CCCD nhập sai định dạng: không tìm, không trả danh sách đầy đủ (người dùng tưởng là kết quả tìm).
-  const invalidCccd = cccdText !== null && cccd === null;
   const view = invalidCccd ? null : await listContracts.execute(principal.shopId, filter, params.sau);
   const filtered = Boolean(q || cccdText || params.loai || params.tt);
   const kept: Params = { q: q ?? undefined, cccd: cccdText ?? undefined, loai: params.loai ?? undefined, tt: params.tt ?? undefined };
+  // Xuất đúng bộ lọc đang xem, cả danh sách (không theo trang).
+  const exportQuery = new URLSearchParams(Object.entries(kept).filter((entry): entry is [string, string] => Boolean(entry[1]))).toString();
+  const exportHref = `/cam-do/xuat-excel${exportQuery ? `?${exportQuery}` : ""}`;
 
   return (
     <>
@@ -81,6 +40,11 @@ export async function ContractListPage({
           {summary && <p className="text-sm text-slate-500">{summary}</p>}
         </div>
         <div className="ml-auto flex flex-wrap gap-2">
+          {principal.role === "owner" && !invalidCccd && (
+            <a href={exportHref} className="btn btn-outline" download>
+              Xuất Excel
+            </a>
+          )}
           <Link href="/cam-do/moi" className="btn btn-primary">
             + Thêm hồ sơ
           </Link>

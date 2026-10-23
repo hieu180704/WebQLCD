@@ -114,8 +114,9 @@
 - Chuộc đồ / đóng hợp đồng không có loại riêng: thao tác sinh các dòng `interest_payment` (bỏ qua nếu lãi thu = 0) + `principal_repayment` chung `operation_id`, đặt `outstanding_principal = 0`, `status = 'closed'`; có thu lãi thì `interest_paid_until` = ngày chuộc.
 
 ## 3.7 `audit_logs`
-- `shop_id`, `user_id`, `entity`, `entity_id`, `action` (`create` / `edit` / `extend` / `delete` / `pay_interest` / `repay_principal` / `additional_loan` / `close` / `reverse` / `view_cccd` / `lock` / `unlock` / `reset_password` / `change_password` / ...), `changed_fields` (chỉ tên field, không lưu giá trị), `at`.
+- `shop_id`, `user_id`, `entity`, `entity_id`, `action` (`create` / `edit` / `extend` / `delete` / `pay_interest` / `repay_principal` / `additional_loan` / `close` / `reverse` / `view_cccd` / `lock` / `unlock` / `reset_password` / `change_password` / `export` / ...), `changed_fields` (chỉ tên field, không lưu giá trị), `at`.
 - Append-only, trigger chặn UPDATE/DELETE/TRUNCATE giống `cash_transactions`.
+- Xuất Excel: `action = export`, `entity` = dữ liệu xuất (`contract` / `installment_contract` / `cash`), `entity_id` = `shop_id` (xuất cả danh sách); không lưu tham số lọc (có thể chứa CCCD, SĐT).
 
 ## 3.8 `shop_counters`
 - PK `(shop_id, prefix)`, `next_value`. Prefix: `CD-` (cầm đồ), `TC-` (tín chấp), `TG-` (trả góp).

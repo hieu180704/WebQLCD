@@ -28,13 +28,18 @@ export const INTEREST_UNIT: Record<InterestType, string> = {
 export const formatDay = (date: string) => date.split("-").reverse().join("/");
 
 /** Nhãn hạn đóng lãi theo mockup cam-do.html; `due` null = hợp đồng đã đóng ("Đã chuộc" với cầm đồ, kèm ngày nếu có). */
-export function DueBadge({ due, today, kind, closedOn }: { due: string | null; today: string; kind: ContractListRow["kind"]; closedOn?: string | null }) {
+export function dueLabel(due: string | null, today: string, kind: ContractListRow["kind"], closedOn?: string | null): { text: string; badge: string } {
   if (!due) {
     const label = kind === "secured" ? "Đã chuộc" : "Đã đóng";
-    return <span className="badge badge-muted">{closedOn ? `${label} ${formatDay(closedOn)}` : label}</span>;
+    return { text: closedOn ? `${label} ${formatDay(closedOn)}` : label, badge: "badge-muted" };
   }
   const days = diffDays(today, due);
-  if (days < 0) return <span className="badge badge-late">Quá {-days} ngày</span>;
-  if (days === 0) return <span className="badge badge-warn">Hôm nay</span>;
-  return <span className="badge badge-ok">Đang vay</span>;
+  if (days < 0) return { text: `Quá ${-days} ngày`, badge: "badge-late" };
+  if (days === 0) return { text: "Hôm nay", badge: "badge-warn" };
+  return { text: "Đang vay", badge: "badge-ok" };
+}
+
+export function DueBadge({ due, today, kind, closedOn }: { due: string | null; today: string; kind: ContractListRow["kind"]; closedOn?: string | null }) {
+  const { text, badge } = dueLabel(due, today, kind, closedOn);
+  return <span className={`badge ${badge}`}>{text}</span>;
 }
