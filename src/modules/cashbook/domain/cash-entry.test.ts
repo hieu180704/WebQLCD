@@ -18,6 +18,11 @@ describe("bút toán két", () => {
     expect(signedAmount({ type: "capital_in", amount: vnd(50_000_000) }).toBigInt()).toBe(50_000_000n);
   });
 
+  it("trả góp: giải ngân là chi, thu góp là thu", () => {
+    expect(signedAmount({ type: "installment_disbursement", installmentContractId: "i", amount: vnd(4_000_000) }).toBigInt()).toBe(-4_000_000n);
+    expect(signedAmount({ type: "installment_payment", installmentContractId: "i", amount: vnd(200_000) }).toBigInt()).toBe(200_000n);
+  });
+
   it("độ lớn 0 hoặc âm là lỗi lập trình", () => {
     expect(() => signedAmount({ type: "opening_balance", amount: Money.ZERO })).toThrow(RangeError);
     expect(() => signedAmount({ type: "disbursement", contractId: "c", amount: vnd(-1) })).toThrow(RangeError);

@@ -11,6 +11,8 @@ export type CashEntryType =
   | "additional_loan"
   | "interest_payment"
   | "principal_repayment"
+  | "installment_disbursement"
+  | "installment_payment"
   | "reversal";
 
 /** Phiếu không gắn hợp đồng: nạp vốn, thu khác, chi khác. Chỉ các loại này huỷ được từ sổ quỹ. */
@@ -28,10 +30,15 @@ export type CashEntry =
   | { type: "additional_loan"; contractId: string; amount: Money }
   | { type: "interest_payment"; contractId: string; amount: Money; periodFrom: LocalDate; periodTo: LocalDate }
   | { type: "principal_repayment"; contractId: string; amount: Money }
-  /** Đảo dòng `reversesId`; `amount` là số tiền CÓ DẤU của dòng gốc (dòng đảo ghi số đối). */
-  | { type: "reversal"; reversesId: string; contractId: string | null; amount: Money };
+  | { type: "installment_disbursement"; installmentContractId: string; amount: Money }
+  | { type: "installment_payment"; installmentContractId: string; amount: Money }
+  /**
+   * Đảo dòng `reversesId`; `amount` là số tiền CÓ DẤU của dòng gốc (dòng đảo ghi số đối). Gắn cùng hợp đồng với dòng gốc:
+   * `contractId` (cầm đồ/tín chấp) hoặc `installmentContractId` (trả góp).
+   */
+  | { type: "reversal"; reversesId: string; contractId: string | null; installmentContractId?: string | null; amount: Money };
 
-const OUTFLOW: ReadonlySet<CashEntryType> = new Set(["disbursement", "additional_loan", "manual_expense"]);
+const OUTFLOW: ReadonlySet<CashEntryType> = new Set(["disbursement", "additional_loan", "installment_disbursement", "manual_expense"]);
 
 /** Số tiền có dấu ghi sổ: + thu vào két, − chi ra két. Độ lớn phải dương (sổ két cấm amount = 0). */
 export function signedAmount(entry: CashEntry): Money {

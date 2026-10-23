@@ -32,6 +32,7 @@ export async function appendCashEntries(tx: Tx, operation: CashOperation, entrie
       amount: signedAmount(entry).toBigInt(),
       type: entry.type,
       contractId: "contractId" in entry ? entry.contractId : null,
+      installmentContractId: "installmentContractId" in entry ? (entry.installmentContractId ?? null) : null,
       periodFrom: entry.type === "interest_payment" ? entry.periodFrom : null,
       periodTo: entry.type === "interest_payment" ? entry.periodTo : null,
       reversesId: entry.type === "reversal" ? entry.reversesId : null,

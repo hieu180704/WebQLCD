@@ -1,0 +1,11 @@
+# 2026-10-23: Lát 6b trả góp — chi tiết hợp đồng, đóng tiền góp — [verified: lint, typecheck, unit/DB test, e2e]
+
+- Nhánh: `feat/tra-gop`. Commit: "Lát 6b: chi tiết hợp đồng trả góp, đóng tiền góp".
+- Đã làm:
+  1. Domain: `schedulePeriods` (phần đã góp từng kỳ, ngày góp đủ), `periodsCovered` (nhãn "Góp kỳ 7–8"), `paymentOptions`, `planPayment`, `planSettlement` (dùng ở 6c), `isReversible` (dùng ở 6d).
+  2. Repository: `findDetail` (kể cả đã xoá), `listTransactions` (kèm loại thao tác), `listPayments` (lần thu chưa huỷ), `findRecord`, `recordPayment` (khoá lạc quan theo `amount_paid`, thu đủ thì đóng; tất toán 0 đồng không sinh dòng sổ két).
+  3. Use case `GetInstallmentDetail`, `PayInstallment`; trang `/tra-gop/[id]` (4 ô, lịch góp thu gọn + "Xem đủ N kỳ" qua `?lich=du`, lịch sử, khách, thông tin góp), hộp thoại "Đóng tiền góp". Mã HĐ ở danh sách là link.
+  4. Docs: core-spec (đóng tiền góp), data-model (UPDATE có điều kiện).
+- Lưu ý cho phiên sau:
+  - Nhãn kỳ và ngày góp tính lúc đọc từ mọi lần thu chưa huỷ (`listPayments`, không giới hạn số dòng); lịch sử hiện tối đa 100 dòng.
+  - Lần thu đã bị huỷ hiện nhãn chung "Góp tiền" (không còn trong luỹ kế nên không gán kỳ).
