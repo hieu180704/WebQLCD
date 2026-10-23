@@ -1,0 +1,9 @@
+# 2026-10-23: Lát 6c trả góp — đóng hợp đồng / tất toán — [verified: lint, typecheck, unit/DB test, e2e]
+
+- Nhánh: `feat/tra-gop`. Commit: "Lát 6c: đóng hợp đồng trả góp, tất toán được giảm".
+- Đã làm:
+  1. Use case `CloseInstallment` (dùng `planSettlement` + `recordPayment` kind `close` có từ 6b), action, hộp thoại "Đóng hợp đồng" như mockup (tổng phải thu, đã thu, còn phải thu, ô số tiền tất toán).
+  2. Trang chi tiết hợp đồng đã đóng: nhãn "Đã đóng dd/mm/yyyy", dòng "Giảm khi tất toán", lịch góp ghi "Đã tất toán" cho kỳ chưa đủ.
+  3. Docs: core-spec (đóng / tất toán), data-model.
+- Lưu ý cho phiên sau:
+  - Đóng xong (kể cả lần đóng tiền góp thu đủ) hộp thoại bị gỡ khỏi trang nên không có dòng thông báo; kết quả thấy qua nhãn trạng thái và lịch sử, giống chuộc đồ ở pawn.

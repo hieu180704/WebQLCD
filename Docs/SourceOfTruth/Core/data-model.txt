@@ -79,6 +79,7 @@
 - Không lưu lịch góp: số kỳ, luỹ kế phải thu, kỳ tới, số kỳ chậm tính lúc đọc từ `amount_paid` (core-spec mục 2; domain `src/modules/installment/domain/installment.ts`).
 - Tạo hợp đồng: dòng `installment_disbursement` = −`amount_given`, chung `operation_id` với thao tác `disbursement`; audit `entity = installment_contract`.
 - Đóng tiền góp: UPDATE có điều kiện `amount_paid = <số đã thu lúc tính>` (khoá lạc quan, khoá dòng), cộng `amount_paid`, thu đủ thì `status = 'closed'`; thao tác `pay` + một dòng `installment_payment`; audit `pay`.
+- Đóng / tất toán: cùng lệnh ghi, thao tác `close`, luôn đặt `status = 'closed'`; số tiền thu là dòng `installment_payment` (bỏ khi bằng 0). Phần giảm không lưu riêng: `total_due − amount_paid` của hợp đồng đã đóng. Audit `close`.
 
 ## 3.5a `installment_operations` (thao tác trên hợp đồng trả góp)
 - Cùng cách với `contract_operations` (mục 3.4a, lý do ở `Docs/Decisions/2026-10-22-contract-operations.txt`): `shop_id`, `installment_contract_id`, `kind` (`disbursement` / `pay` / `close`), `created_by`, `created_at` (`clock_timestamp()` sau khi khoá dòng hợp đồng), `reversed_at`, `reversed_by`, `reverse_reason` (cùng có hoặc cùng trống).

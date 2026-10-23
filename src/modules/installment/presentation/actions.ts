@@ -2,11 +2,12 @@
 
 import { refresh } from "next/cache";
 import { redirect } from "next/navigation";
-import { AccessDeniedError, createInstallment, payInstallment, requireSession } from "@/composition-root";
+import { AccessDeniedError, closeInstallment, createInstallment, payInstallment, requireSession } from "@/composition-root";
 import { formatVnd } from "@/shared/kernel/vnd";
+import type { CloseInstallmentError } from "../application/close-installment";
 import type { InstallmentRuleViolation } from "../application/create-installment";
 import type { PayInstallmentError } from "../application/pay-installment";
-import { INSTALLMENT_FORM_FIELDS, installmentFormSchema, payInstallmentSchema } from "./schemas";
+import { INSTALLMENT_FORM_FIELDS, closeInstallmentSchema, installmentFormSchema, payInstallmentSchema } from "./schemas";
 
 export type CreateInstallmentState = { error: string | null; values: Record<string, string> };
 
@@ -88,11 +89,47 @@ export async function payInstallmentAction(previous: InstallmentOperationState, 
     if (result.error === "stale") refresh(); // Hộp thoại nhận số đã thu mới, bấm lại được ngay.
     return fail(PAY_MESSAGE[result.error]);
   }
-  refresh(); // Số liệu, lịch góp, lịch sử cập nhật trong cùng response.
-  const closed = result.closed ? ' Đã thu đủ, hợp đồng chuyển sang "Đã đóng".' : "";
+  // Số liệu, lịch góp, lịch sử cập nhật trong cùng response. Thu đủ thì hợp đồng đóng, hộp thoại không còn để báo:
+  // nhãn "Đã đóng" cho thấy kết quả.
+  refresh();
   return {
     error: null,
-    message: `Đã thu ${formatVnd(result.amount)} đ tiền góp, tổng đã thu ${formatVnd(result.paidAfter)} đ.${closed}`,
+    message: `Đã thu ${formatVnd(result.amount)} đ tiền góp, tổng đã thu ${formatVnd(result.paidAfter)} đ.`,
     done: previous.done + 1,
   };
+}
+
+const CLOSE_MESSAGE: Record<CloseInstallmentError, string> = {
+  not_found: "Không tìm thấy hợp đồng.",
+  closed: "Hợp đồng đã đóng.",
+  stale: STALE,
+  amount_negative: "Số tiền thu để tất toán không được âm.",
+  amount_exceeds_remaining: "Số tiền thu để tất toán không được lớn hơn số còn phải thu.",
+};
+
+export async function closeInstallmentAction(previous: InstallmentOperationState, formData: FormData): Promise<InstallmentOperationState> {
+  const fail = (error: string): InstallmentOperationState => ({ ...previous, error, message: null });
+  let actor;
+  try {
+    actor = await requireSession({ write: true });
+  } catch (error) {
+    if (error instanceof AccessDeniedError) return fail(OPERATION_DENIED[error.reason]);
+    throw error;
+  }
+
+  const parsed = closeInstallmentSchema.safeParse({
+    contractId: formData.get("contractId"),
+    expectedPaid: formData.get("expectedPaid"),
+    amount: String(formData.get("amount") ?? ""),
+  });
+  if (!parsed.success) return fail(parsed.error.issues[0].message);
+
+  const result = await closeInstallment.execute({ userId: actor.userId, shopId: actor.shopId }, parsed.data);
+  if (!result.ok) {
+    if (result.error === "stale") refresh();
+    return fail(CLOSE_MESSAGE[result.error]);
+  }
+  // Hợp đồng đã đóng: trang tải lại không còn hộp thoại; nhãn trạng thái, lịch sử và dòng "Giảm khi tất toán" cho thấy kết quả.
+  refresh();
+  return { error: null, message: null, done: previous.done + 1 };
 }

@@ -5,6 +5,7 @@ import { getInstallmentDetail, requireSession } from "@/composition-root";
 import { BUSINESS_TIME_ZONE, businessDate, diffDays } from "@/shared/kernel/local-date";
 import { formatVnd } from "@/shared/kernel/vnd";
 import type { HistoryLine, InstallmentDetailView } from "../application/get-installment-detail";
+import { CloseDialog } from "./close-dialog";
 import { DueBadge, ProgressBar, formatDay } from "./format";
 import { OperationStatus, OperationStatusMessage } from "./operation-status";
 import { PayDialog } from "./pay-dialog";
@@ -27,7 +28,7 @@ function historyLabel(t: HistoryLine): string {
   }
 }
 
-/** Trang chi tiết hợp đồng trả góp (mockup tra-gop-chi-tiet.html). Thao tác: đóng tiền góp. */
+/** Trang chi tiết hợp đồng trả góp (mockup tra-gop-chi-tiet.html). Thao tác: đóng tiền góp, đóng / tất toán. */
 export async function InstallmentDetailPage({ id, fullSchedule }: { id: string; fullSchedule: boolean }) {
   const principal = await requireSession();
   const contractId = z.uuid().safeParse(id);
@@ -68,6 +69,14 @@ export async function InstallmentDetailPage({ id, fullSchedule }: { id: string; 
             code={contract.code}
             expectedPaid={contract.amountPaid.toString()}
             choices={open.paymentOptions.map((o) => ({ index: o.index, dueText: formatDay(o.due), amountText: formatVnd(o.amount) }))}
+          />
+          <CloseDialog
+            contractId={contract.id}
+            code={contract.code}
+            expectedPaid={contract.amountPaid.toString()}
+            totalDueText={formatVnd(contract.totalDue)}
+            paidText={formatVnd(contract.amountPaid)}
+            remainingText={formatVnd(progress.remaining)}
           />
         </section>
       )}

@@ -92,3 +92,18 @@ export const payInstallmentSchema = z.object({
   ...lock,
   amount: positiveMoney("Số tiền khách đưa phải lớn hơn 0."),
 });
+
+export const closeInstallmentSchema = z.object({
+  ...lock,
+  amount: z
+    .string()
+    .max(30)
+    .transform((text, ctx) => {
+      const money = parseVnd(text);
+      if (!money || money.toBigInt() > MAX_AMOUNT) {
+        ctx.addIssue({ code: "custom", message: "Số tiền thu để tất toán là số không âm (nhập 0 nếu miễn hết)." });
+        return z.NEVER;
+      }
+      return money;
+    }),
+});

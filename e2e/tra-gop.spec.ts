@@ -117,3 +117,23 @@ test("chi tiết: lịch góp, đóng tiền góp lẻ dồn sang kỳ sau, ghi 
   await page.goto("/quy-ket");
   await expect(page.getByRole("row", { name: /Thu trả góp/ })).toContainText("250.000");
 });
+
+test("đóng hợp đồng: tất toán sớm được giảm, hợp đồng chuyển Đã đóng", async ({ page }) => {
+  await signIn(page);
+  await page.goto("/tra-gop");
+  await page.getByRole("link", { name: "TG-1" }).click();
+  await expect(page.getByRole("heading", { name: "Hợp đồng TG-1" })).toBeVisible();
+  await page.getByRole("button", { name: "Đóng hợp đồng" }).click();
+  const dialog = page.getByRole("dialog", { name: "Đóng hợp đồng — TG-1" });
+  await expect(dialog.getByText("Còn phải thu").locator("..")).toContainText("4.750.000");
+  await expect(dialog.getByLabel("Số tiền thu để tất toán")).toHaveValue("4.750.000");
+  await dialog.getByLabel("Số tiền thu để tất toán").fill("4.500.000");
+  await dialog.getByRole("button", { name: "Xác nhận đóng" }).click();
+  await expect(page.getByText(/^Đã đóng \d{2}\/\d{2}\/\d{4}$/)).toBeVisible();
+  await expect(page.getByRole("button", { name: "Đóng tiền góp" })).toHaveCount(0);
+  await expect(page.getByRole("region", { name: "Lịch sử giao dịch" }).getByRole("row", { name: /Tất toán/ })).toContainText("4.500.000");
+  await expect(page.getByText("Giảm khi tất toán").locator("..")).toContainText("250.000");
+
+  await page.goto("/tra-gop");
+  await expect(page.getByRole("row", { name: /TG-1/ })).toContainText("Đã đóng");
+});

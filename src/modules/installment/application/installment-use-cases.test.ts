@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { Money } from "@/shared/kernel/money";
+import { CloseInstallment } from "./close-installment";
 import { CreateInstallment, type CreateInstallmentInput } from "./create-installment";
 import { PayInstallment } from "./pay-installment";
 import type { InstallmentDraft, InstallmentRecord, InstallmentRepository, PaymentDraft } from "./ports";
@@ -89,5 +90,26 @@ describe("PayInstallment", () => {
     // DB đã đổi giữa lúc đọc và lúc ghi.
     const raced = fakeRepo({ findRecord: async () => record(0), recordPayment: async () => false });
     expect(await pay(raced.repo, 0, 1)).toEqual({ ok: false, error: "stale" });
+  });
+});
+
+describe("CloseInstallment", () => {
+  const close = (repo: InstallmentRepository, expected: number, amount: number) =>
+    new CloseInstallment(repo).execute(ACTOR, { contractId: "i1", expectedPaid: vnd(expected), amount: vnd(amount) }, NOW);
+
+  it("tất toán được giảm, ghi thao tác close và đóng hợp đồng", async () => {
+    const { repo, payments } = fakeRepo({ findRecord: async () => record(1_600_000) });
+    const result = await close(repo, 1_600_000, 3_000_000);
+    expect(result.ok && [result.amount.toBigInt(), result.discount.toBigInt()]).toEqual([3_000_000n, 400_000n]);
+    expect(payments[0]).toMatchObject({ kind: "close", payment: { closes: true } });
+  });
+
+  it("thu quá còn phải thu, trang cũ, đã đóng", async () => {
+    expect(await close(fakeRepo({ findRecord: async () => record(1_600_000) }).repo, 1_600_000, 3_400_001)).toEqual({
+      ok: false,
+      error: "amount_exceeds_remaining",
+    });
+    expect(await close(fakeRepo({ findRecord: async () => record(1_800_000) }).repo, 1_600_000, 0)).toEqual({ ok: false, error: "stale" });
+    expect(await close(fakeRepo({ findRecord: async () => record(0, "closed") }).repo, 0, 0)).toEqual({ ok: false, error: "closed" });
   });
 });

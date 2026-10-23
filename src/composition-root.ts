@@ -24,6 +24,7 @@ import { DrizzleAccountRepository } from "@/modules/identity/infrastructure/driz
 import { IpSignupLimiter } from "@/modules/identity/infrastructure/ip-signup-limiter";
 import { ThrottledPasswordChanger } from "@/modules/identity/infrastructure/throttled-password-changer";
 import { GetSubscription } from "@/modules/shop/application/get-subscription";
+import { CloseInstallment } from "@/modules/installment/application/close-installment";
 import { CreateInstallment } from "@/modules/installment/application/create-installment";
 import { GetInstallmentDetail } from "@/modules/installment/application/get-installment-detail";
 import { ListInstallments } from "@/modules/installment/application/list-installments";
@@ -102,6 +103,7 @@ export const createInstallment = new CreateInstallment(installments);
 export const listInstallments = new ListInstallments(installments);
 export const getInstallmentDetail = new GetInstallmentDetail(installments);
 export const payInstallment = new PayInstallment(installments);
+export const closeInstallment = new CloseInstallment(installments);
 
 export const getDashboardStats = new GetDashboardStats(new DrizzleDashboardStats(db));
 export const listCustomers = new ListCustomers(
