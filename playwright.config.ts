@@ -7,7 +7,8 @@ try {
   // Không có .env: dùng biến môi trường sẵn có (cần DATABASE_URL).
 }
 
-const PORT = 3100;
+// Mỗi worktree chạy song song đặt E2E_PORT riêng trong .env để không tranh cổng.
+const PORT = Number(process.env.E2E_PORT ?? 3100);
 const baseURL = `http://localhost:${PORT}`;
 
 // E2E chạy trên bản build production để kiểm đúng cờ cookie (Secure) và header bảo mật.
