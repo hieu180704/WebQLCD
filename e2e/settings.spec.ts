@@ -102,3 +102,28 @@ test("chủ tiệm đặt mặc định khi tạo hợp đồng: form /cam-do/mo
   await expect(page.getByLabel("Kỳ lãi")).toHaveValue("15");
   await expect(page.getByLabel("Thu lãi trước")).toBeChecked();
 });
+
+const memberRow = (page: Page, username: string) =>
+  page.getByRole("row").filter({ has: page.getByRole("cell", { name: username, exact: true }) });
+
+test("trang nhân viên: dòng chủ tiệm, số hợp đồng tháng này theo KTV, đăng nhập gần nhất", async ({ page }) => {
+  await signIn(page);
+  await page.goto("/cam-do/moi");
+  await page.getByLabel("Tên khách hàng").fill("Khách Đếm HĐ");
+  await page.getByLabel("Tên tài sản").fill("Xe Wave");
+  await page.getByLabel("Số tiền vay").fill("3.000.000");
+  await page.getByRole("button", { name: "Lưu hợp đồng và giải ngân" }).click();
+  await expect(page).toHaveURL(/\/cam-do\?moi=/);
+
+  await page.goto("/nhan-vien");
+  const owner = memberRow(page, OWNER.username);
+  await expect(owner).toContainText("Chủ tiệm");
+  await expect(owner.getByRole("cell").nth(3)).toHaveText("1");
+  await expect(owner.getByRole("cell").nth(4)).toHaveText(/^\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}$/);
+  await expect(owner.getByRole("button")).toHaveCount(0);
+  const staff = memberRow(page, STAFF.username);
+  await expect(staff).toContainText("Nhân viên");
+  await expect(staff.getByRole("cell").nth(3)).toHaveText("0");
+  // KTV đã đăng nhập ở test "KTV chỉ thấy mục Tài khoản của tôi".
+  await expect(staff.getByRole("cell").nth(4)).toHaveText(/^\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}$/);
+});

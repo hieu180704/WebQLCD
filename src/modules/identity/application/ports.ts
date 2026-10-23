@@ -21,7 +21,17 @@ export type OwnerRegistration = {
 
 export type NewStaff = { name: string; username: string; password: string };
 
-export type StaffMember = { id: string; name: string; username: string; isActive: boolean; createdAt: Date };
+/** Một dòng ở trang nhân viên. `contractsThisMonth`: hợp đồng cầm đồ/tín chấp chưa xoá ghi người này là KTV, tạo trong tháng. */
+export type StaffMember = {
+  id: string;
+  name: string;
+  username: string;
+  role: "owner" | "staff";
+  isActive: boolean;
+  createdAt: Date;
+  lastLoginAt: Date | null;
+  contractsThisMonth: number;
+};
 
 export type RegisterOwnerResult = "ok" | "rate_limited" | "username_taken" | "email_taken";
 
@@ -40,7 +50,8 @@ export interface OwnerRegistrar {
 /** KTV của một cửa hàng; mọi truy vấn lọc theo shopId của người thực hiện. */
 export interface StaffRepository {
   createStaff(actor: Actor, input: NewStaff): Promise<CreateStaffResult>;
-  listStaff(shopId: string, limit: number): Promise<StaffMember[]>;
+  /** Chủ tiệm trước rồi KTV theo ngày tạo. `monthStart`: ngày đầu tháng (giờ Việt Nam) để đếm hợp đồng tháng này. */
+  listStaff(shopId: string, limit: number, monthStart: string): Promise<StaffMember[]>;
   /** Khoá thì xoá luôn mọi phiên đang mở của KTV. Không đụng được chủ tiệm. */
   setStaffActive(actor: Actor, staffId: string, active: boolean): Promise<SetStaffActiveResult>;
   /** Đặt mật khẩu mới cho KTV (kể cả đang bị khoá) và xoá mọi phiên đang mở của KTV. */

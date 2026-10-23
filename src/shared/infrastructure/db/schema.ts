@@ -106,6 +106,8 @@ export const users = pgTable(
     displayUsername: text("display_username"),
     role: userRole("role").notNull(),
     isActive: boolean("is_active").notNull().default(true),
+    // Ghi ở hook tạo phiên của Better Auth (auth.ts); sessions bị xoá khi đăng xuất/khoá nên không suy ra từ đó được.
+    lastLoginAt: timestamp("last_login_at", { withTimezone: true }),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },

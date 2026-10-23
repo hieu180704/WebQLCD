@@ -1,0 +1,12 @@
+# 2026-10-23: Lát C hai cột trang nhân viên — [verified: lint, typecheck, unit/DB test identity 15 ca, e2e settings + onboarding + auth 19 ca]
+
+- Nhánh: `feat/cai-dat`. Commit: "Lát C: cột HĐ tháng này, đăng nhập gần nhất ở /nhan-vien".
+- Đã làm:
+  1. Schema `users.last_login_at` (migration `0011_user_last_login.sql`, drizzle-kit generate). Ghi ở `databaseHooks.session.create.after` trong `src/shared/infrastructure/auth/auth.ts` (ngoài gate ban đầu, người dùng duyệt làm theo đề xuất): không có cách đúng khác vì `sessions` bị xoá khi đăng xuất/khoá/đặt lại mật khẩu.
+  2. `StaffMember` thêm `role`, `lastLoginAt`, `contractsThisMonth`. `listStaff(shopId, limit, monthStart)` lấy cả chủ tiệm (đứng đầu), đếm hợp đồng bằng một subquery `GROUP BY staff_id` (lọc `shop_id`, chưa xoá, `created_at` ≥ đầu tháng giờ Việt Nam) rồi LEFT JOIN; `ListStaff` tính `monthStart` từ `now`.
+  3. Trang `/nhan-vien`: thêm cột Vai trò, HĐ tháng này, Đăng nhập gần nhất ("dd/mm/yyyy hh:mm" hoặc "Chưa đăng nhập"); dòng chủ tiệm không có nút thao tác. Giữ cột Ngày tạo đang có.
+  4. Test: DB test thêm 1 ca (chủ tiệm trước, đếm theo KTV, bỏ HĐ đã xoá, ranh giới đầu tháng theo giờ Việt Nam, cửa hàng khác không lẫn) và sửa 3 ca cũ cho dòng chủ tiệm; e2e 1 ca.
+  5. Docs: core-spec mục 2 (khối 2026-10-23), data-model 3.2.
+- Lưu ý cho phiên sau:
+  - Module identity đọc bảng `contracts` (chỉ đọc, để đếm) — đọc chéo bảng ở infrastructure, giống read-model của reporting. Khi gộp nhánh trả góp, nếu muốn đếm cả hợp đồng trả góp thì thêm vào subquery này.
+  - Tài khoản đăng nhập trước migration 0011 hiện "Chưa đăng nhập" cho tới lần đăng nhập kế tiếp.

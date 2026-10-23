@@ -58,6 +58,10 @@ export const auth = betterAuth({
             });
           }
         },
+        // Mỗi lần đăng nhập (kể cả tự đăng nhập sau đăng ký) tạo một phiên: dùng làm "Đăng nhập gần nhất" ở trang nhân viên.
+        after: async (session) => {
+          await db.update(schema.users).set({ lastLoginAt: session.createdAt }).where(eq(schema.users.id, session.userId));
+        },
       },
     },
   },

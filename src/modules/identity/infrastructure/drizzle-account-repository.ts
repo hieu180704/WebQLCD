@@ -1,10 +1,11 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
-import { DrizzleQueryError, and, asc, eq, ne, sql } from "drizzle-orm";
+import { DrizzleQueryError, and, asc, eq, isNull, ne, sql } from "drizzle-orm";
 import { DatabaseError } from "pg";
 import { hashPassword } from "@/shared/infrastructure/auth/password";
 import type { Db } from "@/shared/infrastructure/db/client";
-import { accounts, auditLogs, sessions, shops, users } from "@/shared/infrastructure/db/schema";
+import { accounts, auditLogs, contracts, sessions, shops, users } from "@/shared/infrastructure/db/schema";
+import { BUSINESS_TIME_ZONE } from "@/shared/kernel/local-date";
 import type {
   Actor,
   CreateStaffResult,
@@ -69,18 +70,35 @@ export class DrizzleAccountRepository implements OwnerRegistrar, StaffRepository
     }
   }
 
-  async listStaff(shopId: string, limit: number): Promise<StaffMember[]> {
+  async listStaff(shopId: string, limit: number, monthStart: string): Promise<StaffMember[]> {
+    // Đếm gộp một lần theo staff_id (không truy vấn từng người); ngày tạo so theo giờ Việt Nam.
+    const monthly = this.db
+      .select({ staffId: contracts.staffId, n: sql<number>`count(*)::int`.as("n") })
+      .from(contracts)
+      .where(
+        and(
+          eq(contracts.shopId, shopId),
+          isNull(contracts.deletedAt),
+          sql`${contracts.createdAt} >= (${monthStart}::date::timestamp AT TIME ZONE ${BUSINESS_TIME_ZONE})`,
+        ),
+      )
+      .groupBy(contracts.staffId)
+      .as("monthly");
     return this.db
       .select({
         id: users.id,
         name: users.name,
         username: sql<string>`coalesce(${users.displayUsername}, ${users.username})`,
+        role: users.role,
         isActive: users.isActive,
         createdAt: users.createdAt,
+        lastLoginAt: users.lastLoginAt,
+        contractsThisMonth: sql<number>`coalesce(${monthly.n}, 0)`.mapWith(Number),
       })
       .from(users)
-      .where(and(eq(users.shopId, shopId), eq(users.role, "staff")))
-      .orderBy(asc(users.createdAt))
+      .leftJoin(monthly, eq(monthly.staffId, users.id))
+      .where(eq(users.shopId, shopId))
+      .orderBy(sql`${users.role} = 'owner' DESC`, asc(users.createdAt))
       .limit(limit);
   }
 

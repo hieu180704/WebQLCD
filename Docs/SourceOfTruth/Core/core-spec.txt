@@ -74,6 +74,7 @@ GIẢ ĐỊNH TẠM (2026-10-22, đội dự án tự chốt theo mockup, ngư�
 GIẢ ĐỊNH TẠM (2026-10-23, đội dự án tự chốt theo mockup, người dùng duyệt; chưa hỏi khách):
 - **Thông tin cửa hàng** (trang Cài đặt): tên (bắt buộc, tối đa 100 ký tự), SĐT, địa chỉ (tuỳ chọn); ngày mở két chỉ đọc. Chỉ chủ tiệm thấy và sửa, cửa hàng hết hạn thì không sửa được. Không sinh giao dịch, ghi nhật ký field nào đổi. Tên mới hiện ngay trên đầu trang.
 - **Mặc định khi tạo hợp đồng** (cầm đồ/tín chấp; trang Cài đặt): hình thức lãi, lãi, số ngày vay, kỳ lãi, thu lãi trước. Chỉ là giá trị điền sẵn vào form tạo hợp đồng, sửa được trên từng hợp đồng; hợp đồng đã tạo không đổi. Ban đầu: lãi ngày (k/triệu/ngày), lãi để trống (không điền sẵn), 30 ngày vay, kỳ 10 ngày, không thu lãi trước. Cùng luật nhập như form tạo hợp đồng (kỳ lãi không dài hơn số ngày vay). Chỉ chủ tiệm thấy và sửa, hết hạn thì không sửa được, ghi nhật ký field nào đổi. (Trước 2026-10-23: hoãn đến sau bản dùng thử.)
+- **Trang nhân viên:** dòng chủ tiệm đứng đầu (chỉ xem, không khoá, không đặt lại mật khẩu), rồi KTV theo ngày tạo. Cột "HĐ tháng này" = số hợp đồng cầm đồ/tín chấp chưa xoá ghi người đó là KTV, tạo từ ngày 1 tháng hiện tại (giờ Việt Nam); chưa tính trả góp. Cột "Đăng nhập gần nhất" = lần tạo phiên gần nhất (kể cả tự đăng nhập sau đăng ký), chưa đăng nhập lần nào thì ghi "Chưa đăng nhập".
 
 ---
 
