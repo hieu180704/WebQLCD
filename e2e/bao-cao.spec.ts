@@ -75,6 +75,17 @@ test("chủ tiệm: tổng quan, theo loại, theo ngày khớp sổ quỹ; ch�
   await expect(tile(page, "Tổng chi")).toContainText("6.250.000");
   await expect(tile(page, "Quỹ cuối kỳ")).toContainText("7.500.000");
 
+  // Hợp đồng vay hôm nay, thu lãi sau: chưa có lãi đến hôm nay, chưa quá hạn.
+  const debt = page.getByRole("region", { name: /^Dư nợ hôm nay/ });
+  await expect(debt.getByText("Cầm đồ đang cho vay (gốc)").locator("+ dd")).toHaveText("5.000.000");
+  await expect(debt.getByText("Tín chấp đang cho vay (gốc)").locator("+ dd")).toHaveText("0");
+  await expect(debt.getByText("Lãi đến hôm nay chưa thu").locator("+ dd")).toHaveText("0");
+  await expect(debt.getByText("Hợp đồng quá hạn").locator("+ dd")).toHaveText("0 cầm đồ/tín chấp");
+  const period = page.getByRole("region", { name: "Hợp đồng trong kỳ" });
+  await expect(period.getByText("Mở mới").locator("+ dd")).toHaveText("1");
+  await expect(period.getByText("Chuộc đồ / đóng hợp đồng").locator("+ dd")).toHaveText("0");
+  await expect(period.getByText("Đã xoá").locator("+ dd")).toHaveText("0");
+
   const byType = page.getByRole("region", { name: "Theo loại giao dịch" });
   await expect(byType.getByRole("row", { name: /Thu khác/ })).toContainText("2.500.000");
   await expect(byType.getByRole("row", { name: /Chi khác/ })).toContainText("1.250.000");

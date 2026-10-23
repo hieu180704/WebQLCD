@@ -76,8 +76,19 @@ export type CashReportView = {
 export type CashReportQuery = { from: LocalDate | null; to: LocalDate | null; before: LocalDate | null };
 
 /**
+ * Kỳ từ tham số URL, dùng chung cho mọi phần của trang báo cáo. Mặc định tháng này; đến ngày sau hôm nay quy về hôm nay;
+ * thiếu từ ngày thì lấy đầu tháng của đến ngày. Không kiểm từ ngày ≤ đến ngày (xem `isValidRange`).
+ */
+export function resolveRange(query: { from: LocalDate | null; to: LocalDate | null }, today: LocalDate): ReportRange {
+  const to = query.to && diffDays(today, query.to) <= 0 ? query.to : today;
+  return { from: query.from ?? `${to.slice(0, 7)}-01`, to };
+}
+
+export const isValidRange = (range: ReportRange) => diffDays(range.from, range.to) >= 0;
+
+/**
  * Báo cáo thu chi theo kỳ, cùng quy tắc với sổ quỹ (`/quy-ket`): thu/chi theo dấu từng dòng kể cả dòng đảo,
- * nên số mỗi ngày khớp sổ quỹ ngày đó. Mặc định tháng này; đến ngày sau hôm nay quy về hôm nay.
+ * nên số mỗi ngày khớp sổ quỹ ngày đó.
  */
 export class GetCashReport {
   constructor(private readonly source: CashReportSource) {}
@@ -85,17 +96,18 @@ export class GetCashReport {
   /** `shopId` lấy từ session (guard), không từ input của client. */
   async execute(shopId: string, query: CashReportQuery, now = new Date()): Promise<CashReportView> {
     const today = businessDate(now);
-    const presets = reportPresets(today, await this.source.openedAt(shopId));
-    const to = query.to && diffDays(today, query.to) <= 0 ? query.to : today;
-    const range = { from: query.from ?? `${to.slice(0, 7)}-01`, to };
-    if (diffDays(range.from, range.to) < 0) return { today, range, presets, report: null };
+    const range = resolveRange(query, today);
+    if (!isValidRange(range)) {
+      return { today, range, presets: reportPresets(today, await this.source.openedAt(shopId)), report: null };
+    }
 
     const before = query.before && diffDays(range.from, query.before) > 0 ? query.before : null;
-    const [totals, raw] = await Promise.all([
+    const [openedAt, totals, raw] = await Promise.all([
+      this.source.openedAt(shopId),
       this.source.totals(shopId, range),
       this.source.days(shopId, range, before, REPORT_DAY_PAGE_SIZE + 1),
     ]);
-    return { today, range, presets, report: buildReport(totals.before, totals.byType, raw) };
+    return { today, range, presets: reportPresets(today, openedAt), report: buildReport(totals.before, totals.byType, raw) };
   }
 }
 

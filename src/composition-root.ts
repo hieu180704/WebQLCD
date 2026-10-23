@@ -37,10 +37,12 @@ import { RedeemContract } from "@/modules/pawn/application/redeem-contract";
 import { ReverseOperation } from "@/modules/pawn/application/reverse-operation";
 import { DrizzleContractRepository } from "@/modules/pawn/infrastructure/drizzle-contract-repository";
 import { GetCashReport } from "@/modules/reporting/application/get-cash-report";
+import { GetContractReport } from "@/modules/reporting/application/get-contract-report";
 import { GetCustomerDetail } from "@/modules/reporting/application/get-customer-detail";
 import { GetDashboardStats } from "@/modules/reporting/application/get-dashboard-stats";
 import { ListCustomers } from "@/modules/reporting/application/list-customers";
 import { DrizzleCashReport } from "@/modules/reporting/infrastructure/drizzle-cash-report";
+import { DrizzleContractReport } from "@/modules/reporting/infrastructure/drizzle-contract-report";
 import { DrizzleCustomerDirectory } from "@/modules/reporting/infrastructure/drizzle-customer-directory";
 import { DrizzleCustomerProfile } from "@/modules/reporting/infrastructure/drizzle-customer-profile";
 import { DrizzleDashboardStats } from "@/modules/reporting/infrastructure/drizzle-dashboard-stats";
@@ -100,3 +102,4 @@ export const listCustomers = new ListCustomers(
 );
 export const getCustomerDetail = new GetCustomerDetail(new DrizzleCustomerProfile(db));
 export const getCashReport = new GetCashReport(new DrizzleCashReport(db));
+export const getContractReport = new GetContractReport(new DrizzleContractReport(db));

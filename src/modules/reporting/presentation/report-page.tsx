@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { getCashReport, requireSession } from "@/composition-root";
+import { getCashReport, getContractReport, requireSession } from "@/composition-root";
 import { isLocalDate } from "@/shared/kernel/local-date";
 import type { Money } from "@/shared/kernel/money";
 import { formatVnd } from "@/shared/kernel/vnd";
@@ -45,7 +45,10 @@ export async function ReportPage({ query }: { query: Record<string, string | str
   const principal = await requireSession();
   if (principal.role !== "owner") redirect("/");
   const params = querySchema.parse({ tu: first(query.tu), den: first(query.den), truoc: first(query.truoc) });
-  const view = await getCashReport.execute(principal.shopId, { from: params.tu, to: params.den, before: params.truoc });
+  const [view, contracts] = await Promise.all([
+    getCashReport.execute(principal.shopId, { from: params.tu, to: params.den, before: params.truoc }),
+    getContractReport.execute(principal.shopId, { from: params.tu, to: params.den }),
+  ]);
   const { range, report } = view;
   const period = range.from === range.to ? formatDay(range.from) : `${formatDay(range.from)} – ${formatDay(range.to)}`;
 
@@ -111,53 +114,93 @@ export async function ReportPage({ query }: { query: Record<string, string | str
             </div>
           </section>
 
-          <section className="card mt-6" aria-labelledby="t-type">
-            <h2 id="t-type" className="p-5 pb-3 font-semibold">
-              Theo loại giao dịch
-            </h2>
-            {report.byType.length === 0 ? (
-              <p className="px-5 pb-5 text-sm text-slate-500">Không có giao dịch trong kỳ.</p>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="table">
-                  <thead>
-                    <tr>
-                      <th>Loại</th>
-                      <th className="text-right">Số lần</th>
-                      <th className="text-right">Thu</th>
-                      <th className="text-right">Chi</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {TYPE_ROWS.map(([type, label]) => {
-                      const row = report.byType.find((r) => r.type === type);
-                      if (!row) return null;
-                      return (
-                        <tr key={type}>
-                          <td>{label}</td>
-                          <td className="text-right num">{row.count}</td>
-                          <td className="text-right num">
-                            <Amount value={row.income} tone="in" />
-                          </td>
-                          <td className="text-right num">
-                            <Amount value={row.expense} tone="out" />
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                  <tfoot>
-                    <tr className="font-semibold">
-                      <td className="p-3">Cộng</td>
-                      <td></td>
-                      <td className="p-3 text-right num text-emerald-700">{formatVnd(report.income)}</td>
-                      <td className="p-3 text-right num text-red-700">{formatVnd(report.expense.negate())}</td>
-                    </tr>
-                  </tfoot>
-                </table>
+          <div className="mt-6 grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
+            <section className="card" aria-labelledby="t-type">
+              <h2 id="t-type" className="p-5 pb-3 font-semibold">
+                Theo loại giao dịch
+              </h2>
+              {report.byType.length === 0 ? (
+                <p className="px-5 pb-5 text-sm text-slate-500">Không có giao dịch trong kỳ.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="table">
+                    <thead>
+                      <tr>
+                        <th>Loại</th>
+                        <th className="text-right">Số lần</th>
+                        <th className="text-right">Thu</th>
+                        <th className="text-right">Chi</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {TYPE_ROWS.map(([type, label]) => {
+                        const row = report.byType.find((r) => r.type === type);
+                        if (!row) return null;
+                        return (
+                          <tr key={type}>
+                            <td>{label}</td>
+                            <td className="text-right num">{row.count}</td>
+                            <td className="text-right num">
+                              <Amount value={row.income} tone="in" />
+                            </td>
+                            <td className="text-right num">
+                              <Amount value={row.expense} tone="out" />
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                    <tfoot>
+                      <tr className="font-semibold">
+                        <td className="p-3">Cộng</td>
+                        <td></td>
+                        <td className="p-3 text-right num text-emerald-700">{formatVnd(report.income)}</td>
+                        <td className="p-3 text-right num text-red-700">{formatVnd(report.expense.negate())}</td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              )}
+            </section>
+
+            {contracts && (
+              <div className="flex flex-col gap-6">
+                <section className="card p-5" aria-labelledby="t-debt">
+                  <h2 id="t-debt" className="font-semibold">
+                    Dư nợ hôm nay ({formatDay(view.today)})
+                  </h2>
+                  <dl className="mt-4 grid grid-cols-[1fr_auto] gap-y-3 text-sm">
+                    <dt className="text-slate-500">Cầm đồ đang cho vay (gốc)</dt>
+                    <dd className="text-right num">{formatVnd(contracts.securedLending)}</dd>
+                    <dt className="text-slate-500">Tín chấp đang cho vay (gốc)</dt>
+                    <dd className="text-right num">{formatVnd(contracts.unsecuredLending)}</dd>
+                    <dt className="text-slate-500">Lãi đến hôm nay chưa thu</dt>
+                    <dd className="text-right num">{formatVnd(contracts.accruedInterest)}</dd>
+                    <dt className="font-semibold border-t border-slate-200 pt-3">Hợp đồng quá hạn</dt>
+                    <dd
+                      className={`text-right num font-semibold border-t border-slate-200 pt-3 ${contracts.overdue > 0 ? "text-red-700" : ""}`}
+                    >
+                      {contracts.overdue} cầm đồ/tín chấp
+                    </dd>
+                  </dl>
+                </section>
+
+                <section className="card p-5" aria-labelledby="t-new">
+                  <h2 id="t-new" className="font-semibold">
+                    Hợp đồng trong kỳ
+                  </h2>
+                  <dl className="mt-4 grid grid-cols-[1fr_auto] gap-y-3 text-sm">
+                    <dt className="text-slate-500">Mở mới</dt>
+                    <dd className="text-right num">{contracts.opened}</dd>
+                    <dt className="text-slate-500">Chuộc đồ / đóng hợp đồng</dt>
+                    <dd className="text-right num">{contracts.closed}</dd>
+                    <dt className="text-slate-500">Đã xoá</dt>
+                    <dd className="text-right num">{contracts.deleted}</dd>
+                  </dl>
+                </section>
               </div>
             )}
-          </section>
+          </div>
 
           <section className="card mt-6" aria-labelledby="t-day">
             <h2 id="t-day" className="p-5 pb-3 font-semibold">
@@ -214,8 +257,8 @@ export async function ReportPage({ query }: { query: Record<string, string | str
         </>
       )}
       <p className="mt-3 text-xs text-slate-500">
-        Mọi con số tính từ sổ két, cùng cách tính với sổ quỹ: giao dịch bị huỷ vẫn tính ở ngày ghi, bút toán đảo tính ở ngày huỷ. Chỉ chủ
-        tiệm xem được báo cáo.
+        Thu chi tính từ sổ két, cùng cách tính với sổ quỹ: giao dịch bị huỷ vẫn tính ở ngày ghi, bút toán đảo tính ở ngày huỷ. Dư nợ và hợp
+        đồng chưa tính trả góp. Chỉ chủ tiệm xem được báo cáo.
       </p>
     </>
   );
