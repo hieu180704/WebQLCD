@@ -112,6 +112,7 @@ export class DrizzleInstallmentRepository implements InstallmentRepository {
         customerId: c.customerId,
         customerName: customers.fullName,
         customerPhone: customers.phone,
+        customerCccdMasked: customers.cccdMasked,
         amountGiven: c.amountGiven,
         totalDue: c.totalDue,
         amountPaid: c.amountPaid,

@@ -1,0 +1,10 @@
+# 2026-10-23: Xuất Excel lát E2 — /tra-gop — [verified: lint, typecheck, vitest 239/239, e2e 51/51 (gồm build)]
+
+- Nhánh: worktree wt-3, DB `webqlcd_wt3`, E2E_PORT 3102. Nối tiếp lát E1 (`2026-10-23-excel-cam-do-e1.txt`).
+- Đã làm:
+  1. Tách parse URL sang `installment/presentation/installment-query.ts` (trang và file dùng chung). `ListInstallments.batches` đọc keyset lô 500, dùng chung hàm tính tiến độ / hạn với danh sách. List row thêm `customerCccdMasked`.
+  2. Route `src/app/(app)/tra-gop/xuat-excel/route.ts` → `exportInstallments`: chỉ chủ tiệm (KTV 403), CCCD sai định dạng 400, audit `export` entity `installment_contract`. Cột: mã, khách, SĐT (che), CCCD 4 số cuối, ngày bắt đầu, tiền đưa khách, tổng phải thu, đã thu, còn phải thu (để trống khi đã đóng / đã xoá, như trang chi tiết), tiến độ, mỗi kỳ, kỳ tới, trạng thái.
+  3. Nhãn trạng thái tách `dueLabel` dùng chung với `DueBadge`. Nút "Xuất Excel" chỉ hiện với chủ tiệm, giữ bộ lọc, bỏ trang.
+  4. e2e `excel.spec.ts`: thêm test `/tra-gop` (lọc CCCD, tên bắt đầu bằng `@` có `'`), KTV bị chặn ở cả hai trang.
+- File: src/modules/installment/{application/list-installments.ts, application/ports.ts, index.ts, infrastructure/drizzle-installment-repository.ts, presentation/installment-query.ts, installment-list-page.tsx, export-installments.ts, format.tsx} + test, src/app/(app)/tra-gop/xuat-excel/route.ts, e2e/excel.spec.ts.
+- Lưu ý cho phiên sau: không có.

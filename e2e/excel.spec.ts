@@ -79,6 +79,37 @@ test("/cam-do: chủ tiệm xuất đúng bộ lọc, CCCD 4 số cuối, SĐT �
   expect((await download(page)).rows).toHaveLength(3);
 });
 
+test("/tra-gop: xuất đúng bộ lọc, tiến độ, còn phải thu, tên khách bắt đầu bằng @ được chống công thức", async ({ page }) => {
+  await signIn(page);
+  for (const [name, cccd] of [
+    ["@Lê Văn Cường", "001099077777"],
+    ["Phạm Thị Dung", "001099088888"],
+  ]) {
+    await page.goto("/tra-gop/moi");
+    await page.getByLabel("Tên khách hàng").fill(name);
+    await page.getByLabel("Số CCCD").fill(cccd);
+    await page.getByLabel("Số điện thoại").fill("0938214552");
+    await page.getByLabel("Tiền đưa khách").fill("4.000.000");
+    await page.getByLabel("Tổng tiền phải thu").fill("5.000.000");
+    await page.getByLabel("Số ngày góp").fill("50");
+    await page.getByLabel("Số ngày mỗi kỳ").fill("2");
+    await page.getByRole("button", { name: "Lưu hợp đồng" }).click();
+    await expect(page).toHaveURL(/\/tra-gop\?moi=TG-\d+$/);
+  }
+
+  await page.goto("/tra-gop?cccd=001099077777");
+  const { fileName, rows } = await download(page);
+  expect(fileName).toMatch(/^tra-gop-\d{4}-\d{2}-\d{2}\.xlsx$/);
+  expect(rows).toHaveLength(2);
+  expect(rows[0]).toEqual(expect.arrayContaining(["Mã HĐ", "Còn phải thu", "Tiến độ"]));
+  const row = rows[1];
+  expect(row.slice(0, 4)).toEqual(["TG-1", "'@Lê Văn Cường", "093****552", "********7777"]);
+  expect(row.slice(5, 11)).toEqual([4_000_000, 5_000_000, 0, 5_000_000, "0 / 25 kỳ", 200_000]);
+  expect(row[11]).toMatch(/^\d{2}\/\d{2}\/\d{4}$/);
+  expect(row[12]).toBe("Đúng hạn");
+  expect(await countAudit(OWNER.username, "installment_contract", "export")).toBe(1);
+});
+
 test("KTV không thấy nút Xuất Excel và bị chặn khi gọi thẳng", async ({ page }) => {
   await signIn(page);
   await page.goto("/nhan-vien");
@@ -90,8 +121,9 @@ test("KTV không thấy nút Xuất Excel và bị chặn khi gọi thẳng", as
   await page.getByRole("button", { name: "Đăng xuất" }).click();
 
   await signIn(page, STAFF);
-  await page.goto("/cam-do");
-  await expect(page.getByRole("link", { name: "Xuất Excel" })).toHaveCount(0);
-  const response = await page.request.get("/cam-do/xuat-excel");
-  expect(response.status()).toBe(403);
+  for (const list of ["/cam-do", "/tra-gop"]) {
+    await page.goto(list);
+    await expect(page.getByRole("link", { name: "Xuất Excel" })).toHaveCount(0);
+    expect((await page.request.get(`${list}/xuat-excel`)).status()).toBe(403);
+  }
 });

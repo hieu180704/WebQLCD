@@ -4,8 +4,17 @@ import { CloseInstallment } from "./close-installment";
 import { CreateInstallment, type CreateInstallmentInput } from "./create-installment";
 import { DeleteInstallment } from "./delete-installment";
 import { monthRange } from "./get-installment-stats";
+import { EXPORT_BATCH_SIZE, ListInstallments } from "./list-installments";
 import { PayInstallment } from "./pay-installment";
-import type { InstallmentDraft, InstallmentRecord, InstallmentRepository, LatestOperation, PaymentDraft } from "./ports";
+import type {
+  InstallmentDraft,
+  InstallmentFilter,
+  InstallmentListRow,
+  InstallmentRecord,
+  InstallmentRepository,
+  LatestOperation,
+  PaymentDraft,
+} from "./ports";
 import { ReverseInstallmentOperation } from "./reverse-installment-operation";
 
 const ACTOR = { userId: "u1", shopId: "s1" };
@@ -156,6 +165,46 @@ describe("DeleteInstallment", () => {
     expect(deleted).toBe(0);
     expect(await remove(" tg-1 ")).toEqual({ ok: true, code: "TG-1" });
     expect(deleted).toBe(1);
+  });
+});
+
+describe("ListInstallments.batches", () => {
+  const row = (i: number): InstallmentListRow => ({
+    id: `id-${i}`,
+    code: `TG-${i}`,
+    customerId: "c1",
+    customerName: "Khách",
+    customerPhone: null,
+    customerCccdMasked: null,
+    amountGiven: vnd(4_000_000),
+    totalDue: vnd(5_000_000),
+    amountPaid: vnd(0),
+    totalDays: 50,
+    periodDays: 10,
+    startDate: "2026-10-20",
+    status: "active",
+    deleted: false,
+  });
+  const ALL: InstallmentFilter = { search: null, cccd: null, status: null };
+
+  it("đi hết keyset, lô cuối ngắn hơn thì dừng, mỗi dòng tính tiến độ như danh sách", async () => {
+    const rows = Array.from({ length: EXPORT_BATCH_SIZE + 3 }, (_, i) => row(i));
+    const afters: (string | null)[] = [];
+    const { repo } = fakeRepo({
+      list: async (_shop, _filter, _today, after, limit) => {
+        afters.push(after);
+        const start = after ? rows.findIndex((r) => r.id === after) + 1 : 0;
+        return rows.slice(start, start + limit);
+      },
+    });
+    const sizes: number[] = [];
+    for await (const batch of new ListInstallments(repo).batches("s1", ALL, NOW)) {
+      sizes.push(batch.length);
+      expect(batch[0]).toMatchObject({ progress: { periods: 5, paidPeriods: 0 }, dueStatus: { kind: "on_time" } });
+      expect(batch[0].perPeriod.toBigInt()).toBe(1_000_000n);
+    }
+    expect(sizes).toEqual([EXPORT_BATCH_SIZE, 3]);
+    expect(afters).toEqual([null, `id-${EXPORT_BATCH_SIZE - 1}`]);
   });
 });
 
