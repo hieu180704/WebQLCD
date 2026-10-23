@@ -1,0 +1,10 @@
+# 2026-10-23: Gộp nhánh feat/bao-cao vào main — [verified: lint, typecheck, vitest 195/195, e2e 37/37]
+
+- Commit: 7a99a48 (worklog + handoff chia worktree), 5d863e3 (merge `feat/bao-cao`, gồm 3b117e9 R1 + bdecec3 R2)
+- Đã làm:
+  1. Gộp `feat/bao-cao` bằng `/merge-worktree` (`--no-ff --no-commit`): merge sạch, không conflict (nhánh gộp đầu tiên, `main` chưa đổi code).
+  2. Verify trên `main` trước khi commit: lint, typecheck, `npm test` 195/195, `test:e2e` 37/37.
+  3. Dọn sau khi gộp: `git worktree remove ../WebQLCD-baocao`, `git branch -d feat/bao-cao`. Ignored data trong worktree (`.env` bản sao, `test-results/`) không cần gom về.
+  4. Handoff: bỏ dòng `baocao` khỏi bảng worktree; đổi quy tắc dọn thành "gộp + verify xanh nhánh nào thì dọn ngay nhánh đó".
+- Còn dở (agent bị chặn quyền, người dùng chạy tay): xoá DB `webqlcd_baocao`; xoá thư mục sót `C:/Project/WebQLCD-baocao` (chỉ còn `.next`, 28K).
+- Lưu ý cho phiên sau: `feat/tra-gop` sửa cả `modules/cashbook` (ngoài bảng phạm vi), `feat/cai-dat` sửa `identity/presentation/account-settings.tsx`: review kỹ khi gộp. Hai nhánh cùng migration số 0010.
