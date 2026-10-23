@@ -3,6 +3,7 @@ import { Money } from "@/shared/kernel/money";
 import { CloseInstallment } from "./close-installment";
 import { CreateInstallment, type CreateInstallmentInput } from "./create-installment";
 import { DeleteInstallment } from "./delete-installment";
+import { monthRange } from "./get-installment-stats";
 import { PayInstallment } from "./pay-installment";
 import type { InstallmentDraft, InstallmentRecord, InstallmentRepository, LatestOperation, PaymentDraft } from "./ports";
 import { ReverseInstallmentOperation } from "./reverse-installment-operation";
@@ -24,6 +25,7 @@ function fakeRepo(overrides: Partial<InstallmentRepository> = {}) {
       return { code: "TG-1", customer: { id: "c1", reused: false, fullName: draft.customer.fullName } };
     },
     list: unused,
+    stats: unused,
     findDetail: unused,
     listTransactions: unused,
     listPayments: unused,
@@ -154,5 +156,12 @@ describe("DeleteInstallment", () => {
     expect(deleted).toBe(0);
     expect(await remove(" tg-1 ")).toEqual({ ok: true, code: "TG-1" });
     expect(deleted).toBe(1);
+  });
+});
+
+describe("monthRange", () => {
+  it("đầu tháng và đầu tháng sau, qua năm mới", () => {
+    expect(monthRange("2026-10-23")).toEqual(["2026-10-01", "2026-11-01"]);
+    expect(monthRange("2026-12-31")).toEqual(["2026-12-01", "2027-01-01"]);
   });
 });

@@ -1,7 +1,7 @@
 import { businessDate, type LocalDate } from "@/shared/kernel/local-date";
 import type { Money } from "@/shared/kernel/money";
 import { dueStatus, dueThrough, progress, type DueStatus, type Progress } from "../domain/installment";
-import type { InstallmentListRow, InstallmentRepository } from "./ports";
+import type { InstallmentFilter, InstallmentListRow, InstallmentRepository } from "./ports";
 
 export type { DueStatus };
 
@@ -21,9 +21,9 @@ export class ListInstallments {
   constructor(private readonly installments: InstallmentRepository) {}
 
   /** `shopId` lấy từ session (guard), không từ input của client. */
-  async execute(shopId: string, after: string | null, now = new Date()): Promise<InstallmentListView> {
+  async execute(shopId: string, filter: InstallmentFilter, after: string | null, now = new Date()): Promise<InstallmentListView> {
     const today = businessDate(now);
-    const rows = await this.installments.list(shopId, after, INSTALLMENT_PAGE_SIZE + 1);
+    const rows = await this.installments.list(shopId, filter, today, after, INSTALLMENT_PAGE_SIZE + 1);
     const hasMore = rows.length > INSTALLMENT_PAGE_SIZE;
     const page = hasMore ? rows.slice(0, INSTALLMENT_PAGE_SIZE) : rows;
     const items = page.map((row) => {

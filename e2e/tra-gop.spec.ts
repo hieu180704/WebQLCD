@@ -179,3 +179,58 @@ test("chủ tiệm huỷ giao dịch mới nhất (huỷ tất toán mở lại 
   await page.goto("/tra-gop");
   await expect(page.getByRole("row", { name: /TG-1/ })).toHaveCount(0);
 });
+
+/** Ngày nghiệp vụ (giờ Việt Nam) cách hôm nay `offset` ngày, dạng YYYY-MM-DD cho ô ngày. */
+function businessDay(offset: number) {
+  const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh" }).format(new Date());
+  return new Date(Date.parse(`${today}T00:00:00Z`) + offset * 86_400_000).toISOString().slice(0, 10);
+}
+
+test("tìm / lọc danh sách, 4 ô thống kê", async ({ page }) => {
+  await signIn(page);
+  // TG-2 bắt đầu 10 ngày trước, 2 ngày một kỳ: đã qua hạn 4 kỳ, chưa góp → chậm góp. TG-3 bắt đầu hôm nay.
+  for (const [name, start] of [
+    ["Ngô Văn Tài", businessDay(-10)],
+    ["Lý Quang Vinh", businessDay(0)],
+  ]) {
+    await page.goto("/tra-gop/moi");
+    await page.getByLabel("Tên khách hàng").fill(name);
+    await page.getByLabel("Số điện thoại").fill(name === "Ngô Văn Tài" ? "0909111731" : "0918222667");
+    await page.getByLabel("Tiền đưa khách").fill("4.000.000");
+    await page.getByLabel("Tổng tiền phải thu").fill("5.000.000");
+    await page.getByLabel("Số ngày góp").fill("50");
+    await page.getByLabel("Số ngày mỗi kỳ").fill("2");
+    await page.getByLabel("Ngày bắt đầu").fill(start);
+    await page.getByRole("button", { name: "Lưu hợp đồng" }).click();
+    await expect(page).toHaveURL(/\/tra-gop\?moi=TG-\d+$/);
+  }
+
+  await expect(page.getByText("2 hợp đồng đang góp")).toBeVisible();
+  const tiles = page.getByRole("region", { name: "Tóm tắt" });
+  await expect(tiles.getByText("Tiền đã đưa khách").locator("..")).toContainText("8.000.000");
+  await expect(tiles.getByText("Còn phải thu").locator("..")).toContainText("10.000.000");
+  await expect(tiles.getByText("Chậm góp").locator("..")).toContainText("1");
+  await expect(page.getByRole("row", { name: /TG-2/ })).toContainText("Chậm 4 kỳ");
+
+  const list = page.getByRole("region", { name: "Danh sách hợp đồng" });
+  const codes = () => list.getByRole("row").filter({ has: page.getByRole("link", { name: /^TG-/ }) });
+  await page.getByLabel("Trạng thái").selectOption({ label: "Chậm góp" });
+  await page.getByRole("button", { name: "Lọc" }).click();
+  await expect(page).toHaveURL(/tt=cham-gop/);
+  await expect(codes()).toHaveCount(1);
+  await expect(codes().first()).toContainText("TG-2");
+
+  await page.goto("/tra-gop?q=ly%20quang");
+  await expect(codes()).toHaveCount(1);
+  await expect(codes().first()).toContainText("TG-3");
+  await page.goto("/tra-gop?q=731");
+  await expect(codes().first()).toContainText("TG-2");
+
+  await page.goto("/tra-gop?tt=da-xoa");
+  await expect(codes()).toHaveCount(1);
+  await expect(codes().first()).toContainText("TG-1");
+  await expect(codes().first()).toContainText("Đã xoá");
+
+  await page.goto("/tra-gop?cccd=123");
+  await expect(page.getByRole("alert").filter({ hasText: "Số CCCD phải đủ 12 số" })).toBeVisible();
+});

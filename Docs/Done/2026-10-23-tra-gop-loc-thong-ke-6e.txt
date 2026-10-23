@@ -1,0 +1,13 @@
+# 2026-10-23: Lát 6e trả góp — tìm / lọc danh sách, 4 ô thống kê — [verified: lint, typecheck, unit/DB test, e2e]
+
+- Nhánh: `feat/tra-gop`. Commit: "Lát 6e: tìm / lọc trả góp, ô thống kê".
+- Đã làm:
+  1. Migration 0011 (viết tay): hàm SQL `installment_due_through`, `installment_late`, `installment_due_today`, tính như `dueThrough` / `progress` / `dueStatus` của domain. Test so khớp SQL ↔ domain: 17 ca biên + 300 ca ngẫu nhiên có hạt giống. Đã migrate DB chung.
+  2. Repository: `list` nhận bộ lọc (mã, tên không dấu, SĐT, CCCD qua hash; 5 trạng thái kể cả "Đã xoá"), `stats` (đang góp, tiền đưa khách, còn phải thu, đã thu tháng này trừ dòng huỷ thu, chậm góp). Repository nhận thêm `hashCccd` qua composition-root.
+  3. Use case `GetInstallmentStats` (`monthRange` theo ngày nghiệp vụ); trang `/tra-gop` có "N hợp đồng đang góp", 4 ô, form tìm/lọc, "Bỏ lọc", "Xem tiếp" giữ bộ lọc, hợp đồng đã xoá mờ + gạch ngang.
+  4. Đã xem giao diện thật (chi tiết + danh sách) bằng Playwright trên cửa hàng seed `chutiem`; HĐ thử đã xoá mềm sau khi xem (còn trong DB chung với nhãn "Đã xoá", sổ két đã đảo).
+  5. Docs: core-spec (tìm/lọc, ô thống kê), data-model (hàm 0011, index).
+- Trạng thái: xong 6a–6e (trả góp theo mockup, trừ phần ngoài phạm vi dưới).
+- Lưu ý cho phiên sau:
+  - Chưa làm (ngoài gate hoặc ngoài danh sách việc): Xuất Excel, nút "Sửa thông tin", chọn KTV khác, link mã HĐ trả góp ở `/quy-ket` (cashbook chỉ dựng link `/cam-do/{id}`), trả góp trên trang chủ / trang khách / báo cáo.
+  - Hai migration 0010, 0011 đã áp vào DB chung; nhánh nào merge sau mà cũng có 0010/0011 thì phải đánh lại số + `when` trong `drizzle/meta/_journal.json`.

@@ -28,6 +28,7 @@ import { CloseInstallment } from "@/modules/installment/application/close-instal
 import { CreateInstallment } from "@/modules/installment/application/create-installment";
 import { DeleteInstallment } from "@/modules/installment/application/delete-installment";
 import { GetInstallmentDetail } from "@/modules/installment/application/get-installment-detail";
+import { GetInstallmentStats } from "@/modules/installment/application/get-installment-stats";
 import { ListInstallments } from "@/modules/installment/application/list-installments";
 import { PayInstallment } from "@/modules/installment/application/pay-installment";
 import { ReverseInstallmentOperation } from "@/modules/installment/application/reverse-installment-operation";
@@ -100,10 +101,11 @@ export const reverseOperation = new ReverseOperation(contracts);
 export const deleteContract = new DeleteContract(contracts);
 export const editContract = new EditContract(contracts);
 
-const installments = new DrizzleInstallmentRepository(db, customerWriter, appendCashEntries);
+const installments = new DrizzleInstallmentRepository(db, customerWriter, appendCashEntries, hashCccd);
 export const createInstallment = new CreateInstallment(installments);
 export const listInstallments = new ListInstallments(installments);
 export const getInstallmentDetail = new GetInstallmentDetail(installments);
+export const getInstallmentStats = new GetInstallmentStats(installments);
 export const payInstallment = new PayInstallment(installments);
 export const closeInstallment = new CloseInstallment(installments);
 export const reverseInstallmentOperation = new ReverseInstallmentOperation(installments);

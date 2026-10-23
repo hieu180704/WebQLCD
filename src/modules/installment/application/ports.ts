@@ -93,11 +93,40 @@ export type ReversalDraft = { contractId: string; operationId: string; reason: s
 
 export type DeletionDraft = { contractId: string; reason: string; businessDate: LocalDate };
 
+/**
+ * Trạng thái lọc danh sách (core-spec mục 2). "Chậm góp", "Đến hạn hôm nay" như nhãn hạn góp; chỉ hợp đồng đang góp.
+ */
+export type InstallmentStatusFilter = "open" | "late" | "due_today" | "closed" | "deleted";
+
+/** `search`: mã HĐ, tên khách (không dấu), SĐT; `cccd`: đã chuẩn hoá, khớp đủ số qua hash. */
+export type InstallmentFilter = {
+  search: string | null;
+  cccd: string | null;
+  /** null = mọi hợp đồng chưa xoá. */
+  status: InstallmentStatusFilter | null;
+};
+
+/** Ô thống kê đầu trang danh sách, của cả cửa hàng (không theo bộ lọc). */
+export type InstallmentStats = {
+  /** Số hợp đồng đang góp, chưa xoá. */
+  openCount: number;
+  /** Tổng tiền đưa khách của hợp đồng đang góp. */
+  givenOpen: Money;
+  /** Tổng (tổng phải thu − đã thu) của hợp đồng đang góp. */
+  remainingOpen: Money;
+  /** Dòng thu trả góp ghi trong tháng trừ dòng huỷ thu trả góp ghi trong tháng (theo ngày nghiệp vụ). */
+  collectedThisMonth: Money;
+  /** Số hợp đồng đang chậm góp. */
+  lateCount: number;
+};
+
 /** Hợp đồng trả góp của một cửa hàng; mọi truy vấn lọc theo shopId của phiên. */
 export interface InstallmentRepository {
   create(actor: Actor, draft: InstallmentDraft): Promise<CreatedInstallment>;
-  /** Hợp đồng chưa xoá, mới nhất trước; `after` là id dòng cuối của trang trước (keyset). */
-  list(shopId: string, after: string | null, limit: number): Promise<InstallmentListRow[]>;
+  /** Hợp đồng khớp bộ lọc, mới nhất trước; `after` là id dòng cuối của trang trước (keyset). Hạn tính tới `today`. */
+  list(shopId: string, filter: InstallmentFilter, today: LocalDate, after: string | null, limit: number): Promise<InstallmentListRow[]>;
+  /** Thống kê cả cửa hàng; tháng = [monthStart, nextMonthStart) theo ngày nghiệp vụ. */
+  stats(shopId: string, today: LocalDate, monthStart: LocalDate, nextMonthStart: LocalDate): Promise<InstallmentStats>;
   /** Hợp đồng của cửa hàng kể cả đã xoá, hoặc null. */
   findDetail(shopId: string, contractId: string): Promise<InstallmentDetailRow | null>;
   /** Giao dịch két của hợp đồng, mới nhất trước, tối đa `limit` dòng. */

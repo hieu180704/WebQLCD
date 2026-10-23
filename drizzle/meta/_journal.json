@@ -78,6 +78,13 @@
       "when": 1792766689510,
       "tag": "0010_installment_operations",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1792768664803,
+      "tag": "0011_installment_due",
+      "breakpoints": true
     }
   ]
 }

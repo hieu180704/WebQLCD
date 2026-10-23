@@ -10,13 +10,14 @@ import { CccdCipher, DrizzleCustomerWriter, type NewCustomer } from "@/modules/c
 import type { Db } from "@/shared/infrastructure/db/client";
 import * as schema from "@/shared/infrastructure/db/schema";
 import { Money } from "@/shared/kernel/money";
-import type { Actor, InstallmentDraft } from "../application/ports";
+import type { Actor, InstallmentDraft, InstallmentFilter } from "../application/ports";
 import { planPayment, planSettlement, type InstallmentTerms } from "../domain/installment";
 import { DrizzleInstallmentRepository } from "./drizzle-installment-repository";
 
 const url = process.env.DATABASE_URL;
 const TODAY = "2026-10-20";
 const cipher = new CccdCipher(randomBytes(32), randomBytes(32));
+const ALL: InstallmentFilter = { search: null, cccd: null, status: null };
 
 describe.skipIf(!url)("DrizzleInstallmentRepository", () => {
   let pool: Pool;
@@ -74,7 +75,8 @@ describe.skipIf(!url)("DrizzleInstallmentRepository", () => {
       );
     }
   };
-  const repo = (db: Db) => new DrizzleInstallmentRepository(db, new DrizzleCustomerWriter(() => cipher), appendCash);
+  const repo = (db: Db) =>
+    new DrizzleInstallmentRepository(db, new DrizzleCustomerWriter(() => cipher), appendCash, (shopId, cccd) => cipher.hash(shopId, cccd));
 
   const terms = (overrides: Partial<InstallmentTerms> = {}): InstallmentTerms => ({
     amountGiven: Money.fromNumber(4_000_000),
@@ -143,13 +145,13 @@ describe.skipIf(!url)("DrizzleInstallmentRepository", () => {
       for (let i = 0; i < 3; i++) await repo(db).create(actor, draft());
       await repo(db).create(other, draft());
 
-      const page1 = await repo(db).list(actor.shopId, null, 2);
+      const page1 = await repo(db).list(actor.shopId, ALL, TODAY, null, 2);
       expect(page1.map((r) => r.code)).toEqual(["TG-3", "TG-2"]);
       expect(page1[0]).toMatchObject({ customerPhone: "093****552", status: "active", deleted: false, periodDays: 2 });
       expect(page1[0].amountGiven.toBigInt()).toBe(4_000_000n);
-      const page2 = await repo(db).list(actor.shopId, page1[1].id, 2);
+      const page2 = await repo(db).list(actor.shopId, ALL, TODAY, page1[1].id, 2);
       expect(page2.map((r) => r.code)).toEqual(["TG-1"]);
-      expect((await repo(db).list(other.shopId, null, 10)).map((r) => r.code)).toEqual(["TG-1"]);
+      expect((await repo(db).list(other.shopId, ALL, TODAY, null, 10)).map((r) => r.code)).toEqual(["TG-1"]);
     }));
 
   /** Id hợp đồng theo mã trong cửa hàng. */
@@ -310,7 +312,7 @@ describe.skipIf(!url)("DrizzleInstallmentRepository", () => {
       expect(detail?.amountPaid.toBigInt()).toBe(200_000n);
       expect(await repo(db).findRecord(actor.shopId, id)).toBeNull();
       expect(await repo(db).findLatestOperation(actor.shopId, id)).toBeNull();
-      expect(await repo(db).list(actor.shopId, null, 10)).toEqual([]);
+      expect(await repo(db).list(actor.shopId, ALL, TODAY, null, 10)).toEqual([]);
       // Đảo giải ngân (+4tr) và lần góp còn lại (−200k) chung một operation_id; lần góp đã huỷ không đảo lần nữa.
       const deletion = await rows<{ amount: string; ops: string }>(
         db,
@@ -318,5 +320,62 @@ describe.skipIf(!url)("DrizzleInstallmentRepository", () => {
             WHERE installment_contract_id = ${id} AND type = 'reversal' AND note = 'khách huỷ'`,
       );
       expect(deletion).toEqual([{ amount: "3800000", ops: "1" }]);
+    }));
+
+  it("lọc: tìm mã, tên không dấu, SĐT, CCCD; trạng thái chậm góp, đến hạn hôm nay, đã đóng, đã xoá", () =>
+    inTx(async (db) => {
+      const actor = await seedShop(db);
+      // TG-1: bắt đầu 10/10, 2 ngày một kỳ: hôm nay 20/10 đã qua hạn 4 kỳ (12, 14, 16, 18) → chậm nếu chưa góp đủ 800.000.
+      await repo(db).create(actor, draft({ startDate: "2026-10-10" }, { fullName: "Ngô Văn Tài", phone: "0909111731" }));
+      // TG-2: bắt đầu 18/10, kỳ 1 hạn hôm nay.
+      await repo(db).create(actor, draft({ startDate: "2026-10-18" }, { fullName: "Huỳnh Thị Ngọc", cccd: "001099012345" }));
+      // TG-3: đã đóng; TG-4: đã xoá.
+      await repo(db).create(actor, draft());
+      await repo(db).create(actor, draft());
+      await pay(db, actor, await idOf(db, actor, "TG-3"), 0, "close");
+      await repo(db).deleteContract(actor, { contractId: await idOf(db, actor, "TG-4"), reason: "nhầm", businessDate: TODAY });
+
+      const codes = async (filter: Partial<InstallmentFilter>) =>
+        (await repo(db).list(actor.shopId, { ...ALL, ...filter }, TODAY, null, 10)).map((r) => r.code);
+      expect(await codes({})).toEqual(["TG-3", "TG-2", "TG-1"]);
+      expect(await codes({ search: "ngo van" })).toEqual(["TG-1"]);
+      expect(await codes({ search: "tg-2" })).toEqual(["TG-2"]);
+      expect(await codes({ search: "731" })).toEqual(["TG-1"]);
+      expect(await codes({ cccd: "001099012345" })).toEqual(["TG-2"]);
+      expect(await codes({ status: "open" })).toEqual(["TG-2", "TG-1"]);
+      expect(await codes({ status: "late" })).toEqual(["TG-1"]);
+      expect(await codes({ status: "due_today" })).toEqual(["TG-2"]);
+      expect(await codes({ status: "closed" })).toEqual(["TG-3"]);
+      const deleted = await repo(db).list(actor.shopId, { ...ALL, status: "deleted" }, TODAY, null, 10);
+      expect(deleted.map((r) => [r.code, r.deleted])).toEqual([["TG-4", true]]);
+
+      // Góp đủ 4 kỳ đã qua hạn: hết chậm.
+      await pay(db, actor, await idOf(db, actor, "TG-1"), 800_000);
+      expect(await codes({ status: "late" })).toEqual([]);
+    }));
+
+  it("thống kê: hợp đồng đang góp, đã thu tháng này trừ dòng huỷ thu trong tháng; cửa hàng khác không lẫn", () =>
+    inTx(async (db) => {
+      const actor = await seedShop(db);
+      const other = await seedShop(db);
+      await repo(db).create(actor, draft({ startDate: "2026-10-10" }));
+      await repo(db).create(actor, draft());
+      await repo(db).create(actor, draft());
+      await repo(db).create(other, draft());
+      await pay(db, actor, await idOf(db, actor, "TG-1"), 300_000);
+      await pay(db, actor, await idOf(db, actor, "TG-2"), 500_000);
+      const second = await idOf(db, actor, "TG-2");
+      const latest = await repo(db).findLatestOperation(actor.shopId, second);
+      await repo(db).reverseOperation(actor, { contractId: second, operationId: latest!.id, reason: "nhầm", businessDate: TODAY });
+      await pay(db, actor, await idOf(db, actor, "TG-3"), 0, "close");
+      await pay(db, other, await idOf(db, other, "TG-1"), 100_000);
+
+      const stats = await repo(db).stats(actor.shopId, TODAY, "2026-10-01", "2026-11-01");
+      expect(stats).toMatchObject({ openCount: 2, lateCount: 1 });
+      expect(stats.givenOpen.toBigInt()).toBe(8_000_000n);
+      expect(stats.remainingOpen.toBigInt()).toBe(9_700_000n);
+      expect(stats.collectedThisMonth.toBigInt()).toBe(300_000n);
+      const nextMonth = await repo(db).stats(actor.shopId, TODAY, "2026-11-01", "2026-12-01");
+      expect(nextMonth.collectedThisMonth.isZero()).toBe(true);
     }));
 });

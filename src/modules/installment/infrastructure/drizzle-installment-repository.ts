@@ -1,10 +1,11 @@
 import "server-only";
-import { and, asc, desc, eq, isNotNull, isNull, lt, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, ilike, isNotNull, isNull, lt, or, sql, type SQL } from "drizzle-orm";
 import type { AppendCashEntries } from "@/modules/cashbook";
 // Chỉ kiểu: index của customer kéo theo presentation, mà presentation import composition-root (vòng import).
 import type { DrizzleCustomerWriter } from "@/modules/customer";
 import type { Db, Tx } from "@/shared/infrastructure/db/client";
 import { dbCause } from "@/shared/infrastructure/db/errors";
+import { escapeLike } from "@/shared/infrastructure/db/like";
 import {
   auditLogs,
   cashTransactions,
@@ -25,9 +26,12 @@ import type {
   InstallmentCashType,
   InstallmentDetailRow,
   InstallmentDraft,
+  InstallmentFilter,
   InstallmentListRow,
   InstallmentRecord,
   InstallmentRepository,
+  InstallmentStats,
+  InstallmentStatusFilter,
   InstallmentTransaction,
   LatestOperation,
   PaymentDraft,
@@ -37,11 +41,25 @@ import type {
 
 const AUDIT_ENTITY = "installment_contract";
 
+/** HMAC CCCD theo cửa hàng (CccdCipher.hash), ghép qua composition-root. */
+export type HashCccd = (shopId: string, cccd: string) => string;
+
+/** Tìm SĐT khi ô tìm có ít nhất chừng này chữ số. */
+const MIN_PHONE_DIGITS = 3;
+
+const c = installmentContracts;
+// Hàm SQL migration 0011, tính như progress()/dueStatus() của domain.
+const late = (today: LocalDate) =>
+  sql`installment_late(${c.totalDue}, ${c.totalDays}, ${c.periodDays}, ${c.startDate}, ${c.amountPaid}, ${today}::date)`;
+const dueToday = (today: LocalDate) =>
+  sql`installment_due_today(${c.totalDue}, ${c.totalDays}, ${c.periodDays}, ${c.startDate}, ${c.amountPaid}, ${today}::date)`;
+
 export class DrizzleInstallmentRepository implements InstallmentRepository {
   constructor(
     private readonly db: Db,
     private readonly customerWriter: DrizzleCustomerWriter,
     private readonly appendCashEntries: AppendCashEntries,
+    private readonly hashCccd: HashCccd,
   ) {}
 
   async create(actor: Actor, draft: InstallmentDraft): Promise<CreatedInstallment> {
@@ -80,8 +98,13 @@ export class DrizzleInstallmentRepository implements InstallmentRepository {
     }
   }
 
-  async list(shopId: string, after: string | null, limit: number): Promise<InstallmentListRow[]> {
-    const c = installmentContracts;
+  async list(
+    shopId: string,
+    filter: InstallmentFilter,
+    today: LocalDate,
+    after: string | null,
+    limit: number,
+  ): Promise<InstallmentListRow[]> {
     const rows = await this.db
       .select({
         id: c.id,
@@ -100,7 +123,15 @@ export class DrizzleInstallmentRepository implements InstallmentRepository {
       })
       .from(c)
       .innerJoin(customers, and(eq(customers.shopId, c.shopId), eq(customers.id, c.customerId)))
-      .where(and(eq(c.shopId, shopId), isNull(c.deletedAt), after ? lt(c.id, after) : undefined))
+      .where(
+        and(
+          eq(c.shopId, shopId),
+          statusCondition(filter.status, today),
+          searchCondition(filter.search),
+          filter.cccd ? eq(customers.cccdHash, this.hashCccd(shopId, filter.cccd)) : undefined,
+          after ? lt(c.id, after) : undefined,
+        ),
+      )
       .orderBy(desc(c.id)) // uuid v7 tăng theo thời gian tạo; index UNIQUE (shop_id, id).
       .limit(limit);
     return rows.map(({ deletedAt, ...row }) => ({
@@ -113,8 +144,46 @@ export class DrizzleInstallmentRepository implements InstallmentRepository {
     }));
   }
 
+  async stats(shopId: string, today: LocalDate, monthStart: LocalDate, nextMonthStart: LocalDate): Promise<InstallmentStats> {
+    // Hợp đồng đang góp: index (shop_id, status).
+    const [open] = await this.db
+      .select({
+        openCount: sql<number>`count(*)::int`,
+        givenOpen: sql<string>`coalesce(sum(${c.amountGiven}), 0)::text`,
+        remainingOpen: sql<string>`coalesce(sum(${c.totalDue} - ${c.amountPaid}), 0)::text`,
+        lateCount: sql<number>`count(*) FILTER (WHERE ${late(today)})::int`,
+      })
+      .from(c)
+      .where(and(eq(c.shopId, shopId), eq(c.status, "active"), isNull(c.deletedAt)));
+    // Sổ két theo ngày: index (shop_id, business_date). Dòng huỷ chỉ trừ khi dòng gốc là thu trả góp (bỏ đảo giải ngân).
+    const t = cashTransactions;
+    const [cash] = await this.db
+      .select({
+        collected: sql<string>`coalesce(sum(${t.amount}), 0)::text`,
+      })
+      .from(t)
+      .where(
+        and(
+          eq(t.shopId, shopId),
+          sql`${t.businessDate} >= ${monthStart}::date AND ${t.businessDate} < ${nextMonthStart}::date`,
+          or(
+            eq(t.type, "installment_payment"),
+            sql`${t.type} = 'reversal' AND EXISTS (
+              SELECT 1 FROM cash_transactions g WHERE g.id = ${t.reversesId} AND g.type = 'installment_payment'
+            )`,
+          ),
+        ),
+      );
+    return {
+      openCount: open.openCount,
+      givenOpen: Money.of(BigInt(open.givenOpen)),
+      remainingOpen: Money.of(BigInt(open.remainingOpen)),
+      collectedThisMonth: Money.of(BigInt(cash.collected)),
+      lateCount: open.lateCount,
+    };
+  }
+
   async findDetail(shopId: string, contractId: string): Promise<InstallmentDetailRow | null> {
-    const c = installmentContracts;
     const [row] = await this.db
       .select({
         id: c.id,
@@ -204,7 +273,6 @@ export class DrizzleInstallmentRepository implements InstallmentRepository {
   }
 
   async findRecord(shopId: string, contractId: string): Promise<InstallmentRecord | null> {
-    const c = installmentContracts;
     const [row] = await this.db
       .select({
         code: c.code,
@@ -223,7 +291,6 @@ export class DrizzleInstallmentRepository implements InstallmentRepository {
 
   async recordPayment(actor: Actor, draft: PaymentDraft): Promise<boolean> {
     const { contractId, payment } = draft;
-    const c = installmentContracts;
     try {
       return await this.db.transaction(async (tx) => {
         // UPDATE có điều kiện khoá dòng hợp đồng: hai lần thu đồng thời thì lần sau không khớp số đã thu.
@@ -270,7 +337,6 @@ export class DrizzleInstallmentRepository implements InstallmentRepository {
 
   async findLatestOperation(shopId: string, contractId: string): Promise<LatestOperation | null> {
     const o = installmentOperations;
-    const c = installmentContracts;
     const [row] = await this.db
       .select({
         id: o.id,
@@ -292,7 +358,6 @@ export class DrizzleInstallmentRepository implements InstallmentRepository {
 
   async reverseOperation(actor: Actor, draft: ReversalDraft): Promise<boolean> {
     const { contractId, operationId } = draft;
-    const c = installmentContracts;
     const o = installmentOperations;
     try {
       return await this.db.transaction(async (tx) => {
@@ -347,7 +412,6 @@ export class DrizzleInstallmentRepository implements InstallmentRepository {
 
   async deleteContract(actor: Actor, draft: DeletionDraft): Promise<boolean> {
     const { contractId } = draft;
-    const c = installmentContracts;
     try {
       return await this.db.transaction(async (tx) => {
         const updated = await tx
@@ -419,4 +483,36 @@ async function nextCode(tx: Tx, shopId: string): Promise<string> {
     .onConflictDoUpdate({ target: [shopCounters.shopId, shopCounters.prefix], set: { nextValue: sql`${shopCounters.nextValue} + 1` } })
     .returning({ nextValue: shopCounters.nextValue });
   return `${CODE_PREFIX}${row.nextValue - 1n}`;
+}
+
+/** Điều kiện trạng thái của bộ lọc danh sách; null = mọi hợp đồng chưa xoá. */
+function statusCondition(status: InstallmentStatusFilter | null, today: LocalDate): SQL | undefined {
+  const notDeleted = isNull(c.deletedAt);
+  const open = and(eq(c.status, "active"), notDeleted);
+  switch (status) {
+    case null:
+      return notDeleted;
+    case "open":
+      return open;
+    case "late":
+      return and(open, late(today));
+    case "due_today":
+      return and(open, dueToday(today));
+    case "closed":
+      return and(eq(c.status, "closed"), notDeleted);
+    case "deleted":
+      return isNotNull(c.deletedAt);
+  }
+}
+
+/** Mã HĐ, tên khách (không dấu, không phân biệt hoa thường; index trigram), SĐT khi ô tìm có từ MIN_PHONE_DIGITS chữ số. */
+function searchCondition(search: string | null): SQL | undefined {
+  if (!search) return undefined;
+  const pattern = sql`'%' || search_text(${escapeLike(search)}) || '%'`;
+  const digits = search.replace(/\D/g, "");
+  return or(
+    ilike(c.code, `%${escapeLike(search)}%`),
+    sql`search_text(${customers.fullName}) LIKE ${pattern}`,
+    digits.length >= MIN_PHONE_DIGITS ? sql`${customers.phone} LIKE ${`%${digits}%`}` : undefined,
+  );
 }
