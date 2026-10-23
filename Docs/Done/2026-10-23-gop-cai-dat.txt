@@ -1,0 +1,10 @@
+# 2026-10-23: Gộp nhánh feat/cai-dat vào main — [verified: lint, typecheck, vitest 202/202, e2e 42/42]
+
+- Commit: 88a68d4 (merge `feat/cai-dat`, gồm fb53471 A, d5f3c94 B, fd128fa C, d4c8c91 D)
+- Đã làm:
+  1. Review trước khi gộp: `auth.ts` thêm hook `session.create.after` ghi `users.last_login_at` (mỗi lần đăng nhập thêm 1 lệnh UPDATE); migration 0010 (cột `shops` + CHECK), 0011 (`users.last_login_at`) chỉ thêm cột, có default.
+  2. `/merge-worktree`: không conflict; `composition-root.ts` git tự gộp, đã đọc lại (chỉ thêm wiring shop + `PrepareNewContract`).
+  3. `db:migrate` dev DB `webqlcd` lên 0011, rồi verify: lint, typecheck, `npm test` 202/202, `test:e2e` 42/42.
+  4. Dọn: `git worktree remove ../WebQLCD-caidat`, `git branch -d feat/cai-dat`. Ignored data (`.env` bản sao, `test-results/`) không cần gom.
+- Còn dở (agent bị chặn quyền, người dùng chạy tay): xoá DB `webqlcd_caidat`; xoá thư mục sót `C:/Project/WebQLCD-caidat` (chỉ còn `.next`).
+- Lưu ý cho phiên sau: `feat/tra-gop` cũng dùng số 0010 → khi gộp phải xoá migration của nhánh, tạo lại trên `main` (0012). Nhánh đó sửa `modules/cashbook` ngoài bảng phạm vi: review kỹ.
