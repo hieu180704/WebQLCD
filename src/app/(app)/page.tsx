@@ -67,9 +67,17 @@ export default async function Home() {
             <h2 id="due-title" className="font-semibold">
               Đến hạn
             </h2>
-            <Link href="/cam-do?tt=sap-den-han" className="ml-auto text-sm text-teal-700 hover:underline">
-              Tất cả
-            </Link>
+            {/* Hai danh sách riêng nên mỗi loại một link; aria-label để không trùng tên với menu "Trả góp". */}
+            <span className="ml-auto text-sm text-slate-500">
+              Tất cả:{" "}
+              <Link href="/cam-do?tt=sap-den-han" aria-label="Tất cả cầm đồ, tín chấp đến hạn" className="text-teal-700 hover:underline">
+                Cầm đồ/tín chấp
+              </Link>
+              {" · "}
+              <Link href="/tra-gop?tt=sap-den-han" aria-label="Tất cả trả góp đến hạn" className="text-teal-700 hover:underline">
+                Trả góp
+              </Link>
+            </span>
           </div>
           <DueTable contracts={due} installments={dueInstallments} />
         </section>

@@ -378,6 +378,20 @@ describe.skipIf(!url)("DrizzleInstallmentRepository", () => {
       expect(await codes({ status: "late" })).toEqual([]);
     }));
 
+  it("lọc đến hạn trong 3 ngày: kỳ tới hạn tới hôm nay + 3, gồm chậm góp; hợp đồng đã đóng không tính", () =>
+    inTx(async (db) => {
+      const actor = await seedShop(db);
+      // Hôm nay 20/10. TG-1 chậm góp (hạn 12/10); TG-2 hạn 23/10 (biên); TG-3 hạn 24/10; TG-4 đã đóng.
+      await repo(db).create(actor, draft({ startDate: "2026-10-10" }));
+      await repo(db).create(actor, draft({ totalDays: 30, periodDays: 3 }));
+      await repo(db).create(actor, draft({ totalDays: 40, periodDays: 4 }));
+      await repo(db).create(actor, draft());
+      await pay(db, actor, await idOf(db, actor, "TG-4"), 0, "close");
+
+      const due = await repo(db).list(actor.shopId, { ...ALL, status: "due_soon" }, TODAY, null, 10);
+      expect(due.map((r) => r.code)).toEqual(["TG-2", "TG-1"]);
+    }));
+
   it("thống kê: hợp đồng đang góp, đã thu tháng này trừ dòng huỷ thu trong tháng; cửa hàng khác không lẫn", () =>
     inTx(async (db) => {
       const actor = await seedShop(db);

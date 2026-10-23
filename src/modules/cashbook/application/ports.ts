@@ -29,8 +29,10 @@ export type CashLine = {
   occurredAt: Date;
   type: CashTransactionType;
   amount: Money;
+  /** Hợp đồng của dòng: cầm đồ/tín chấp hoặc trả góp (dòng đảo mang hợp đồng của dòng gốc). */
   contractId: string | null;
   contractCode: string | null;
+  contractKind: "pawn" | "installment" | null;
   createdByName: string;
   /** Nội dung phiếu; với dòng đảo là lý do huỷ. */
   note: string | null;

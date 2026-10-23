@@ -18,6 +18,7 @@ import {
 import { businessDate, type LocalDate } from "@/shared/kernel/local-date";
 import { Money } from "@/shared/kernel/money";
 import { maskPhone } from "@/shared/kernel/personal-data";
+import { DUE_WINDOW_DAYS } from "../application/list-due-installments";
 import { CODE_PREFIX, type OperationKind } from "../domain/installment";
 import type {
   Actor,
@@ -55,6 +56,8 @@ const late = (today: LocalDate) =>
   sql`installment_late(${c.totalDue}, ${c.totalDays}, ${c.periodDays}, ${c.startDate}, ${c.amountPaid}, ${today}::date)`;
 const dueToday = (today: LocalDate) =>
   sql`installment_due_today(${c.totalDue}, ${c.totalDays}, ${c.periodDays}, ${c.startDate}, ${c.amountPaid}, ${today}::date)`;
+// Hạn kỳ tới (hàm SQL migration 0014, tính như progress().next.due).
+const nextDue = sql`installment_next_due(${c.totalDue}, ${c.totalDays}, ${c.periodDays}, ${c.startDate}, ${c.amountPaid})`;
 
 export class DrizzleInstallmentRepository implements InstallmentRepository {
   constructor(
@@ -205,8 +208,7 @@ export class DrizzleInstallmentRepository implements InstallmentRepository {
   }
 
   async listDue(shopId: string, until: LocalDate, limit: number): Promise<DueInstallmentRow[]> {
-    // Hợp đồng đang góp: index (shop_id, status); hàm SQL migration 0014 tính như progress().next.due.
-    const due = sql`installment_next_due(${c.totalDue}, ${c.totalDays}, ${c.periodDays}, ${c.startDate}, ${c.amountPaid})`;
+    // Hợp đồng đang góp: index (shop_id, status).
     const rows = await this.db
       .select({
         id: c.id,
@@ -220,8 +222,8 @@ export class DrizzleInstallmentRepository implements InstallmentRepository {
       })
       .from(c)
       .innerJoin(customers, and(eq(customers.shopId, c.shopId), eq(customers.id, c.customerId)))
-      .where(and(eq(c.shopId, shopId), eq(c.status, "active"), isNull(c.deletedAt), sql`${due} <= ${until}::date`))
-      .orderBy(asc(due), asc(c.id))
+      .where(and(eq(c.shopId, shopId), eq(c.status, "active"), isNull(c.deletedAt), sql`${nextDue} <= ${until}::date`))
+      .orderBy(asc(nextDue), asc(c.id))
       .limit(limit);
     return rows.map((row) => ({ ...row, totalDue: Money.of(row.totalDue), amountPaid: Money.of(row.amountPaid) }));
   }
@@ -541,6 +543,8 @@ function statusCondition(status: InstallmentStatusFilter | null, today: LocalDat
       return and(open, late(today));
     case "due_today":
       return and(open, dueToday(today));
+    case "due_soon":
+      return and(open, sql`${nextDue} <= ${today}::date + ${DUE_WINDOW_DAYS}::int`);
     case "closed":
       return and(eq(c.status, "closed"), notDeleted);
     case "deleted":

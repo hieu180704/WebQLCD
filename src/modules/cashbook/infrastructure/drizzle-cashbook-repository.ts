@@ -4,7 +4,7 @@ import { and, asc, desc, eq, inArray, lt, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import type { Db } from "@/shared/infrastructure/db/client";
 import { dbCause, uniqueViolation } from "@/shared/infrastructure/db/errors";
-import { auditLogs, cashTransactions, contracts, shops, users } from "@/shared/infrastructure/db/schema";
+import { auditLogs, cashTransactions, contracts, installmentContracts, shops, users } from "@/shared/infrastructure/db/schema";
 import type { LocalDate } from "@/shared/kernel/local-date";
 import { Money } from "@/shared/kernel/money";
 import type {
@@ -131,6 +131,8 @@ export class DrizzleCashbookRepository implements CashbookRepository {
         amount: t.amount,
         contractId: t.contractId,
         contractCode: contracts.code,
+        installmentContractId: t.installmentContractId,
+        installmentCode: installmentContracts.code,
         createdByName: users.name,
         note: t.note,
         reversalId: reversal.id,
@@ -140,6 +142,7 @@ export class DrizzleCashbookRepository implements CashbookRepository {
       .from(t)
       // Khoá ngoại kép (shop_id, x) nên join theo cả cặp để chỉ khớp trong cùng cửa hàng.
       .leftJoin(contracts, and(eq(contracts.shopId, t.shopId), eq(contracts.id, t.contractId)))
+      .leftJoin(installmentContracts, and(eq(installmentContracts.shopId, t.shopId), eq(installmentContracts.id, t.installmentContractId)))
       .innerJoin(users, and(eq(users.shopId, t.shopId), eq(users.id, t.createdBy)))
       .leftJoin(original, and(eq(original.shopId, t.shopId), eq(original.id, t.reversesId)))
       .leftJoin(reversal, and(eq(reversal.shopId, t.shopId), eq(reversal.reversesId, t.id)))
@@ -155,8 +158,12 @@ export class DrizzleCashbookRepository implements CashbookRepository {
       )
       .orderBy(desc(t.id)) // uuid v7 tăng theo thời gian tạo.
       .limit(limit);
-    return rows.map(({ reversalId, originalType, originalAt, ...row }) => ({
+    return rows.map(({ reversalId, originalType, originalAt, installmentContractId, installmentCode, ...row }) => ({
       ...row,
+      // Ràng buộc CHECK: mỗi dòng mang nhiều nhất một trong hai loại hợp đồng.
+      ...(installmentContractId
+        ? { contractId: installmentContractId, contractCode: installmentCode, contractKind: "installment" as const }
+        : { contractKind: row.contractId ? ("pawn" as const) : null }),
       amount: Money.of(row.amount),
       reversed: reversalId !== null,
       reverses: originalType && originalAt ? { type: originalType, occurredAt: originalAt } : null,
