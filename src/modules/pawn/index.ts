@@ -4,6 +4,6 @@ export { ContractListPage } from "./presentation/contract-list-page";
 export type { ContractCashType } from "./application/ports";
 export { parseRate, type InterestType } from "./application/preview";
 export { formatRate } from "./domain/interest/rate";
-export { DueContracts } from "./presentation/due-contracts";
+export { DUE_LIST_LIMIT, DUE_WINDOW_DAYS, type DueContractsView } from "./application/list-due-contracts";
 export { CONTRACT_CASH_LABEL, DueBadge, INTEREST_TYPE_OPTIONS } from "./presentation/format";
 export { NewContractPage } from "./presentation/new-contract-page";

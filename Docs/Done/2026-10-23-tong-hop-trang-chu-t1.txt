@@ -1,0 +1,11 @@
+# 2026-10-23: Lát T1 trả góp vào số liệu tổng — trang chủ — [verified: lint, typecheck, unit/DB test, e2e]
+
+- Nhánh: `wt-2`. Commit: "Lát T1: trả góp vào trang chủ (4 ô + bảng đến hạn)".
+- Đã làm:
+  1. Migration 0014 (viết tay): hàm SQL `installment_next_due` = hạn kỳ đầu chưa góp đủ (NULL khi đã góp đủ), tính như `progress().next.due`. Test so khớp SQL ↔ domain mở rộng trong `installment-due.db.test.ts` (kể cả "hạn kỳ tới < hôm nay" ⟺ chậm góp).
+  2. installment: port `listDue` + repository (đang góp, chưa xoá, hạn kỳ tới ≤ hôm nay + 3, hạn sớm nhất trước, tối đa 20), use case `ListDueInstallments` (tiền = số còn thiếu của kỳ tới), DB test (bỏ đã đóng / đã xoá / cửa hàng khác), unit test.
+  3. Bảng đến hạn chuyển từ `pawn/presentation/due-contracts.tsx` sang `reporting/presentation/due-table.tsx` (`DueTable`), gộp 2 nguồn, cột "Phải thu kỳ này", tiêu đề bảng "Đến hạn". pawn index xuất `DUE_WINDOW_DAYS`, `DUE_LIST_LIMIT`, kiểu `DueContractsView`; installment index xuất kiểu `DueInstallmentsView`, `InstallmentStats`.
+  4. 4 ô trang chủ dùng thêm `getInstallmentStats` (không thêm truy vấn mới): Đang cho vay cộng còn phải thu trả góp; HĐ đang mở thêm "Trả góp N"; Lãi tháng này giữ lãi cầm đồ/tín chấp + dòng phụ "Thu góp tháng này"; ô "Quá hạn / chậm góp" với 2 link lọc. 4 ô ở `/cam-do` giữ chỉ cầm đồ/tín chấp.
+  5. E2E: `dashboard.spec.ts` thêm HĐ trả góp chậm góp; `pawn-cash.spec.ts`, `tra-gop.spec.ts` đổi locator link menu cho khỏi trùng link mới trong ô thống kê.
+  6. Docs: core-spec (mục Trang chủ), data-model (hàm 0014).
+- Lưu ý cho phiên sau: nút "Tất cả" của bảng đến hạn vẫn mở `/cam-do?tt=sap-den-han` (trả góp không có lọc "trong 3 ngày"). Migration 0014 đã áp vào `webqlcd_wt2`.

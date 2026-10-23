@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { clearLoginThrottles } from "./db";
 
-// Trang chủ: 4 ô thống kê hợp đồng + bảng đến hạn đóng lãi. Mỗi lần chạy tạo một cửa hàng mới trong DB dev.
+// Trang chủ: 4 ô thống kê hợp đồng + bảng đến hạn (cầm đồ, tín chấp, trả góp). Mỗi lần chạy tạo một cửa hàng mới trong DB dev.
 const RUN = Date.now().toString(36);
 const OWNER = { username: `e2e_tc_${RUN}`, password: "matkhau123", email: `e2e_tc_${RUN}@example.com` };
 
@@ -26,9 +26,21 @@ async function createContract(page: Page, kind: "secured" | "unsecured", loanDat
   await expect(page).toHaveURL(/\/cam-do\?moi=/);
 }
 
+async function createInstallment(page: Page, startDate: string) {
+  await page.goto("/tra-gop/moi");
+  await page.getByLabel("Tên khách hàng").fill("Khách Chậm Góp");
+  await page.getByLabel("Tiền đưa khách").fill("4.000.000");
+  await page.getByLabel("Tổng tiền phải thu").fill("5.000.000");
+  await page.getByLabel("Ngày bắt đầu").fill(startDate);
+  await page.getByLabel("Số ngày góp").fill("50");
+  await page.getByLabel("Số ngày mỗi kỳ").fill("2");
+  await page.getByRole("button", { name: "Lưu hợp đồng" }).click();
+  await expect(page).toHaveURL(/\/tra-gop\?moi=TG-1$/);
+}
+
 const tile = (page: Page, label: string) => page.getByRole("region", { name: "Thống kê hợp đồng" }).getByText(label).locator("..");
 
-test("thống kê hợp đồng, bảng đến hạn: quá hạn hiện, chưa tới hạn thì không; nút trang chủ trỏ vào bộ lọc /cam-do", async ({ page }) => {
+test("thống kê hợp đồng, bảng đến hạn: quá hạn, chậm góp hiện, chưa tới hạn thì không; nút trang chủ trỏ vào bộ lọc", async ({ page }) => {
   await page.goto("/dang-ky");
   await page.getByLabel("Tên cửa hàng").fill("Tiệm Trang Chủ E2E");
   await page.getByLabel("Họ tên chủ tiệm").fill("Chủ Trang Chủ");
@@ -44,14 +56,29 @@ test("thống kê hợp đồng, bảng đến hạn: quá hạn hiện, chưa t
   await createContract(page, "secured", daysAgo(15), false);
   // Thu lãi trước hôm nay: hạn sau 10 ngày, không vào bảng; lãi trước 150.000 tính vào lãi tháng này.
   await createContract(page, "unsecured", daysAgo(0), true);
+  // Trả góp bắt đầu cách đây 15 ngày, 2 ngày một kỳ, chưa góp: kỳ 1 (200.000) đã qua hạn 13 ngày.
+  await createInstallment(page, daysAgo(15));
 
   await page.goto("/");
-  await expect(tile(page, "Đang cho vay")).toContainText("10.000.000");
-  await expect(tile(page, "Hợp đồng đang mở")).toContainText("Cầm đồ 1 · Tín chấp 1");
+  await expect(tile(page, "Đang cho vay")).toContainText("15.000.000");
+  await expect(tile(page, "Hợp đồng đang mở")).toContainText("3");
+  await expect(tile(page, "Hợp đồng đang mở")).toContainText("Cầm đồ 1 · Tín chấp 1 · Trả góp 1");
   await expect(tile(page, "Lãi đã thu tháng này")).toContainText("150.000");
-  await expect(tile(page, "Quá hạn đóng lãi")).toContainText("1");
+  await expect(tile(page, "Lãi đã thu tháng này")).toContainText("Thu góp tháng này 0");
+  await expect(tile(page, "Quá hạn / chậm góp")).toContainText("2");
 
-  const due = page.getByRole("region", { name: "Đến hạn đóng lãi" });
+  const due = page.getByRole("region", { name: "Đến hạn" });
+  // Hạn sớm nhất trước: TG-1 (quá 13 ngày) trên CD-1 (quá 5 ngày).
+  await expect(due.getByRole("row").nth(1)).toContainText("TG-1");
+  const late = due.getByRole("row", { name: /TG-1/ });
+  await expect(late).toContainText("Khách Chậm Góp");
+  await expect(late).toContainText("Trả góp");
+  await expect(late).toContainText("200.000");
+  await expect(late).toContainText("Quá 13 ngày");
+  await late.getByRole("link", { name: "TG-1" }).click();
+  await expect(page).toHaveURL(/\/tra-gop\/[0-9a-f-]+$/);
+  await page.goto("/");
+
   const row = due.getByRole("row", { name: /CD-1/ });
   await expect(row).toContainText("Khách Quá Hạn");
   await expect(row).toContainText("Cầm đồ");
@@ -69,8 +96,13 @@ test("thống kê hợp đồng, bảng đến hạn: quá hạn hiện, chưa t
   await expect(contracts.getByRole("row", { name: /TC-1/ })).toHaveCount(0);
 
   await page.goto("/");
-  await tile(page, "Quá hạn đóng lãi").getByRole("link", { name: "Xem danh sách" }).click();
+  await tile(page, "Quá hạn / chậm góp").getByRole("link", { name: "Cầm đồ/tín chấp 1" }).click();
   await expect(page).toHaveURL("/cam-do?tt=qua-han");
   await expect(contracts.getByRole("row", { name: /CD-1/ })).toBeVisible();
   await expect(contracts.getByRole("row", { name: /TC-1/ })).toHaveCount(0);
+
+  await page.goto("/");
+  await tile(page, "Quá hạn / chậm góp").getByRole("link", { name: "Trả góp 1" }).click();
+  await expect(page).toHaveURL("/tra-gop?tt=cham-gop");
+  await expect(page.getByRole("row", { name: /TG-1/ })).toBeVisible();
 });

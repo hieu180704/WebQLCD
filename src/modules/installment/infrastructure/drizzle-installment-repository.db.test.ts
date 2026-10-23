@@ -378,4 +378,28 @@ describe.skipIf(!url)("DrizzleInstallmentRepository", () => {
       const nextMonth = await repo(db).stats(actor.shopId, TODAY, "2026-11-01", "2026-12-01");
       expect(nextMonth.collectedThisMonth.isZero()).toBe(true);
     }));
+
+  it("đến hạn: chậm góp và kỳ tới ≤ ngày cuối cửa sổ, hạn sớm nhất trước; bỏ đã đóng, đã xoá, cửa hàng khác", () =>
+    inTx(async (db) => {
+      const actor = await seedShop(db);
+      const other = await seedShop(db);
+      // TG-1: bắt đầu 10/10, chưa góp: kỳ 1 hạn 12/10 (chậm). TG-2: bắt đầu hôm nay, kỳ 1 hạn 22/10.
+      await repo(db).create(actor, draft({ startDate: "2026-10-10" }));
+      await repo(db).create(actor, draft());
+      // TG-3: kỳ 10 ngày, hạn 30/10, ngoài cửa sổ. TG-4 đã đóng, TG-5 đã xoá (đều chậm nếu còn mở).
+      await repo(db).create(actor, draft({ periodDays: 10 }));
+      await repo(db).create(actor, draft({ startDate: "2026-10-10" }));
+      await repo(db).create(actor, draft({ startDate: "2026-10-10" }));
+      await pay(db, actor, await idOf(db, actor, "TG-4"), 0, "close");
+      await repo(db).deleteContract(actor, { contractId: await idOf(db, actor, "TG-5"), reason: "nhầm", businessDate: TODAY });
+      await repo(db).create(other, draft({ startDate: "2026-10-10" }));
+
+      const due = await repo(db).listDue(actor.shopId, "2026-10-23", 10);
+      expect(due.map((r) => [r.code, r.startDate])).toEqual([
+        ["TG-1", "2026-10-10"],
+        ["TG-2", TODAY],
+      ]);
+      expect(due[0].amountPaid.isZero()).toBe(true);
+      expect(await repo(db).listDue(actor.shopId, "2026-10-23", 1)).toHaveLength(1);
+    }));
 });

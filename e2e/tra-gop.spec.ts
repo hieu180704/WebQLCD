@@ -30,7 +30,7 @@ test("đăng ký cửa hàng mới", async ({ page }) => {
 
 test("tạo hợp đồng trả góp: tóm tắt, cảnh báo lãi, giải ngân ghi sổ quỹ", async ({ page }) => {
   await signIn(page);
-  await page.getByRole("link", { name: "Trả góp" }).click();
+  await page.getByRole("link", { name: "Trả góp", exact: true }).click();
   await expect(page).toHaveURL("/tra-gop");
   await expect(page.getByText("Chưa có hợp đồng nào.")).toBeVisible();
   await page.getByRole("link", { name: "Thêm hợp đồng" }).click();

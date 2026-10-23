@@ -1,20 +1,28 @@
 import Link from "next/link";
-import { getCashDay, getDashboardStats, listDueContracts, requireSession } from "@/composition-root";
+import {
+  getCashDay,
+  getDashboardStats,
+  getInstallmentStats,
+  listDueContracts,
+  listDueInstallments,
+  requireSession,
+} from "@/composition-root";
 import { CashLineList, CashSummary } from "@/modules/cashbook";
-import { DueContracts } from "@/modules/pawn";
-import { DashboardStatTiles } from "@/modules/reporting";
+import { DashboardStatTiles, DueTable } from "@/modules/reporting";
 
-// Trang chủ theo Design/mockup/dashboard.html; thống kê và bảng đến hạn chưa tính trả góp.
+// Trang chủ theo Design/mockup/dashboard.html; thống kê và bảng đến hạn gồm cầm đồ, tín chấp, trả góp.
 const RECENT_LINES = 8;
 
 const formatWeekday = new Intl.DateTimeFormat("vi-VN", { timeZone: "UTC", weekday: "long" }).format;
 
 export default async function Home() {
   const principal = await requireSession();
-  const [day, stats, due] = await Promise.all([
+  const [day, stats, installmentStats, due, dueInstallments] = await Promise.all([
     getCashDay.execute(principal.shopId, null, null),
     getDashboardStats.execute(principal.shopId),
+    getInstallmentStats.execute(principal.shopId),
     listDueContracts.execute(principal.shopId),
+    listDueInstallments.execute(principal.shopId),
   ]);
   const today = new Date(`${day.today}T00:00:00Z`);
 
@@ -51,19 +59,19 @@ export default async function Home() {
         </div>
       </section>
 
-      <DashboardStatTiles stats={stats} />
+      <DashboardStatTiles stats={stats} installments={installmentStats} />
 
       <div className="mt-6 grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-6">
         <section className="card" aria-labelledby="due-title">
           <div className="p-5 pb-3 flex items-center">
             <h2 id="due-title" className="font-semibold">
-              Đến hạn đóng lãi
+              Đến hạn
             </h2>
             <Link href="/cam-do?tt=sap-den-han" className="ml-auto text-sm text-teal-700 hover:underline">
               Tất cả
             </Link>
           </div>
-          <DueContracts view={due} />
+          <DueTable contracts={due} installments={dueInstallments} />
         </section>
 
         <section className="card" aria-labelledby="tx-title">

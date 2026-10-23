@@ -4,6 +4,7 @@ import { CloseInstallment } from "./close-installment";
 import { CreateInstallment, type CreateInstallmentInput } from "./create-installment";
 import { DeleteInstallment } from "./delete-installment";
 import { monthRange } from "./get-installment-stats";
+import { DUE_LIST_LIMIT, ListDueInstallments } from "./list-due-installments";
 import { PayInstallment } from "./pay-installment";
 import type { InstallmentDraft, InstallmentRecord, InstallmentRepository, LatestOperation, PaymentDraft } from "./ports";
 import { ReverseInstallmentOperation } from "./reverse-installment-operation";
@@ -26,6 +27,7 @@ function fakeRepo(overrides: Partial<InstallmentRepository> = {}) {
     },
     list: unused,
     stats: unused,
+    listDue: unused,
     findDetail: unused,
     listTransactions: unused,
     listPayments: unused,
@@ -163,5 +165,22 @@ describe("monthRange", () => {
   it("đầu tháng và đầu tháng sau, qua năm mới", () => {
     expect(monthRange("2026-10-23")).toEqual(["2026-10-01", "2026-11-01"]);
     expect(monthRange("2026-12-31")).toEqual(["2026-12-01", "2027-01-01"]);
+  });
+});
+
+describe("ListDueInstallments", () => {
+  it("lọc tới hôm nay + 3 ngày, tiền kỳ tới là phần còn thiếu của kỳ đó", async () => {
+    const calls: unknown[] = [];
+    const { repo } = fakeRepo({
+      listDue: async (...args) => {
+        calls.push(args);
+        // 5.000.000 / 25 kỳ 2 ngày = 200.000 mỗi kỳ; đã thu 1.650.000 → đủ 8 kỳ, kỳ 9 hạn 19/10 còn thiếu 150.000.
+        return [{ ...record(1_650_000), id: "i1", customerName: "Tâm" }];
+      },
+    });
+    const view = await new ListDueInstallments(repo).execute("s1", NOW);
+    expect(calls).toEqual([["s1", "2026-10-23", DUE_LIST_LIMIT]]);
+    expect(view.today).toBe("2026-10-20");
+    expect(view.items).toEqual([{ id: "i1", code: "TG-1", customerName: "Tâm", due: "2026-10-19", periodRemaining: vnd(150_000) }]);
   });
 });

@@ -120,6 +120,9 @@ export type InstallmentStats = {
   lateCount: number;
 };
 
+/** Hợp đồng đang góp có kỳ tới đến hạn (bảng đến hạn trang chủ). */
+export type DueInstallmentRow = InstallmentStanding & { id: string; code: string; customerName: string };
+
 /** Hợp đồng trả góp của một cửa hàng; mọi truy vấn lọc theo shopId của phiên. */
 export interface InstallmentRepository {
   create(actor: Actor, draft: InstallmentDraft): Promise<CreatedInstallment>;
@@ -127,6 +130,8 @@ export interface InstallmentRepository {
   list(shopId: string, filter: InstallmentFilter, today: LocalDate, after: string | null, limit: number): Promise<InstallmentListRow[]>;
   /** Thống kê cả cửa hàng; tháng = [monthStart, nextMonthStart) theo ngày nghiệp vụ. */
   stats(shopId: string, today: LocalDate, monthStart: LocalDate, nextMonthStart: LocalDate): Promise<InstallmentStats>;
+  /** Hợp đồng đang góp, chưa xoá, hạn kỳ tới ≤ `until` (kể cả chậm góp), hạn sớm nhất trước. */
+  listDue(shopId: string, until: LocalDate, limit: number): Promise<DueInstallmentRow[]>;
   /** Hợp đồng của cửa hàng kể cả đã xoá, hoặc null. */
   findDetail(shopId: string, contractId: string): Promise<InstallmentDetailRow | null>;
   /** Giao dịch két của hợp đồng, mới nhất trước, tối đa `limit` dòng. */
