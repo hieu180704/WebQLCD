@@ -12,7 +12,7 @@ type NavItem = { label: string; icon: IconName; href?: string; ownerOnly?: boole
 const NAV: NavItem[] = [
   { label: "Tổng quan", icon: "home", href: "/" },
   { label: "Cầm đồ & Tín chấp", icon: "pawn", href: "/cam-do" },
-  { label: "Trả góp", icon: "installment" },
+  { label: "Trả góp", icon: "installment", href: "/tra-gop" },
   { label: "Quỹ két & Thu chi", icon: "cash", href: "/quy-ket" },
   { label: "Khách hàng", icon: "customer", href: "/khach-hang" },
   { label: "Báo cáo", icon: "report" },

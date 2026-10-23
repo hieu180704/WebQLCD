@@ -24,6 +24,9 @@ import { DrizzleAccountRepository } from "@/modules/identity/infrastructure/driz
 import { IpSignupLimiter } from "@/modules/identity/infrastructure/ip-signup-limiter";
 import { ThrottledPasswordChanger } from "@/modules/identity/infrastructure/throttled-password-changer";
 import { GetSubscription } from "@/modules/shop/application/get-subscription";
+import { CreateInstallment } from "@/modules/installment/application/create-installment";
+import { ListInstallments } from "@/modules/installment/application/list-installments";
+import { DrizzleInstallmentRepository } from "@/modules/installment/infrastructure/drizzle-installment-repository";
 import { ChangePrincipal } from "@/modules/pawn/application/change-principal";
 import { CreateContract } from "@/modules/pawn/application/create-contract";
 import { DeleteContract } from "@/modules/pawn/application/delete-contract";
@@ -91,6 +94,10 @@ export const extendContract = new ExtendContract(contracts);
 export const reverseOperation = new ReverseOperation(contracts);
 export const deleteContract = new DeleteContract(contracts);
 export const editContract = new EditContract(contracts);
+
+const installments = new DrizzleInstallmentRepository(db, customerWriter, appendCashEntries);
+export const createInstallment = new CreateInstallment(installments);
+export const listInstallments = new ListInstallments(installments);
 
 export const getDashboardStats = new GetDashboardStats(new DrizzleDashboardStats(db));
 export const listCustomers = new ListCustomers(

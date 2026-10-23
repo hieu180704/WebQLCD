@@ -1,0 +1,13 @@
+# 2026-10-23: Lát 6a trả góp — tạo hợp đồng, danh sách cơ bản — [verified: lint, typecheck, unit/DB test, e2e]
+
+- Nhánh: `feat/tra-gop` (worktree, chạy song song `feat/bao-cao`, `feat/cai-dat`). Commit: "Lát 6a: tạo hợp đồng trả góp, danh sách".
+- Đã làm:
+  1. Người dùng duyệt chia lát 6a–6e và 7 giả định trả góp (ghi vào core-spec mục 2, khối 2026-10-23). Người dùng duyệt sửa ngoài gate: module cashbook (ghi sổ két trả góp), `data-model.txt`. Link mã HĐ trả góp ở `/quy-ket` hoãn (không sửa trang cashbook).
+  2. cashbook: `CashEntry` thêm `installment_disbursement`, `installment_payment`, dòng `reversal` thêm `installmentContractId`; `appendCashEntries` ghi cột `installment_contract_id`. Chỉ thêm, pawn không đổi.
+  3. Migration 0010 (drizzle-kit generate): bảng `installment_operations` (như `contract_operations`), cột `installment_contracts.deleted_reason` + CHECK. Đã migrate DB chung.
+  4. Module `installment`: domain lịch góp (số kỳ làm tròn lên, luỹ kế half-up, kỳ đã góp đủ, chậm N kỳ, cảnh báo lãi quy đổi), `CreateInstallment`, `ListInstallments`, repository Drizzle (khách + mã TG- + hợp đồng + thao tác + sổ két + audit một transaction).
+  5. Trang `/tra-gop/moi` (form + tóm tắt xem trước như mockup), `/tra-gop` (danh sách, tiến độ, nhãn kỳ tới), NAV "Trả góp" có link.
+- Lưu ý cho phiên sau:
+  - Thanh tiến độ dùng `<progress>`: CSP `style-src` chỉ có nonce nên thuộc tính `style` inline bị chặn.
+  - Migration 0010 đã áp vào DB chung. Nếu `feat/bao-cao` / `feat/cai-dat` cũng sinh migration 0010, nhánh merge sau phải đánh lại số và `when` trong `drizzle/meta/_journal.json` (drizzle-kit migrate bỏ qua migration có `when` cũ hơn bản đã áp).
+  - Trang chủ, trang khách, báo cáo chưa tính trả góp (ngoài gate).
