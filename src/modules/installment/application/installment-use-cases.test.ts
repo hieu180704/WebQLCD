@@ -23,8 +23,13 @@ function fakeRepo(overrides: Partial<InstallmentRepository> = {}) {
   const repo: InstallmentRepository = {
     async create(_actor, draft) {
       created.push(draft);
-      return { code: "TG-1", customer: { id: "c1", reused: false, fullName: draft.customer.fullName } };
+      // Khách chọn sẵn từ trang khách luôn là khách có sẵn (reused).
+      const customer = "existingId" in draft.customer
+        ? { id: draft.customer.existingId, reused: true, fullName: "Khách cũ" }
+        : { id: "c1", reused: false, fullName: draft.customer.fullName };
+      return { code: "TG-1", customer };
     },
+    findCustomerSummary: unused,
     list: unused,
     stats: unused,
     listDue: unused,
@@ -73,6 +78,14 @@ describe("CreateInstallment", () => {
     const result = await new CreateInstallment(repo).execute(ACTOR, input("2026-10-21"), NOW);
     expect(result).toEqual({ ok: false, error: "start_date_in_future" });
     expect(created).toHaveLength(0);
+  });
+
+  it("khách chọn sẵn từ trang khách: không báo khách cũ; khách không thuộc cửa hàng thì báo lỗi", async () => {
+    const { repo } = fakeRepo();
+    const existing = { ...input(), customer: { existingId: "c9" } };
+    expect(await new CreateInstallment(repo).execute(ACTOR, existing, NOW)).toEqual({ ok: true, code: "TG-1", reusedCustomerName: null });
+    const missing = fakeRepo({ create: async () => "customer_not_found" as const }).repo;
+    expect(await new CreateInstallment(missing).execute(ACTOR, existing, NOW)).toEqual({ ok: false, error: "customer_not_found" });
   });
 });
 

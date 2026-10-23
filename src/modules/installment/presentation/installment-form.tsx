@@ -4,14 +4,22 @@ import Link from "next/link";
 import { useActionState, useState, type ComponentProps, type FormEvent } from "react";
 import { isLocalDate } from "@/shared/kernel/local-date";
 import { formatVnd, parseVnd } from "@/shared/kernel/vnd";
+import type { CustomerSummary } from "../application/prepare-new-installment";
 import { previewInstallment } from "../application/preview";
 import { createInstallmentAction, type CreateInstallmentState } from "./actions";
 import { formatDay } from "./format";
 
 type Snapshot = { amountGiven: string; totalDue: string; totalDays: string; periodDays: string; startDate: string };
 
-export function InstallmentForm({ today }: { today: string }) {
-  const initialState: CreateInstallmentState = { error: null, values: { startDate: today } };
+export function InstallmentForm({
+  today,
+  customer,
+}: {
+  today: string;
+  /** Khách có sẵn khi mở từ trang khách; null = nhập khách mới. */
+  customer: CustomerSummary | null;
+}) {
+  const initialState: CreateInstallmentState = { error: null, values: { customerId: customer?.id ?? "", startDate: today } };
   const [state, formAction, pending] = useActionState(createInstallmentAction, initialState);
   const v = state.values;
   const [snapshot, setSnapshot] = useState<Snapshot>(() => ({
@@ -46,12 +54,29 @@ export function InstallmentForm({ today }: { today: string }) {
           <h2 id="s-customer" className="font-semibold">
             Thông tin khách hàng
           </h2>
-          <div className="mt-4 grid sm:grid-cols-2 gap-4">
-            <Field label="Tên khách hàng" name="fullName" defaultValue={v.fullName} required maxLength={100} placeholder="Họ và tên" />
-            <Field label="Số CCCD" name="cccd" defaultValue={v.cccd} inputMode="numeric" maxLength={30} />
-            <Field label="Số điện thoại" name="phone" defaultValue={v.phone} inputMode="tel" maxLength={30} />
-            <Field label="Địa chỉ" name="address" defaultValue={v.address} maxLength={255} />
-          </div>
+          <input type="hidden" name="customerId" value={customer?.id ?? ""} />
+          {customer ? (
+            <div className="mt-4 flex flex-wrap items-start gap-4">
+              <dl className="grid grid-cols-[110px_1fr] gap-y-2 text-sm" aria-label="Khách có sẵn">
+                <dt className="text-slate-500">Khách hàng</dt>
+                <dd className="font-medium">{customer.fullName}</dd>
+                <dt className="text-slate-500">Số điện thoại</dt>
+                <dd className="num">{customer.phone ?? "—"}</dd>
+                <dt className="text-slate-500">Số CCCD</dt>
+                <dd className="num">{customer.cccdMasked ?? "—"}</dd>
+              </dl>
+              <Link href="/tra-gop/moi" className="ml-auto text-sm text-teal-700 hover:underline">
+                Nhập khách mới
+              </Link>
+            </div>
+          ) : (
+            <div className="mt-4 grid sm:grid-cols-2 gap-4">
+              <Field label="Tên khách hàng" name="fullName" defaultValue={v.fullName} required maxLength={100} placeholder="Họ và tên" />
+              <Field label="Số CCCD" name="cccd" defaultValue={v.cccd} inputMode="numeric" maxLength={30} />
+              <Field label="Số điện thoại" name="phone" defaultValue={v.phone} inputMode="tel" maxLength={30} />
+              <Field label="Địa chỉ" name="address" defaultValue={v.address} maxLength={255} />
+            </div>
+          )}
         </section>
 
         <section className="card p-5" aria-labelledby="s-loan">

@@ -2,7 +2,7 @@ import "server-only";
 import { and, asc, desc, eq, ilike, isNotNull, isNull, lt, or, sql, type SQL } from "drizzle-orm";
 import type { AppendCashEntries } from "@/modules/cashbook";
 // Chỉ kiểu: index của customer kéo theo presentation, mà presentation import composition-root (vòng import).
-import type { DrizzleCustomerWriter } from "@/modules/customer";
+import type { DrizzleCustomerWriter, ResolvedCustomer } from "@/modules/customer";
 import type { Db, Tx } from "@/shared/infrastructure/db/client";
 import { dbCause } from "@/shared/infrastructure/db/errors";
 import { escapeLike } from "@/shared/infrastructure/db/like";
@@ -22,6 +22,7 @@ import { CODE_PREFIX, type OperationKind } from "../domain/installment";
 import type {
   Actor,
   CreatedInstallment,
+  CustomerSummary,
   DeletionDraft,
   DueInstallmentRow,
   InstallmentCashType,
@@ -63,12 +64,22 @@ export class DrizzleInstallmentRepository implements InstallmentRepository {
     private readonly hashCccd: HashCccd,
   ) {}
 
-  async create(actor: Actor, draft: InstallmentDraft): Promise<CreatedInstallment> {
+  async create(actor: Actor, draft: InstallmentDraft): Promise<CreatedInstallment | "customer_not_found"> {
     const { terms } = draft;
     try {
       // Khách, mã, hợp đồng, sổ két, audit cùng có hoặc cùng không (architecture-spec mục 2.2).
       return await this.db.transaction(async (tx) => {
-        const customer = await this.customerWriter.resolve(tx, actor, draft.customer);
+        let customer: ResolvedCustomer;
+        if ("existingId" in draft.customer) {
+          const [existing] = await tx
+            .select({ id: customers.id, fullName: customers.fullName })
+            .from(customers)
+            .where(and(eq(customers.id, draft.customer.existingId), eq(customers.shopId, actor.shopId)));
+          if (!existing) return "customer_not_found";
+          customer = { ...existing, reused: true };
+        } else {
+          customer = await this.customerWriter.resolve(tx, actor, draft.customer);
+        }
         const code = await nextCode(tx, actor.shopId);
         const [contract] = await tx
           .insert(installmentContracts)
@@ -97,6 +108,14 @@ export class DrizzleInstallmentRepository implements InstallmentRepository {
     } catch (error) {
       throw dbCause(error);
     }
+  }
+
+  async findCustomerSummary(shopId: string, customerId: string): Promise<CustomerSummary | null> {
+    const [row] = await this.db
+      .select({ id: customers.id, fullName: customers.fullName, phone: customers.phone, cccdMasked: customers.cccdMasked })
+      .from(customers)
+      .where(and(eq(customers.id, customerId), eq(customers.shopId, shopId)));
+    return row ?? null;
   }
 
   async list(

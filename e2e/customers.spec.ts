@@ -244,3 +244,44 @@ test("trả góp vào số liệu khách: danh sách, lọc quá hạn, chi ti�
   await contract.getByRole("link", { name: "TG-1" }).click();
   await expect(page).toHaveURL(/\/tra-gop\/[0-9a-f-]{36}$/);
 });
+
+test("+ Trả góp từ trang khách: điền sẵn khách có sẵn, lỗi giữ khách, hợp đồng gắn thẳng vào khách", async ({ page }) => {
+  await signIn(page);
+  await page.goto("/khach-hang");
+  await list(page).getByRole("link", { name: "Nguyễn Văn Bình" }).click();
+  await expect(page).toHaveURL(/\/khach-hang\/[0-9a-f-]{36}$/);
+  const customerUrl = page.url();
+  await page.getByRole("link", { name: "+ Trả góp" }).click();
+  await expect(page).toHaveURL(/\/tra-gop\/moi\?khach=/);
+
+  // Trang khách cũ còn ẩn trong DOM (Activity) có ô "Tên khách hàng" của hộp sửa khách: chỉ xét section của form.
+  const customerSection = page.getByRole("region", { name: "Thông tin khách hàng" });
+  await expect(customerSection.getByRole("definition").filter({ hasText: "Nguyễn Văn Bình" })).toBeVisible();
+  await expect(customerSection).toContainText("********2345");
+  await expect(customerSection.getByLabel("Tên khách hàng")).toHaveCount(0);
+  await page.getByLabel("Tiền đưa khách").fill("4.000.000");
+  await page.getByLabel("Tổng tiền phải thu").fill("3.000.000");
+  await page.getByLabel("Số ngày góp").fill("50");
+  await page.getByLabel("Số ngày mỗi kỳ").fill("2");
+  await page.getByRole("button", { name: "Lưu hợp đồng" }).click();
+  await expect(page.getByRole("region", { name: "Tóm tắt" }).getByRole("alert")).toContainText("không được nhỏ hơn tiền đưa khách");
+  await expect(customerSection.getByRole("definition").filter({ hasText: "Nguyễn Văn Bình" })).toBeVisible();
+
+  await page.getByLabel("Tổng tiền phải thu").fill("5.000.000");
+  await page.getByRole("button", { name: "Lưu hợp đồng" }).click();
+  // Khách chọn sẵn: không báo "khách cũ".
+  await expect(page).toHaveURL(/\/tra-gop\?moi=TG-2$/);
+
+  await page.goto(customerUrl);
+  await expect(page.getByRole("region", { name: "Số liệu" })).toContainText("HĐ đang mở2");
+  await expect(page.getByRole("region", { name: "Hợp đồng của khách" }).getByRole("row", { name: /TG-2/ })).toContainText("Đang góp");
+  await page.goto("/khach-hang");
+  await expect(list(page).getByRole("link", { name: "Nguyễn Văn Bình" })).toHaveCount(1);
+
+  await page.goto(customerUrl);
+  await page.getByRole("link", { name: "+ Trả góp" }).click();
+  await expect(page).toHaveURL(/\/tra-gop\/moi\?khach=/);
+  await page.getByRole("link", { name: "Nhập khách mới" }).click();
+  await expect(page).toHaveURL("/tra-gop/moi");
+  await expect(page.getByRole("region", { name: "Thông tin khách hàng" }).getByLabel("Tên khách hàng")).toBeVisible();
+});

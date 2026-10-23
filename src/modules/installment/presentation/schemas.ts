@@ -53,11 +53,17 @@ const positiveMoney = (message: string) =>
       return money;
     });
 
-export const installmentFormSchema = z.object({
+/** Khách nhập mới trên form tạo hợp đồng (không dùng khi tạo từ trang khách: `customerId` có giá trị). */
+export const newCustomerSchema = z.object({
   fullName: z.string().trim().min(1, "Nhập tên khách hàng.").max(100, "Tên khách hàng tối đa 100 ký tự."),
   cccd: optionalNormalized(normalizeCccd, "Số CCCD gồm 12 chữ số (hoặc CMND 9 chữ số)."),
   phone: optionalNormalized(normalizePhone, "Số điện thoại gồm 8–15 chữ số."),
   address: optionalText(255, "Địa chỉ"),
+});
+
+export const installmentFormSchema = z.object({
+  /** Khách có sẵn (mở form từ trang khách); rỗng = khách nhập mới. Repository kiểm khách thuộc cửa hàng. */
+  customerId: z.union([z.literal("").transform(() => null), z.uuid("Khách hàng không hợp lệ.")]),
   amountGiven: positiveMoney("Tiền đưa khách phải lớn hơn 0, tối đa 100 tỷ đồng."),
   totalDue: positiveMoney("Tổng tiền phải thu phải lớn hơn 0, tối đa 100 tỷ đồng."),
   totalDays: days("Số ngày góp"),
@@ -67,6 +73,7 @@ export const installmentFormSchema = z.object({
 });
 
 export const INSTALLMENT_FORM_FIELDS = [
+  "customerId",
   "fullName",
   "cccd",
   "phone",

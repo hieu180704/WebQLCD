@@ -6,10 +6,16 @@ import type { InstallmentStanding, InstallmentTerms, OperationKind, Payment } fr
 /** Người thực hiện thao tác, lấy từ guard (session), không bao giờ từ input của client. KTV hồ sơ = người này. */
 export type Actor = { userId: string; shopId: string };
 
+/** Khách nhập mới, hoặc khách có sẵn khi mở form từ trang khách (repository kiểm khách thuộc cửa hàng). */
+export type InstallmentCustomer = NewCustomer | { existingId: string };
+
+/** Khách có sẵn hiện trên form tạo hợp đồng mở từ trang khách; CCCD đã che. */
+export type CustomerSummary = { id: string; fullName: string; phone: string | null; cccdMasked: string | null };
+
 /** Hợp đồng đã qua kiểm quy tắc, sẵn sàng ghi cùng khách, sổ két và audit trong MỘT transaction. */
 export type InstallmentDraft = {
   terms: InstallmentTerms;
-  customer: NewCustomer;
+  customer: InstallmentCustomer;
   note: string | null;
   /** Ngày nghiệp vụ ghi sổ két: tiền ra két hôm nay, kể cả khi ngày bắt đầu lùi về trước. */
   businessDate: LocalDate;
@@ -125,7 +131,10 @@ export type DueInstallmentRow = InstallmentStanding & { id: string; code: string
 
 /** Hợp đồng trả góp của một cửa hàng; mọi truy vấn lọc theo shopId của phiên. */
 export interface InstallmentRepository {
-  create(actor: Actor, draft: InstallmentDraft): Promise<CreatedInstallment>;
+  /** Khách có sẵn không thuộc cửa hàng thì không ghi gì, trả "customer_not_found". */
+  create(actor: Actor, draft: InstallmentDraft): Promise<CreatedInstallment | "customer_not_found">;
+  /** Khách của cửa hàng, hoặc null. */
+  findCustomerSummary(shopId: string, customerId: string): Promise<CustomerSummary | null>;
   /** Hợp đồng khớp bộ lọc, mới nhất trước; `after` là id dòng cuối của trang trước (keyset). Hạn tính tới `today`. */
   list(shopId: string, filter: InstallmentFilter, today: LocalDate, after: string | null, limit: number): Promise<InstallmentListRow[]>;
   /** Thống kê cả cửa hàng; tháng = [monthStart, nextMonthStart) theo ngày nghiệp vụ. */

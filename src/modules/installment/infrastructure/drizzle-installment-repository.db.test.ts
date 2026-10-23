@@ -98,7 +98,7 @@ describe.skipIf(!url)("DrizzleInstallmentRepository", () => {
       const actor = await seedShop(db);
       const created = await repo(db).create(actor, draft());
       expect(created).toMatchObject({ code: "TG-1", customer: { reused: false, fullName: "Đỗ Minh Tâm" } });
-      expect((await repo(db).create(actor, draft())).code).toBe("TG-2");
+      expect(await repo(db).create(actor, draft())).toMatchObject({ code: "TG-2" });
 
       const [contract] = await rows<Record<string, unknown>>(
         db,
@@ -135,7 +135,29 @@ describe.skipIf(!url)("DrizzleInstallmentRepository", () => {
       const actor = await seedShop(db);
       await repo(db).create(actor, draft({}, { cccd: "001099012345" }));
       const second = await repo(db).create(actor, draft({}, { cccd: "001099012345", fullName: "Tên Khác" }));
-      expect(second.customer).toMatchObject({ reused: true, fullName: "Đỗ Minh Tâm" });
+      expect(second).toMatchObject({ customer: { reused: true, fullName: "Đỗ Minh Tâm" } });
+    }));
+
+  it("khách có sẵn (từ trang khách): gắn thẳng vào khách; khách của cửa hàng khác thì không ghi gì", () =>
+    inTx(async (db) => {
+      const actor = await seedShop(db);
+      const other = await seedShop(db);
+      const first = await repo(db).create(actor, draft({}, { fullName: "Ngô Văn Tài", phone: "0909111731" }));
+      if (first === "customer_not_found") throw new Error("không tạo được");
+      const existingId = first.customer.id;
+      expect(await repo(db).findCustomerSummary(actor.shopId, existingId)).toEqual({
+        id: existingId,
+        fullName: "Ngô Văn Tài",
+        phone: "0909111731",
+        cccdMasked: null,
+      });
+      expect(await repo(db).findCustomerSummary(other.shopId, existingId)).toBeNull();
+
+      const linked = await repo(db).create(actor, { ...draft(), customer: { existingId } });
+      expect(linked).toMatchObject({ code: "TG-2", customer: { id: existingId, reused: true, fullName: "Ngô Văn Tài" } });
+      expect(await repo(db).create(other, { ...draft(), customer: { existingId } })).toBe("customer_not_found");
+      const [count] = await rows<{ n: string }>(db, sql`SELECT count(*)::text AS n FROM installment_contracts WHERE shop_id = ${other.shopId}`);
+      expect(count.n).toBe("0");
     }));
 
   it("danh sách: mới nhất trước, che SĐT, phân trang keyset; cửa hàng khác không thấy", () =>
