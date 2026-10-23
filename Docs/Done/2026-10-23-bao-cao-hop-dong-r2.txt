@@ -1,0 +1,14 @@
+# 2026-10-23: Lát R2 màn Báo cáo — dư nợ hôm nay, hợp đồng trong kỳ — [verified: lint, typecheck, 195 unit/DB test, 37 e2e]
+
+- Commit: xem commit "Lát R2: báo cáo dư nợ và hợp đồng trong kỳ" ngay sau 3b117e9 (nhánh feat/bao-cao, chưa merge main)
+- Đã làm:
+  1. `reporting`: use case `GetContractReport`, adapter `DrizzleContractReport` (một truy vấn FILTER trên hợp đồng của cửa hàng), hai khối "Dư nợ hôm nay" và "Hợp đồng trong kỳ" trên `/bao-cao` theo bố cục mockup (cạnh bảng theo loại).
+  2. Dư nợ tính theo hôm nay, không theo kỳ (phương án A người dùng duyệt): gốc cầm đồ, gốc tín chấp, lãi đến hôm nay chưa thu (hàm `contract_accrued_interest`), số HĐ quá hạn (`overdueCondition`); chỉ HĐ đang mở, chưa xoá. Cùng định nghĩa với ô ở `/cam-do`.
+  3. Hợp đồng trong kỳ: mở mới theo `loan_date`; chuộc/đóng theo `closed_at`, đã xoá theo `deleted_at`, quy về ngày giờ Việt Nam (khoảng nửa mở); HĐ đã xoá không tính vào mở mới và đóng.
+  4. Tách `resolveRange` / `isValidRange` trong `get-cash-report.ts` cho hai use case dùng chung; trang gọi hai use case song song; `openedAt` cũng chạy song song với truy vấn thu chi.
+  5. Chưa tính trả góp (session trả góp đang làm); ghi chú cuối trang nói rõ.
+- Đo hiệu năng (EXPLAIN ANALYZE; 10k HĐ, 100k giao dịch; nạp trong transaction rồi ROLLBACK): truy vấn hợp đồng 40–55 ms; quét 10k dòng 1,5 ms, phần còn lại là `contract_accrued_interest` trên từng HĐ đang mở (giống ô `/cam-do`). Dưới xa ngân sách 1 giây, không cần index.
+- Trạng thái: xong màn Báo cáo phần cầm đồ/tín chấp. Còn lại: dư nợ trả góp + "Trả góp còn phải thu" + quá hạn trả góp (đợt sau, khi feat/tra-gop xong); nút Xuất Excel (hoãn theo pilot-scope).
+- Lưu ý cho phiên sau:
+  - Mở mới tính theo ngày vay, nên HĐ nhập lùi ngày vay về kỳ trước sẽ không vào "Mở mới" của kỳ hiện tại, dù dòng giải ngân ghi sổ hôm nay.
+  - Thêm trả góp: thêm cột vào `ContractReport` và FILTER trên `installment_contracts`, không sửa read-model trang chủ.

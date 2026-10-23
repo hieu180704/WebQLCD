@@ -1,0 +1,19 @@
+# 2026-10-23: Lát R1 màn Báo cáo — thu/chi theo kỳ, theo loại, theo ngày — [verified: lint, typecheck, 190 unit/DB test, 37 e2e]
+
+- Commit: xem commit "Lát R1: báo cáo thu chi theo kỳ" ngay sau 1cbbb1c (nhánh feat/bao-cao, chưa merge main)
+- Đã làm:
+  1. Người dùng duyệt chia 2 lát (R1 thu/chi, R2 dư nợ + hợp đồng trong kỳ) và các mặc định: thêm 1 dòng export `ReportPage` vào `reporting/index.ts`; dư nợ ở R2 tính theo hôm nay, không theo cuối kỳ; không sửa SourceOfTruth.
+  2. `reporting`: use case `GetCashReport` (`application/get-cash-report.ts`), adapter SQL `DrizzleCashReport` (3 truy vấn trên index `(shop_id, business_date)`: Σ trước kỳ, GROUP BY loại, GROUP BY ngày + window cộng dồn), trang `presentation/report-page.tsx`, route `/bao-cao`.
+  3. Quy tắc số liệu dùng y như sổ quỹ (`cashbook dayTotals`): thu/chi theo dấu từng dòng, kể cả dòng đảo (đảo một khoản chi hiện ở cột Thu); quỹ đầu két không tính là thu mà vào quỹ đầu kỳ/đầu ngày. Nhờ vậy số mỗi ngày ở báo cáo khớp `/quy-ket` ngày đó (e2e kiểm).
+  4. Chọn kỳ: link chọn nhanh (Hôm nay, Tháng này, Tháng trước, Từ ngày mở két) + form `?tu=&den=`, không client JS. Mặc định tháng này; đến ngày tương lai quy về hôm nay; từ ngày sau đến ngày thì báo lỗi, không truy vấn. Bảng theo ngày chỉ có ngày có phát sinh, 31 ngày/trang (`?truoc=`), link "Chi tiết" sang `/quy-ket?ngay=`.
+  5. Chỉ chủ tiệm: NAV `ownerOnly`, trang gọi guard rồi `redirect("/")` với KTV (như `/nhan-vien`).
+  6. Không làm nút "Xuất Excel" (hoãn theo pilot-scope).
+- Đo hiệu năng (EXPLAIN ANALYZE; 1 cửa hàng 10k HĐ, 100k giao dịch trải 730 ngày; nạp trong transaction rồi ROLLBACK):
+  - Tháng này: Σ trước kỳ 55 ms (seq scan vì lấy ~97% dòng), theo loại 2 ms, theo ngày 2,5 ms (bitmap index scan).
+  - Từ ngày mở két: Σ trước kỳ 0,04 ms, theo loại 33 ms, theo ngày 40 ms (parallel seq scan, 730 ngày qua WindowAgg).
+  - Đều dưới xa ngân sách 1 giây (performance-spec 2.1): không cần index hay bảng chốt ngày.
+- Trạng thái: xong R1; kế tiếp R2 (dư nợ cầm đồ/tín chấp hôm nay, lãi chưa thu, quá hạn; hợp đồng mở mới / chuộc-đóng / đã xoá trong kỳ).
+- Lưu ý cho phiên sau:
+  - Đổi cách tính thu/chi ở sổ quỹ thì sửa cả `drizzle-cash-report.ts` để hai màn vẫn khớp.
+  - E2E: Next có `#__next-route-announcer__` mang `role="alert"`; tìm thông báo lỗi theo `getByRole("alert").filter({ hasText })`.
+  - `Money` không có `abs()`; chi luôn ≤ 0 nên trang dùng `negate()` để hiện độ lớn.
