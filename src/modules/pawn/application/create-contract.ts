@@ -1,15 +1,16 @@
-import type { NewCustomer } from "@/modules/customer";
 import { businessDate } from "@/shared/kernel/local-date";
 import { planDisbursement, type ContractRuleViolation, type ContractTerms } from "../domain/contract";
-import type { Actor, ContractRepository } from "./ports";
+import type { Actor, ContractCustomer, ContractRepository, CreateContractRejection } from "./ports";
 
 export type { ContractRuleViolation };
 
-export type CreateContractInput = { terms: ContractTerms; customer: NewCustomer; note: string | null };
+export type CreateContractError = ContractRuleViolation | CreateContractRejection;
+
+export type CreateContractInput = { terms: ContractTerms; customer: ContractCustomer; staffId: string; note: string | null };
 
 export type CreateContractResult =
   | { ok: true; code: string; reusedCustomerName: string | null }
-  | { ok: false; error: ContractRuleViolation };
+  | { ok: false; error: CreateContractError };
 
 /** Tạo hợp đồng cầm đồ/tín chấp và giải ngân: ghi khách, hợp đồng, sổ két, audit trong một transaction. */
 export class CreateContract {
@@ -22,10 +23,14 @@ export class CreateContract {
     const created = await this.contracts.create(actor, {
       terms: input.terms,
       customer: input.customer,
+      staffId: input.staffId,
       note: input.note,
       disbursement: plan.value,
       businessDate: today,
     });
-    return { ok: true, code: created.code, reusedCustomerName: created.customer.reused ? created.customer.fullName : null };
+    if (typeof created === "string") return { ok: false, error: created };
+    // Khách có sẵn được chọn từ trang khách thì không cần báo "dùng lại khách cũ".
+    const reused = created.customer.reused && !("existingId" in input.customer);
+    return { ok: true, code: created.code, reusedCustomerName: reused ? created.customer.fullName : null };
   }
 }

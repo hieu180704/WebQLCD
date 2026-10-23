@@ -1,0 +1,13 @@
+# 2026-10-23: Lát D chọn KTV + nút "+ Cầm đồ" ở trang khách — [verified: lint, typecheck, 184 unit/DB test, toàn bộ 40 e2e]
+
+- Nhánh: `feat/cai-dat`. Commit: "Lát D: chọn KTV khi tạo hợp đồng, + Cầm đồ từ trang khách".
+- Đã làm:
+  1. Port pawn: `ContractDraft.staffId`, `customer: NewCustomer | { existingId }`; `create` trả thêm `customer_not_found` / `staff_not_found` (không ghi gì); `listStaffOptions` (chủ tiệm trước, KTV đang hoạt động theo tên), `findCustomerSummary`. Use case `PrepareNewContract` (KTV + khách có sẵn cho form); `CreateContract` không báo "khách cũ" khi khách được chọn sẵn.
+  2. Repository: trong transaction tạo hợp đồng kiểm KTV thuộc cửa hàng và đang hoạt động, khách có sẵn thuộc cửa hàng; `contracts.staff_id` = KTV đã chọn, audit và sổ két vẫn ghi người bấm lưu.
+  3. Presentation: schema tách `newCustomerSchema`, thêm `customerId` (rỗng = khách mới), `staffId`; form có ô chọn "KTV (nhân viên làm hồ sơ)" ở "Thông tin khác", khung khách có sẵn (tên, SĐT, CCCD đã che) + link "Nhập khách mới". `CreateContractState.version` làm `key` cho form để lỗi không đưa các `<select>` về option SSR (cùng lỗi gặp ở lát B; trước đây loại tài sản/hình thức lãi cũng bị reset sau lỗi). Route `/cam-do/moi?khach=<id>` (id sai định dạng thì bỏ qua, không thuộc cửa hàng thì 404).
+  4. Trang `/khach-hang/[id]`: nút "+ Cầm đồ / Tín chấp" (chỉ sửa đúng nút và comment trong `reporting/presentation/customer-detail-page.tsx`).
+  5. Test: DB test 2 ca mới (chọn KTV, từ chối KTV cửa hàng khác/đã khoá, danh sách KTV; khách có sẵn, từ chối khách cửa hàng khác); test cũ dùng lớp `TestRepository` (KTV mặc định = người thực hiện), ca "lỗi giữa chừng" đổi sang người thực hiện giả mạo với KTV hợp lệ. E2E 1 ca (từ trang khách, chọn KTV, lỗi giữ KTV, không tạo khách trùng, đếm ở `/nhan-vien`).
+  6. Docs: core-spec mục 2 (dòng "KTV trên hồ sơ", khối 2026-10-23), data-model `contracts.staff_id`.
+- Lưu ý cho phiên sau:
+  - Handoff chưa cập nhật (gate của phiên): mục 3 handoff còn ghi "Nút + Cầm đồ từ trang khách: hoãn", cần sửa khi gộp.
+  - Nút "+ Trả góp" ở trang khách chưa làm (thuộc nhánh trả góp).

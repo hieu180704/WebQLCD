@@ -35,6 +35,7 @@ import { GetContractDetail } from "@/modules/pawn/application/get-contract-detai
 import { ListContracts } from "@/modules/pawn/application/list-contracts";
 import { ListDueContracts } from "@/modules/pawn/application/list-due-contracts";
 import { PayInterest } from "@/modules/pawn/application/pay-interest";
+import { PrepareNewContract } from "@/modules/pawn/application/prepare-new-contract";
 import { RedeemContract } from "@/modules/pawn/application/redeem-contract";
 import { ReverseOperation } from "@/modules/pawn/application/reverse-operation";
 import { DrizzleContractRepository } from "@/modules/pawn/infrastructure/drizzle-contract-repository";
@@ -88,6 +89,7 @@ export const revealCccd = new RevealCccd(customerRepository);
 const hashCccd = (shopId: string, cccd: string) => lazyCccdCipher().hash(shopId, cccd);
 const contracts = new DrizzleContractRepository(db, customerWriter, appendCashEntries, hashCccd);
 export const createContract = new CreateContract(contracts);
+export const prepareNewContract = new PrepareNewContract(contracts);
 export const listContracts = new ListContracts(contracts);
 export const listDueContracts = new ListDueContracts(contracts);
 export const getContractDetail = new GetContractDetail(contracts);

@@ -2,7 +2,7 @@ import "server-only";
 import { and, asc, desc, eq, ilike, isNotNull, isNull, lt, lte, or, sql, type SQL } from "drizzle-orm";
 import type { AppendCashEntries, CashEntry } from "@/modules/cashbook";
 // Chỉ kiểu: index của customer kéo theo presentation, mà presentation import composition-root (vòng import).
-import type { DrizzleCustomerWriter } from "@/modules/customer";
+import type { DrizzleCustomerWriter, ResolvedCustomer } from "@/modules/customer";
 import type { Db, Tx } from "@/shared/infrastructure/db/client";
 import { dbCause } from "@/shared/infrastructure/db/errors";
 import { escapeLike } from "@/shared/infrastructure/db/like";
@@ -32,7 +32,9 @@ import type {
   ContractStanding,
   ContractStatusFilter,
   ContractTransaction,
+  CreateContractRejection,
   CreatedContract,
+  CustomerSummary,
   DeletionDraft,
   DueContractRow,
   EditDraft,
@@ -42,6 +44,7 @@ import type {
   PrincipalChangeDraft,
   RedemptionDraft,
   ReversalDraft,
+  StaffOption,
 } from "../application/ports";
 
 /** HMAC CCCD theo cửa hàng (CccdCipher.hash), ghép qua composition-root. */
@@ -61,12 +64,28 @@ export class DrizzleContractRepository implements ContractRepository {
     private readonly hashCccd: HashCccd,
   ) {}
 
-  async create(actor: Actor, draft: ContractDraft): Promise<CreatedContract> {
+  async create(actor: Actor, draft: ContractDraft): Promise<CreatedContract | CreateContractRejection> {
     const { terms, disbursement } = draft;
     try {
       // Khách, mã, hợp đồng, sổ két, audit cùng có hoặc cùng không (architecture-spec mục 2.2).
       return await this.db.transaction(async (tx) => {
-        const customer = await this.customerWriter.resolve(tx, actor, draft.customer);
+        // KTV do người dùng chọn: phải thuộc cửa hàng (khoá ngoại cũng chặn) và đang hoạt động.
+        const [staff] = await tx
+          .select({ id: users.id })
+          .from(users)
+          .where(and(eq(users.id, draft.staffId), eq(users.shopId, actor.shopId), eq(users.isActive, true)));
+        if (!staff) return "staff_not_found";
+        let customer: ResolvedCustomer;
+        if ("existingId" in draft.customer) {
+          const [existing] = await tx
+            .select({ id: customers.id, fullName: customers.fullName })
+            .from(customers)
+            .where(and(eq(customers.id, draft.customer.existingId), eq(customers.shopId, actor.shopId)));
+          if (!existing) return "customer_not_found";
+          customer = { ...existing, reused: true };
+        } else {
+          customer = await this.customerWriter.resolve(tx, actor, draft.customer);
+        }
         const code = await nextCode(tx, actor.shopId, terms.kind);
         const [contract] = await tx
           .insert(contracts)
@@ -86,7 +105,7 @@ export class DrizzleContractRepository implements ContractRepository {
             interestPaidUntil: disbursement.interestPaidUntil,
             prepaidInterest: terms.prepaidInterest,
             note: draft.note,
-            staffId: actor.userId,
+            staffId: draft.staffId,
           })
           .returning({ id: contracts.id });
         const operationId = await insertOperation(tx, actor, contract.id, "disbursement");
@@ -103,6 +122,22 @@ export class DrizzleContractRepository implements ContractRepository {
     } catch (error) {
       throw dbCause(error);
     }
+  }
+
+  async listStaffOptions(shopId: string): Promise<StaffOption[]> {
+    return this.db
+      .select({ id: users.id, name: users.name, role: users.role })
+      .from(users)
+      .where(and(eq(users.shopId, shopId), eq(users.isActive, true)))
+      .orderBy(sql`${users.role} = 'owner' DESC`, asc(users.name));
+  }
+
+  async findCustomerSummary(shopId: string, customerId: string): Promise<CustomerSummary | null> {
+    const [row] = await this.db
+      .select({ id: customers.id, fullName: customers.fullName, phone: customers.phone, cccdMasked: customers.cccdMasked })
+      .from(customers)
+      .where(and(eq(customers.id, customerId), eq(customers.shopId, shopId)));
+    return row ?? null;
   }
 
   async list(shopId: string, filter: ContractFilter, today: LocalDate, after: string | null, limit: number): Promise<ContractListRow[]> {

@@ -10,7 +10,7 @@ import { CccdCipher, DrizzleCustomerWriter, type NewCustomer } from "@/modules/c
 import type { Db } from "@/shared/infrastructure/db/client";
 import * as schema from "@/shared/infrastructure/db/schema";
 import { Money } from "@/shared/kernel/money";
-import type { Actor, ContractDraft, ContractFilter } from "../application/ports";
+import type { Actor, ContractDraft, ContractFilter, CreatedContract } from "../application/ports";
 import { planDisbursement, type ContractTerms } from "../domain/contract";
 import { DrizzleContractRepository } from "./drizzle-contract-repository";
 
@@ -76,7 +76,19 @@ describe.skipIf(!url)("DrizzleContractRepository", () => {
       );
     }
   };
-  const repo = (db: Db) => new DrizzleContractRepository(db, new DrizzleCustomerWriter(() => cipher), appendCash, (shopId, cccd) => cipher.hash(shopId, cccd));
+  /** Test không quan tâm KTV: `staffId` rỗng = người thực hiện; bị từ chối thì ném để test hỏng rõ ràng. */
+  class TestRepository extends DrizzleContractRepository {
+    async create(actor: Actor, draft: ContractDraft): Promise<CreatedContract> {
+      const created = await this.createRaw(actor, draft);
+      if (typeof created === "string") throw new Error(created);
+      return created;
+    }
+
+    createRaw(actor: Actor, draft: ContractDraft) {
+      return super.create(actor, { ...draft, staffId: draft.staffId || actor.userId });
+    }
+  }
+  const repo = (db: Db) => new TestRepository(db, new DrizzleCustomerWriter(() => cipher), appendCash, (shopId, cccd) => cipher.hash(shopId, cccd));
 
   const draft = (terms: Partial<ContractTerms> = {}, customer: Partial<NewCustomer> = {}): ContractDraft => {
     const fullTerms: ContractTerms = {
@@ -96,6 +108,7 @@ describe.skipIf(!url)("DrizzleContractRepository", () => {
     return {
       terms: fullTerms,
       customer: { fullName: "Nguyễn Văn A", cccd: null, phone: "0912345678", address: null, ...customer },
+      staffId: "",
       note: null,
       disbursement: plan.value,
       businessDate: TODAY,
@@ -204,8 +217,10 @@ describe.skipIf(!url)("DrizzleContractRepository", () => {
     inTx(async (db) => {
       const a = await seedShop(db);
       const b = await seedShop(db);
-      // KTV thuộc cửa hàng khác: khoá ngoại kép (shop_id, staff_id) chặn khi chèn hợp đồng.
-      await expect(repo(db).create({ shopId: a.shopId, userId: b.userId }, draft())).rejects.toMatchObject({ code: "23503" });
+      // Người thực hiện thuộc cửa hàng khác (KTV hợp lệ): khoá ngoại kép audit (shop_id, user_id) chặn sau khi đã chèn khách.
+      await expect(repo(db).create({ shopId: a.shopId, userId: b.userId }, { ...draft(), staffId: a.userId })).rejects.toMatchObject({
+        code: "23503",
+      });
       const [counts] = await rows<{ customers: number; counters: number; cash: number }>(
         db,
         sql`SELECT (SELECT count(*)::int FROM customers WHERE shop_id = ${a.shopId}) AS customers,
@@ -786,5 +801,62 @@ describe.skipIf(!url)("DrizzleContractRepository", () => {
       expect(await repo(db).deleteContract(a, { contractId: id, reason: "x", businessDate: TODAY })).toBe(true);
       const again = { ...edit, expected: edit.info, info: { assetName: "Xe khác", note: null } };
       expect(await repo(db).recordEdit(a, again)).toBe(false);
+    }));
+
+  it("chọn KTV: ghi đúng KTV, audit vẫn ghi người thực hiện; KTV cửa hàng khác hoặc đã khoá bị từ chối, không ghi gì", () =>
+    inTx(async (db) => {
+      const a = await seedShop(db);
+      const b = await seedShop(db);
+      const staffId = `ktv_${Date.now()}_${n++}`;
+      const [staff] = await rows<{ id: string }>(
+        db,
+        sql`INSERT INTO users (shop_id, name, email, username, role) VALUES (${a.shopId}, 'KTV Lan', ${`${staffId}@test.local`}, ${staffId}, 'staff') RETURNING id`,
+      );
+
+      await repo(db).create(a, { ...draft(), staffId: staff.id });
+      const [contract] = await rows<{ id: string; staff_id: string }>(db, sql`SELECT id, staff_id FROM contracts WHERE shop_id = ${a.shopId}`);
+      expect(contract.staff_id).toBe(staff.id);
+      const [audit] = await rows<{ user_id: string }>(db, sql`SELECT user_id FROM audit_logs WHERE entity_id = ${contract.id}`);
+      expect(audit.user_id).toBe(a.userId);
+
+      expect(await repo(db).createRaw(a, { ...draft(), staffId: b.userId })).toBe("staff_not_found");
+      await db.execute(sql`UPDATE users SET is_active = false WHERE id = ${staff.id}`);
+      expect(await repo(db).createRaw(a, { ...draft(), staffId: staff.id })).toBe("staff_not_found");
+      const [counts] = await rows<{ contracts: number; customers: number }>(
+        db,
+        sql`SELECT (SELECT count(*)::int FROM contracts WHERE shop_id = ${a.shopId}) AS contracts,
+                   (SELECT count(*)::int FROM customers WHERE shop_id = ${a.shopId}) AS customers`,
+      );
+      expect(counts).toEqual({ contracts: 1, customers: 1 });
+
+      expect(await repo(db).listStaffOptions(a.shopId)).toEqual([{ id: a.userId, name: "Chủ Test", role: "owner" }]);
+      await db.execute(sql`UPDATE users SET is_active = true WHERE id = ${staff.id}`);
+      expect((await repo(db).listStaffOptions(a.shopId)).map((s) => s.name)).toEqual(["Chủ Test", "KTV Lan"]);
+      expect(await repo(db).listStaffOptions(b.shopId)).toEqual([{ id: b.userId, name: "Chủ Test", role: "owner" }]);
+    }));
+
+  it("khách có sẵn: gắn hợp đồng vào khách đó, không tạo khách mới; khách cửa hàng khác bị từ chối", () =>
+    inTx(async (db) => {
+      const a = await seedShop(db);
+      const b = await seedShop(db);
+      const first = await repo(db).create(a, draft({}, { cccd: "001099012345", fullName: "Trần Thị B" }));
+      const existingId = first.customer.id;
+
+      const summary = await repo(db).findCustomerSummary(a.shopId, existingId);
+      expect(summary).toEqual({ id: existingId, fullName: "Trần Thị B", phone: "0912345678", cccdMasked: "********2345" });
+      expect(await repo(db).findCustomerSummary(b.shopId, existingId)).toBeNull();
+
+      const second = await repo(db).create(a, { ...draft(), customer: { existingId } });
+      expect(second.customer).toEqual({ id: existingId, fullName: "Trần Thị B", reused: true });
+      const [counts] = await rows<{ customers: number; contracts: number }>(
+        db,
+        sql`SELECT (SELECT count(*)::int FROM customers WHERE shop_id = ${a.shopId}) AS customers,
+                   (SELECT count(*)::int FROM contracts WHERE shop_id = ${a.shopId} AND customer_id = ${existingId}) AS contracts`,
+      );
+      expect(counts).toEqual({ customers: 1, contracts: 2 });
+
+      expect(await repo(db).createRaw(b, { ...draft(), customer: { existingId } })).toBe("customer_not_found");
+      const [inB] = await rows<{ n: number }>(db, sql`SELECT count(*)::int AS n FROM contracts WHERE shop_id = ${b.shopId}`);
+      expect(inB.n).toBe(0);
     }));
 });

@@ -63,7 +63,7 @@
 - `principal` (số tiền vay ban đầu), `outstanding_principal` (gốc còn lại).
 - `interest_type` (`per_million_per_day` / `percent_per_month` / `percent_per_week`), `interest_rate`, `interest_period_days` (kỳ lãi), `term_days` (số ngày vay).
 - `loan_date`, `interest_paid_until` (kỳ lãi nửa mở, ngày này chưa trả lãi; core-spec mục 2), `prepaid_interest` (`boolean`, bật "Thu lãi trước"; số tiền nằm ở dòng `interest_payment` lúc giải ngân).
-- `status` (`active` / `closed`), `closed_at`, `note`, `staff_id` (KTV), `deleted_at`, `deleted_by`, `deleted_reason`.
+- `status` (`active` / `closed`), `closed_at`, `note`, `staff_id` (KTV người dùng chọn khi tạo: chủ tiệm hoặc KTV đang hoạt động của cửa hàng; có thể khác `audit_logs.user_id` là người bấm lưu), `deleted_at`, `deleted_by`, `deleted_reason`.
 - CHECK: `kind = 'secured'` thì `asset_name` không rỗng (bỏ khoảng trắng). CHECK: `principal`, số ngày > 0; `outstanding_principal`, `interest_rate` >= 0; `status = 'closed'` khi và chỉ khi có `closed_at`; `deleted_at` và `deleted_by` cùng có hoặc cùng trống; `deleted_reason` có (không rỗng) khi và chỉ khi có `deleted_at`.
 - `UNIQUE (shop_id, code)`.
 - Gia hạn: đổi `term_days` và ghi `audit_logs` (`extend`). Lãi thu khi gia hạn ghi thành `interest_payment`. Không có loại giao dịch riêng cho gia hạn; gia hạn không thu lãi không sinh dòng sổ két nào.

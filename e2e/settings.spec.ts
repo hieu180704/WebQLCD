@@ -127,3 +127,38 @@ test("trang nhân viên: dòng chủ tiệm, số hợp đồng tháng này theo
   // KTV đã đăng nhập ở test "KTV chỉ thấy mục Tài khoản của tôi".
   await expect(staff.getByRole("cell").nth(4)).toHaveText(/^\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}$/);
 });
+
+test("+ Cầm đồ từ trang khách: điền sẵn khách có sẵn, chọn KTV làm hồ sơ; lỗi giữ KTV đã chọn", async ({ page }) => {
+  await signIn(page);
+  await page.goto("/khach-hang");
+  await page.getByRole("link", { name: "Khách Đếm HĐ" }).click();
+  await expect(page).toHaveURL(/\/khach-hang\/[0-9a-f-]{36}$/);
+  const customerUrl = page.url();
+  await page.getByRole("link", { name: "+ Cầm đồ / Tín chấp" }).click();
+  await expect(page).toHaveURL(/\/cam-do\/moi\?khach=/);
+
+  // Trang khách cũ còn ẩn trong DOM (Activity) có ô "Tên khách hàng" của hộp sửa khách: chỉ xét section của form.
+  const customerSection = page.getByRole("region", { name: "Thông tin khách hàng" });
+  await expect(customerSection.getByRole("definition").filter({ hasText: "Khách Đếm HĐ" })).toBeVisible();
+  await expect(customerSection.getByLabel("Tên khách hàng")).toHaveCount(0);
+  await expect(page.getByLabel("KTV (nhân viên làm hồ sơ)")).toHaveValue(/.+/);
+  await page.getByLabel("KTV (nhân viên làm hồ sơ)").selectOption({ label: "KTV Cài Đặt" });
+  await page.getByLabel("Tên tài sản").fill("Điện thoại");
+  await page.getByLabel("Số tiền vay").fill("2.000.000");
+  await page.getByLabel("Kỳ lãi").fill("90");
+  await page.getByRole("button", { name: "Lưu hợp đồng và giải ngân" }).click();
+  await expect(page.locator("form").getByRole("alert")).toHaveText("Kỳ lãi không được dài hơn số ngày vay.");
+  await expect(page.getByLabel("KTV (nhân viên làm hồ sơ)").locator("option:checked")).toHaveText("KTV Cài Đặt");
+
+  await page.getByLabel("Kỳ lãi").fill("15");
+  await page.getByRole("button", { name: "Lưu hợp đồng và giải ngân" }).click();
+  await expect(page).toHaveURL(/\/cam-do\?moi=/);
+
+  await page.goto(customerUrl);
+  await expect(page.getByRole("region", { name: "Số liệu" })).toContainText("HĐ đang mở2");
+  await page.goto("/khach-hang");
+  await expect(page.getByRole("link", { name: "Khách Đếm HĐ" })).toHaveCount(1);
+  await page.goto("/nhan-vien");
+  await expect(memberRow(page, STAFF.username).getByRole("cell").nth(3)).toHaveText("1");
+  await expect(memberRow(page, OWNER.username).getByRole("cell").nth(3)).toHaveText("1");
+});

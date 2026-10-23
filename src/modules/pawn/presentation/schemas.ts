@@ -40,11 +40,19 @@ const days = (label: string) =>
     .min(1, `${label} tối thiểu 1 ngày.`)
     .max(MAX_DAYS, `${label} tối đa ${MAX_DAYS} ngày.`);
 
-export const contractFormSchema = z.object({
+/** Khách nhập mới trên form tạo hợp đồng (không dùng khi tạo từ trang khách: `customerId` có giá trị). */
+export const newCustomerSchema = z.object({
   fullName: z.string().trim().min(1, "Nhập tên khách hàng.").max(100, "Tên khách hàng tối đa 100 ký tự."),
   cccd: optionalNormalized(normalizeCccd, "Số CCCD gồm 12 chữ số (hoặc CMND 9 chữ số)."),
   phone: optionalNormalized(normalizePhone, "Số điện thoại gồm 8–15 chữ số."),
   address: optionalText(255, "Địa chỉ"),
+});
+
+export const contractFormSchema = z.object({
+  /** Khách có sẵn (mở form từ trang khách); rỗng = khách nhập mới. Repository kiểm khách thuộc cửa hàng. */
+  customerId: z.union([z.literal("").transform(() => null), z.uuid("Khách hàng không hợp lệ.")]),
+  /** KTV làm hồ sơ; repository kiểm thuộc cửa hàng và đang hoạt động. */
+  staffId: z.uuid("Chọn KTV làm hồ sơ."),
   kind: z.enum(["secured", "unsecured"], { error: "Chọn loại tài sản." }),
   assetName: optionalText(200, "Tên tài sản"),
   principal: z
@@ -80,6 +88,8 @@ export const contractFormSchema = z.object({
 });
 
 export const CONTRACT_FORM_FIELDS = [
+  "customerId",
+  "staffId",
   "fullName",
   "cccd",
   "phone",

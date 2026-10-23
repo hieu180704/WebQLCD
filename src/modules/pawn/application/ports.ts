@@ -14,13 +14,18 @@ import type {
 } from "../domain/contract";
 import type { InterestType } from "../domain/interest/interest-policy";
 
-/** Người thực hiện thao tác, lấy từ guard (session), không bao giờ từ input của client. KTV hồ sơ = người này. */
+/** Người thực hiện thao tác, lấy từ guard (session), không bao giờ từ input của client. */
 export type Actor = { userId: string; shopId: string };
+
+/** Khách của hợp đồng mới: nhập mới (trùng CCCD thì dùng lại khách cũ) hoặc khách có sẵn (nút "+ Cầm đồ" ở trang khách). */
+export type ContractCustomer = NewCustomer | { existingId: string };
 
 /** Hợp đồng đã qua kiểm quy tắc, sẵn sàng ghi cùng khách, sổ két và audit trong MỘT transaction. */
 export type ContractDraft = {
   terms: ContractTerms;
-  customer: NewCustomer;
+  customer: ContractCustomer;
+  /** KTV làm hồ sơ: chủ tiệm hoặc KTV đang hoạt động của cửa hàng (repository kiểm lại); audit vẫn ghi người thực hiện. */
+  staffId: string;
   note: string | null;
   disbursement: Disbursement;
   /** Ngày nghiệp vụ ghi sổ két: tiền ra két hôm nay, kể cả khi ngày vay lùi về trước. */
@@ -28,6 +33,15 @@ export type ContractDraft = {
 };
 
 export type CreatedContract = { code: string; customer: ResolvedCustomer };
+
+/** Không ghi gì: khách có sẵn không thuộc cửa hàng, hoặc KTV không thuộc cửa hàng / đã bị khoá. */
+export type CreateContractRejection = "customer_not_found" | "staff_not_found";
+
+/** Người chọn được làm KTV hồ sơ: chủ tiệm và KTV đang hoạt động. */
+export type StaffOption = { id: string; name: string; role: "owner" | "staff" };
+
+/** Khách có sẵn hiện trên form tạo hợp đồng; CCCD chỉ bản đã che. */
+export type CustomerSummary = { id: string; fullName: string; phone: string | null; cccdMasked: string | null };
 
 export type ContractListRow = {
   id: string;
@@ -181,7 +195,10 @@ export type ExtensionDraft = {
 
 /** Hợp đồng cầm đồ/tín chấp của một cửa hàng; mọi truy vấn lọc theo shopId của phiên. */
 export interface ContractRepository {
-  create(actor: Actor, draft: ContractDraft): Promise<CreatedContract>;
+  create(actor: Actor, draft: ContractDraft): Promise<CreatedContract | CreateContractRejection>;
+  /** Chủ tiệm trước rồi KTV đang hoạt động theo tên. */
+  listStaffOptions(shopId: string): Promise<StaffOption[]>;
+  findCustomerSummary(shopId: string, customerId: string): Promise<CustomerSummary | null>;
   /** Hợp đồng khớp bộ lọc, mới nhất trước; `after` là id dòng cuối của trang trước (keyset). Hạn tính tới `today`. */
   list(shopId: string, filter: ContractFilter, today: LocalDate, after: string | null, limit: number): Promise<ContractListRow[]>;
   /**
