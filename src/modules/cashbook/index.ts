@@ -4,3 +4,4 @@ export type { CashEntry } from "./domain/cash-entry";
 export type { AppendCashEntries, CashOperation } from "./infrastructure/cash-ledger";
 export { CashbookPage } from "./presentation/cashbook-page";
 export { CashLineList, CashSummary } from "./presentation/cash-summary";
+export { exportCashbook } from "./presentation/export-cashbook";

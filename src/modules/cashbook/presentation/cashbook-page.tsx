@@ -1,25 +1,16 @@
 import Link from "next/link";
-import { z } from "zod";
 import { getCashDay, listCashActors, requireProfile } from "@/composition-root";
-import { isLocalDate } from "@/shared/kernel/local-date";
 import { formatVnd } from "@/shared/kernel/vnd";
-import { CASH_TYPE_GROUPS, isCashTypeGroup } from "../application/cash-filter";
+import { CASH_TYPE_GROUPS } from "../application/cash-filter";
 import type { CashLine } from "../application/ports";
+import { parseCashQuery } from "./cash-query";
 import { CashStatus, CashStatusMessage } from "./cash-status";
 import { CashSummary, formatDateTime, formatTime, TYPE_LABEL } from "./cash-summary";
 import { ManualEntryDialogs } from "./manual-entry-dialogs";
 import { OpeningBalanceForm } from "./opening-balance-form";
 import { ReverseEntryButton, ReverseEntryDialog } from "./reverse-entry-dialog";
 
-// Tham số URL sai định dạng thì bỏ qua (về hôm nay / trang đầu / không lọc), không báo lỗi.
-const querySchema = z.object({
-  ngay: z.string().refine(isLocalDate).nullable().catch(null),
-  loai: z.string().refine(isCashTypeGroup).nullable().catch(null),
-  nv: z.uuid().nullable().catch(null),
-  sau: z.uuid().nullable().catch(null),
-});
-
-type CashQuery = Partial<z.infer<typeof querySchema>>;
+type CashQuery = { ngay?: string | null; loai?: string | null; nv?: string | null; sau?: string | null };
 
 /** Link trong trang quỹ két; bỏ tham số rỗng để URL gọn. */
 const cashHref = (query: CashQuery) => ({ pathname: "/quy-ket", query: Object.fromEntries(Object.entries(query).filter(([, v]) => v)) });
@@ -28,13 +19,7 @@ const formatDay = (date: string) => date.split("-").reverse().join("/");
 
 export async function CashbookPage({ query }: { query: Record<string, string | string[] | undefined> }) {
   const principal = await requireProfile();
-  const { ngay, loai, nv, sau } = querySchema.parse({
-    ngay: first(query.ngay),
-    loai: first(query.loai),
-    nv: first(query.nv),
-    sau: first(query.sau),
-  });
-  const group = loai && isCashTypeGroup(loai) ? loai : null;
+  const { ngay, group, nv, sau } = parseCashQuery((key) => first(query[key]));
   const [view, actors] = await Promise.all([
     getCashDay.execute(principal.shopId, ngay, sau, { group, createdBy: nv }),
     listCashActors.execute(principal.shopId),
@@ -42,6 +27,10 @@ export async function CashbookPage({ query }: { query: Record<string, string | s
   const filters = { loai: group, nv };
   const filtered = Boolean(group || nv);
   const isOwner = principal.role === "owner";
+  // Xuất đúng ngày + bộ lọc đang xem, cả ngày (không theo trang).
+  const exportQuery = new URLSearchParams(
+    Object.entries({ ngay: view.date, ...filters }).filter((entry): entry is [string, string] => Boolean(entry[1])),
+  ).toString();
 
   return (
     <CashStatus>
@@ -143,6 +132,11 @@ export async function CashbookPage({ query }: { query: Record<string, string | s
               <Link href={cashHref({ ngay: view.date })} className="btn btn-outline">
                 Bỏ lọc
               </Link>
+            )}
+            {isOwner && (
+              <a href={`/quy-ket/xuat-excel?${exportQuery}`} className="btn btn-outline sm:ml-auto" download>
+                Xuất Excel
+              </a>
             )}
           </form>
         </div>

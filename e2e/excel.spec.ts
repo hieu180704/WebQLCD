@@ -110,6 +110,39 @@ test("/tra-gop: xuất đúng bộ lọc, tiến độ, còn phải thu, tên kh
   expect(await countAudit(OWNER.username, "installment_contract", "export")).toBe(1);
 });
 
+test("/quy-ket: xuất giao dịch trong ngày theo loại, thu / chi tách cột, nội dung phiếu được chống công thức", async ({ page }) => {
+  await signIn(page);
+  await page.goto("/quy-ket");
+  await page.getByRole("button", { name: "− Chi khác" }).click();
+  const dialog = page.getByRole("dialog", { name: "Phiếu chi khác" });
+  await dialog.getByLabel("Số tiền").fill("150.000");
+  await dialog.getByLabel(/Nội dung|Ghi chú/).fill("-Tiền điện");
+  await dialog.getByRole("button", { name: "Lưu phiếu chi" }).click();
+  await expect(page.getByRole("row", { name: /Chi khác.*-Tiền điện.*150\.000/ })).toBeVisible();
+
+  // Lọc "Chi khác": file chỉ có phiếu chi, không có các dòng giải ngân trong ngày.
+  const filter = page.getByRole("form", { name: "Lọc giao dịch" });
+  await filter.getByLabel("Loại giao dịch").selectOption({ label: "Chi khác" });
+  await filter.getByRole("button", { name: "Lọc" }).click();
+  await expect(page).toHaveURL(/loai=chi-khac/);
+  const { fileName, rows } = await download(page);
+  expect(fileName).toMatch(/^quy-ket-\d{4}-\d{2}-\d{2}\.xlsx$/);
+  expect(rows[0]).toEqual(["Ngày", "Giờ", "Loại", "Đã huỷ", "Nội dung", "Thu", "Chi", "Người thực hiện"]);
+  expect(rows).toHaveLength(2);
+  const [, , type, reversed, note, income, expense, actor] = rows[1];
+  expect([type, reversed, note, income, expense, actor]).toEqual(["Chi khác", undefined, "'-Tiền điện", undefined, 150_000, "Chủ Excel"]);
+
+  // Không lọc: đủ 4 dòng giải ngân (2 cầm đồ, 2 trả góp) + phiếu chi; giải ngân ở cột Chi kèm mã hợp đồng.
+  await page.goto("/quy-ket");
+  const all = (await download(page)).rows;
+  expect(all).toHaveLength(6);
+  expect(all.filter((row) => row[2] === "Giải ngân").map((row) => [row[4], row[6]])).toEqual([
+    ["CD-2", 5_000_000],
+    ["CD-1", 5_000_000],
+  ]);
+  expect(await countAudit(OWNER.username, "cash", "export")).toBe(2);
+});
+
 test("KTV không thấy nút Xuất Excel và bị chặn khi gọi thẳng", async ({ page }) => {
   await signIn(page);
   await page.goto("/nhan-vien");
@@ -121,7 +154,7 @@ test("KTV không thấy nút Xuất Excel và bị chặn khi gọi thẳng", as
   await page.getByRole("button", { name: "Đăng xuất" }).click();
 
   await signIn(page, STAFF);
-  for (const list of ["/cam-do", "/tra-gop"]) {
+  for (const list of ["/cam-do", "/tra-gop", "/quy-ket"]) {
     await page.goto(list);
     await expect(page.getByRole("link", { name: "Xuất Excel" })).toHaveCount(0);
     expect((await page.request.get(`${list}/xuat-excel`)).status()).toBe(403);
