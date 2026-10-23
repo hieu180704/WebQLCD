@@ -49,6 +49,7 @@ const terms = (overrides: Partial<ContractTerms> = {}): ContractTerms => ({
 const input = (overrides: Partial<ContractTerms> = {}): CreateContractInput => ({
   terms: terms(overrides),
   customer: { fullName: "Khách", cccd: null, phone: null, address: null },
+  staffId: "ktv",
   note: null,
 });
 
@@ -75,6 +76,8 @@ function fakeRepo(
       drafts.push(draft);
       return { code: "CD-1", customer: { id: "c", fullName: "Khách Cũ", reused } };
     },
+    listStaffOptions: async () => [],
+    findCustomerSummary: async () => null,
     list: async (_shop, filter, today, _after, limit) => {
       listQueries.push({ filter, today });
       return rows.slice(0, limit);

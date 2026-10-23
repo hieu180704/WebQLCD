@@ -71,6 +71,20 @@
       "when": 1792761156957,
       "tag": "0009_contract_accrued_interest",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1792766739715,
+      "tag": "0010_shop_settings",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1792767573881,
+      "tag": "0011_user_last_login",
+      "breakpoints": true
     }
   ]
 }

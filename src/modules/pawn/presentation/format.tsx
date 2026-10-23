@@ -11,6 +11,13 @@ export const CONTRACT_CASH_LABEL: Record<ContractCashType, string> = {
   reversal: "Huỷ giao dịch",
 };
 
+/** Lựa chọn hình thức lãi ở form tạo hợp đồng và mặc định ở trang Cài đặt. */
+export const INTEREST_TYPE_OPTIONS: { value: InterestType; label: string }[] = [
+  { value: "per_million_per_day", label: "Lãi ngày (k / triệu / ngày)" },
+  { value: "percent_per_month", label: "Lãi tháng (% / tháng)" },
+  { value: "percent_per_week", label: "Lãi tuần (% / tuần)" },
+];
+
 export const INTEREST_UNIT: Record<InterestType, string> = {
   per_million_per_day: "k/triệu/ngày",
   percent_per_month: "%/tháng",

@@ -3,14 +3,10 @@
 import Link from "next/link";
 import { useActionState, useState, type ComponentProps, type FormEvent } from "react";
 import { formatVnd, parseVnd } from "@/shared/kernel/vnd";
+import type { CustomerSummary, StaffOption } from "../application/prepare-new-contract";
 import { parseRate, previewContract, type InterestType } from "../application/preview";
 import { createContractAction, type CreateContractState } from "./actions";
-
-const INTEREST_TYPES: { value: InterestType; label: string }[] = [
-  { value: "per_million_per_day", label: "Lãi ngày (k / triệu / ngày)" },
-  { value: "percent_per_month", label: "Lãi tháng (% / tháng)" },
-  { value: "percent_per_week", label: "Lãi tuần (% / tuần)" },
-];
+import { INTEREST_TYPE_OPTIONS as INTEREST_TYPES } from "./format";
 
 const RATE_UNIT: Record<InterestType, string> = {
   per_million_per_day: "(k / triệu / ngày)",
@@ -20,10 +16,44 @@ const RATE_UNIT: Record<InterestType, string> = {
 
 type Snapshot = { kind: string; principal: string; interestType: string; interestRate: string; interestPeriodDays: string; prepaidInterest: boolean };
 
-export function ContractForm({ today }: { today: string }) {
+/** Giá trị điền sẵn theo cài đặt của cửa hàng; `interestRate` null = không điền sẵn. */
+export type FormDefaults = {
+  interestType: InterestType;
+  interestRate: string | null;
+  termDays: number;
+  interestPeriodDays: number;
+  prepaidInterest: boolean;
+};
+
+export function ContractForm({
+  today,
+  defaults,
+  staff,
+  currentUserId,
+  customer,
+}: {
+  today: string;
+  defaults: FormDefaults;
+  /** Chủ tiệm và KTV đang hoạt động; mặc định chọn người đang đăng nhập. */
+  staff: StaffOption[];
+  currentUserId: string;
+  /** Khách có sẵn khi mở từ trang khách; null = nhập khách mới. */
+  customer: CustomerSummary | null;
+}) {
   const initialState: CreateContractState = {
     error: null,
-    values: { kind: "secured", loanDate: today, interestType: "per_million_per_day", termDays: "30", interestPeriodDays: "10" },
+    version: 0,
+    values: {
+      customerId: customer?.id ?? "",
+      staffId: currentUserId,
+      kind: "secured",
+      loanDate: today,
+      interestType: defaults.interestType,
+      interestRate: defaults.interestRate?.replace(".", ",") ?? "",
+      termDays: String(defaults.termDays),
+      interestPeriodDays: String(defaults.interestPeriodDays),
+      prepaidInterest: defaults.prepaidInterest ? "on" : "",
+    },
   };
   const [state, formAction, pending] = useActionState(createContractAction, initialState);
   const v = state.values;
@@ -50,18 +80,35 @@ export function ContractForm({ today }: { today: string }) {
   }
 
   return (
-    <form action={formAction} onInput={onInput} onChange={onInput} className="mt-6 grid grid-cols-1 xl:grid-cols-[1fr_340px] gap-6 items-start">
+    <form key={state.version} action={formAction} onInput={onInput} onChange={onInput} className="mt-6 grid grid-cols-1 xl:grid-cols-[1fr_340px] gap-6 items-start">
       <div className="flex flex-col gap-6">
         <section className="card p-5" aria-labelledby="s-customer">
           <h2 id="s-customer" className="font-semibold">
             Thông tin khách hàng
           </h2>
-          <div className="mt-4 grid sm:grid-cols-2 gap-4">
-            <Field label="Tên khách hàng" name="fullName" defaultValue={v.fullName} required maxLength={100} placeholder="Họ và tên" />
-            <Field label="Số CCCD" name="cccd" defaultValue={v.cccd} inputMode="numeric" maxLength={30} />
-            <Field label="Số điện thoại" name="phone" defaultValue={v.phone} inputMode="tel" maxLength={30} />
-            <Field label="Địa chỉ" name="address" defaultValue={v.address} maxLength={255} />
-          </div>
+          <input type="hidden" name="customerId" value={customer?.id ?? ""} />
+          {customer ? (
+            <div className="mt-4 flex flex-wrap items-start gap-4">
+              <dl className="grid grid-cols-[110px_1fr] gap-y-2 text-sm" aria-label="Khách có sẵn">
+                <dt className="text-slate-500">Khách hàng</dt>
+                <dd className="font-medium">{customer.fullName}</dd>
+                <dt className="text-slate-500">Số điện thoại</dt>
+                <dd className="num">{customer.phone ?? "—"}</dd>
+                <dt className="text-slate-500">Số CCCD</dt>
+                <dd className="num">{customer.cccdMasked ?? "—"}</dd>
+              </dl>
+              <Link href="/cam-do/moi" className="ml-auto text-sm text-teal-700 hover:underline">
+                Nhập khách mới
+              </Link>
+            </div>
+          ) : (
+            <div className="mt-4 grid sm:grid-cols-2 gap-4">
+              <Field label="Tên khách hàng" name="fullName" defaultValue={v.fullName} required maxLength={100} placeholder="Họ và tên" />
+              <Field label="Số CCCD" name="cccd" defaultValue={v.cccd} inputMode="numeric" maxLength={30} />
+              <Field label="Số điện thoại" name="phone" defaultValue={v.phone} inputMode="tel" maxLength={30} />
+              <Field label="Địa chỉ" name="address" defaultValue={v.address} maxLength={255} />
+            </div>
+          )}
         </section>
 
         <section className="card p-5" aria-labelledby="s-loan">
@@ -119,9 +166,21 @@ export function ContractForm({ today }: { today: string }) {
           <h2 id="s-other" className="font-semibold">
             Thông tin khác
           </h2>
-          <div className="mt-4 field">
-            <label htmlFor="note">Ghi chú</label>
-            <textarea id="note" name="note" defaultValue={v.note} maxLength={500} rows={3} className="input" />
+          <div className="mt-4 grid sm:grid-cols-2 gap-4">
+            <div className="field">
+              <label htmlFor="staffId">KTV (nhân viên làm hồ sơ)</label>
+              <select id="staffId" name="staffId" defaultValue={v.staffId} className="input">
+                {staff.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.role === "owner" ? `${s.name} (chủ tiệm)` : s.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="field sm:col-span-2">
+              <label htmlFor="note">Ghi chú</label>
+              <textarea id="note" name="note" defaultValue={v.note} maxLength={500} rows={3} className="input" />
+            </div>
           </div>
         </section>
       </div>

@@ -44,7 +44,7 @@ GIẢ ĐỊNH TẠM (2026-10-20, bước 5, chưa hỏi khách):
 - **Thu lãi trước** tính lãi kỳ đầu kể từ ngày vay. Lãi trước phải nhỏ hơn số tiền vay. Lãi suất 0 thì không thu.
 - **Ngày vay** không được sau hôm nay, được lùi về trước. Tiền giải ngân luôn ghi sổ két vào hôm nay. Nhập hồ sơ giấy cũ mà không đụng két là nghiệp vụ riêng, chưa làm.
 - **Kỳ lãi** không dài hơn số ngày vay.
-- **KTV trên hồ sơ** là người đang đăng nhập. Chọn KTV khác (như mockup) chưa làm.
+- **KTV trên hồ sơ** mặc định là người đang đăng nhập, chọn được người khác khi tạo hợp đồng (luật ở khối 2026-10-23).
 - **Khách trùng CCCD trong cửa hàng:** hợp đồng gắn với khách cũ, thông tin khách cũ giữ nguyên, màn hình báo cho người nhập. Không nhập CCCD thì luôn tạo khách mới.
 - **Quỹ đầu két** chỉ chủ tiệm nhập, mỗi cửa hàng một lần, ghi vào ngày mở két. Nhập sai thì chỉnh bằng nạp vốn hoặc chi khác (mục dưới); bản thân quỹ đầu két không huỷ được. Két được phép âm (không chặn giải ngân khi chưa nhập quỹ).
 
@@ -60,7 +60,6 @@ GIẢ ĐỊNH TẠM (2026-10-21, đội dự án tự chốt theo mockup, chưa 
 - **Chuộc đồ (cầm đồ) / đóng hợp đồng (tín chấp):** thu lãi theo ngày từ ngày đã trả đến tới hôm nay trên gốc còn lại (không làm tròn lên kỳ, không thu tối thiểu một kỳ) cộng đủ gốc còn lại, rồi đóng hợp đồng. Được giảm lãi kể cả về 0, gốc phải thu đủ. Lãi đã trả vượt quá hôm nay (thu lãi trước, đóng sớm) thì lãi bằng 0 và không hoàn phần đã trả. Quá hạn không có phí phạt. Chủ tiệm và KTV đều làm được. Trang đã cũ (ngày trả đến hoặc gốc đã đổi, hoặc đã sang ngày khác) thì từ chối, tải lại số liệu.
 - **Trả bớt gốc / vay thêm (cầm đồ/tín chấp):** đổi gốc thì lãi đến hôm nay (theo ngày, trên gốc cũ) bắt buộc thu kèm trong cùng thao tác, ngày lãi đã trả đến về hôm nay, lãi từ hôm nay tính trên gốc mới. Lãi thu kèm được giảm nhưng phải > 0 (giảm về 0 thì không dời được ngày trả đến). Trả bớt: 0 < tiền < gốc còn lại (trả hết dùng chuộc đồ); lãi đã trả vượt hôm nay thì không thu, không hoàn. Vay thêm: tiền > 0; lãi đã trả vượt hôm nay (thu lãi trước, đóng sớm) thì thu lãi bổ sung trên phần vay thêm cho [hôm nay, ngày trả đến), ngày trả đến giữ nguyên. Không đổi số ngày vay. Chủ tiệm và KTV đều làm được. Trang đã cũ thì từ chối như chuộc đồ.
 - **Gia hạn:** cộng thêm 1–3650 ngày vào số ngày vay, không đổi tiền két. Tuỳ chọn thu lãi đến hôm nay (được giảm, phải > 0), ghi một dòng đóng lãi. Chủ tiệm và KTV đều làm được. Trang đã cũ (số ngày vay, ngày trả đến, gốc đổi, hoặc sang ngày khác) thì từ chối.
-- **Cài đặt giá trị mặc định khi tạo hợp đồng** (hình thức lãi, lãi, số ngày vay, kỳ lãi, thu lãi trước): hoãn đến sau bản dùng thử.
 
 GIẢ ĐỊNH TẠM (2026-10-22, đội dự án tự chốt theo mockup, người dùng duyệt; chưa hỏi khách):
 - **Thu khác / Chi khác:** phiếu không gắn hợp đồng, ghi vào sổ két hôm nay. Chủ tiệm và KTV đều làm được. Số tiền > 0 (tối đa 100 tỷ), nội dung bắt buộc (tối đa 200 ký tự). Chi khác được làm két âm.
@@ -71,6 +70,13 @@ GIẢ ĐỊNH TẠM (2026-10-22, đội dự án tự chốt theo mockup, ngư�
 - **Chi tiết khách hàng:** mở từ tên khách ở danh sách khách, danh sách hợp đồng, chi tiết hợp đồng. 4 ô: số hợp đồng đang mở, dư nợ (tổng gốc còn lại), tổng lãi đã đóng trên mọi hợp đồng của khách (không tính lần đã huỷ, nên hợp đồng đã xoá không góp), khách từ tháng/năm tạo khách; tiêu đề báo số hợp đồng quá hạn. Bảng hợp đồng của khách gồm cả hợp đồng đã đóng và đã xoá (đã xoá: mờ, gạch ngang mã, nhãn "Đã xoá", vẫn mở được trang chi tiết). 20 giao dịch két gần nhất của mọi hợp đồng của khách, dòng đã huỷ mang nhãn "Đã huỷ". Thông tin khách: SĐT đầy đủ (để gọi khách, như chi tiết hợp đồng), CCCD 4 số cuối, địa chỉ. Số liệu chưa tính trả góp. Chủ tiệm và KTV đều xem được.
 - **Tìm / lọc danh sách hợp đồng (cầm đồ/tín chấp):** tìm theo mã HĐ, tên khách, tên tài sản (gõ không dấu được, không phân biệt hoa thường) hoặc SĐT (từ 3 chữ số); CCCD nhập đủ số, khớp chính xác. Lọc loại (Tất cả / Thế chấp / Tín chấp) và trạng thái: Tất cả (mặc định, chưa xoá) / Đang mở / Quá hạn / Đến hạn hôm nay / Đến hạn trong 3 ngày (gồm quá hạn) / Đã chuộc - đã đóng / Đã xoá. Quá hạn, đến hạn theo mục "Hạn đóng lãi"; hợp đồng lãi suất 0 không vào các lọc hạn. Mới nhất trước, "Xem tiếp" giữ bộ lọc. Đầu trang: số hợp đồng đang mở và 4 ô của cả cửa hàng (không theo bộ lọc, chưa tính trả góp): Tiền đang cho vay, Lãi đến hôm nay (tổng lãi từ ngày đã trả đến tới hôm nay trên gốc còn lại của hợp đồng đang mở), Lãi đã thu tháng này, Quá hạn; định nghĩa như trang chủ.
 - **Sửa thông tin khách:** ở trang chi tiết khách; sửa tên, CCCD, SĐT, địa chỉ; không sinh giao dịch, ghi nhật ký ai sửa field nào lúc nào. Ô CCCD để trống = giữ nguyên (không xoá được CCCD đã có). CCCD trùng khách khác trong cửa hàng thì từ chối (không gộp khách). Người khác vừa sửa trước thì báo, tải lại để sửa trên số liệu mới. Chủ tiệm và KTV đều sửa được; cửa hàng hết hạn thì không. "Hiện số đầy đủ" CCCD chỉ chủ tiệm thấy và dùng được (kể cả khi hết hạn), mỗi lần xem ghi nhật ký.
+
+GIẢ ĐỊNH TẠM (2026-10-23, đội dự án tự chốt theo mockup, người dùng duyệt; chưa hỏi khách):
+- **Thông tin cửa hàng** (trang Cài đặt): tên (bắt buộc, tối đa 100 ký tự), SĐT, địa chỉ (tuỳ chọn); ngày mở két chỉ đọc. Chỉ chủ tiệm thấy và sửa, cửa hàng hết hạn thì không sửa được. Không sinh giao dịch, ghi nhật ký field nào đổi. Tên mới hiện ngay trên đầu trang.
+- **Mặc định khi tạo hợp đồng** (cầm đồ/tín chấp; trang Cài đặt): hình thức lãi, lãi, số ngày vay, kỳ lãi, thu lãi trước. Chỉ là giá trị điền sẵn vào form tạo hợp đồng, sửa được trên từng hợp đồng; hợp đồng đã tạo không đổi. Ban đầu: lãi ngày (k/triệu/ngày), lãi để trống (không điền sẵn), 30 ngày vay, kỳ 10 ngày, không thu lãi trước. Cùng luật nhập như form tạo hợp đồng (kỳ lãi không dài hơn số ngày vay). Chỉ chủ tiệm thấy và sửa, hết hạn thì không sửa được, ghi nhật ký field nào đổi. (Trước 2026-10-23: hoãn đến sau bản dùng thử.)
+- **Trang nhân viên:** dòng chủ tiệm đứng đầu (chỉ xem, không khoá, không đặt lại mật khẩu), rồi KTV theo ngày tạo. Cột "HĐ tháng này" = số hợp đồng cầm đồ/tín chấp chưa xoá ghi người đó là KTV, tạo từ ngày 1 tháng hiện tại (giờ Việt Nam); chưa tính trả góp. Cột "Đăng nhập gần nhất" = lần tạo phiên gần nhất (kể cả tự đăng nhập sau đăng ký), chưa đăng nhập lần nào thì ghi "Chưa đăng nhập".
+- **Chọn KTV khi tạo hợp đồng (cầm đồ/tín chấp):** chủ tiệm và KTV đều chọn được, danh sách gồm chủ tiệm và KTV đang hoạt động, mặc định người đang đăng nhập. KTV bị khoá giữa lúc mở form và lúc lưu thì từ chối. Nhật ký vẫn ghi người bấm lưu; sổ két ghi người thực hiện là người bấm lưu. KTV không sửa được sau khi tạo.
+- **Tạo hợp đồng từ trang khách** (nút "+ Cầm đồ / Tín chấp"): form điền sẵn khách đó (tên, SĐT, CCCD đã che, chỉ xem), hợp đồng gắn thẳng vào khách, không tạo khách mới và không báo "khách cũ". Muốn nhập khách khác thì bấm "Nhập khách mới". Nút "+ Trả góp" chưa làm.
 
 ---
 
@@ -100,5 +106,5 @@ GIẢ ĐỊNH TẠM (2026-10-22, đội dự án tự chốt theo mockup, ngư�
   - Ghi chú
   - KTV
 - **Giao dịch:** Bản ghi thu/chi gắn với hợp đồng hoặc với quỹ két.
-- **Cửa hàng:** Tên cửa hàng, quỹ đầu két, ngày mở két, trạng thái thuê bao (dùng thử / trả phí).
+- **Cửa hàng:** Tên cửa hàng, SĐT, địa chỉ, quỹ đầu két, ngày mở két, trạng thái thuê bao (dùng thử / trả phí).
 - Quan hệ: Cửa hàng 1–n Hợp đồng; Khách hàng 1–n Hợp đồng; Hợp đồng 1–n Giao dịch.

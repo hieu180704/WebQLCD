@@ -16,7 +16,7 @@ import {
 } from "@/composition-root";
 import { formatVnd } from "@/shared/kernel/vnd";
 import type { ChangePrincipalError } from "../application/change-principal";
-import type { ContractRuleViolation } from "../application/create-contract";
+import type { CreateContractError, CreateContractInput } from "../application/create-contract";
 import type { DeleteContractError } from "../application/delete-contract";
 import type { EditContractError } from "../application/edit-contract";
 import type { ExtendContractError } from "../application/extend-contract";
@@ -31,12 +31,17 @@ import {
   deleteSchema,
   editSchema,
   extendSchema,
+  newCustomerSchema,
   payInterestSchema,
   redeemSchema,
   reverseSchema,
 } from "./schemas";
 
-export type CreateContractState = { error: string | null; values: Record<string, string> };
+/**
+ * `values` giữ lại giá trị đã nhập khi báo lỗi. React tự reset form sau mỗi lần gửi và đưa `<select>` (loại tài sản,
+ * hình thức lãi, KTV) về option SSR, nên form dùng `version` làm `key` để dựng lại với `defaultValue` mới.
+ */
+export type CreateContractState = { error: string | null; values: Record<string, string>; version: number };
 
 const DENIED: Record<AccessDeniedError["reason"], string> = {
   inactive: "Tài khoản đã bị vô hiệu hoá.",
@@ -44,7 +49,9 @@ const DENIED: Record<AccessDeniedError["reason"], string> = {
   read_only: "Cửa hàng đã hết hạn sử dụng, không tạo được hợp đồng mới.",
 };
 
-const RULE_MESSAGE: Record<ContractRuleViolation, string> = {
+const CREATE_MESSAGE: Record<CreateContractError, string> = {
+  customer_not_found: "Không tìm thấy khách hàng.",
+  staff_not_found: "KTV đã chọn không còn hoạt động. Tải lại trang rồi chọn lại.",
   asset_required: "Hợp đồng thế chấp phải có tên tài sản.",
   principal_not_positive: "Số tiền vay phải lớn hơn 0.",
   period_exceeds_term: "Kỳ lãi không được dài hơn số ngày vay.",
@@ -52,26 +59,32 @@ const RULE_MESSAGE: Record<ContractRuleViolation, string> = {
   prepaid_not_less_than_principal: "Lãi thu trước phải nhỏ hơn số tiền vay.",
 };
 
-export async function createContractAction(_previous: CreateContractState, formData: FormData): Promise<CreateContractState> {
+export async function createContractAction(previous: CreateContractState, formData: FormData): Promise<CreateContractState> {
   const values = Object.fromEntries(CONTRACT_FORM_FIELDS.map((name) => [name, String(formData.get(name) ?? "")]));
+  const fail = (error: string): CreateContractState => ({ error, values, version: previous.version + 1 });
   let actor;
   try {
     actor = await requireSession({ write: true });
   } catch (error) {
-    if (error instanceof AccessDeniedError) return { error: DENIED[error.reason], values };
+    if (error instanceof AccessDeniedError) return fail(DENIED[error.reason]);
     throw error;
   }
 
   // Checkbox không tích thì không có trong FormData.
   const parsed = contractFormSchema.safeParse({ ...values, prepaidInterest: values.prepaidInterest || undefined });
-  if (!parsed.success) return { error: parsed.error.issues[0].message, values };
-  const { fullName, cccd, phone, address, note, ...terms } = parsed.data;
+  if (!parsed.success) return fail(parsed.error.issues[0].message);
+  const { customerId, staffId, note, ...terms } = parsed.data;
+  let customer: CreateContractInput["customer"];
+  if (customerId) {
+    customer = { existingId: customerId };
+  } else {
+    const parsedCustomer = newCustomerSchema.safeParse(values);
+    if (!parsedCustomer.success) return fail(parsedCustomer.error.issues[0].message);
+    customer = parsedCustomer.data;
+  }
 
-  const result = await createContract.execute(
-    { userId: actor.userId, shopId: actor.shopId },
-    { terms, customer: { fullName, cccd, phone, address }, note },
-  );
-  if (!result.ok) return { error: RULE_MESSAGE[result.error], values };
+  const result = await createContract.execute({ userId: actor.userId, shopId: actor.shopId }, { terms, customer, staffId, note });
+  if (!result.ok) return fail(CREATE_MESSAGE[result.error]);
 
   const query = new URLSearchParams({ moi: result.code });
   if (result.reusedCustomerName) query.set("khach", "cu");

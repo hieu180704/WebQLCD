@@ -26,7 +26,7 @@ const formatDateTime = (at: Date) =>
 
 /**
  * Trang chi tiết khách hàng (mockup khach-hang-chi-tiet.html). Sửa thông tin và xem CCCD đầy đủ thuộc module customer;
- * nút tạo hợp đồng từ trang khách chưa làm.
+ * nút "+ Cầm đồ / Tín chấp" mở form tạo hợp đồng điền sẵn khách này (nút trả góp chưa làm).
  */
 export async function CustomerDetailPage({ id }: { id: string }) {
   const principal = await requireSession();
@@ -64,6 +64,12 @@ export async function CustomerDetailPage({ id }: { id: string }) {
               cccdMasked: customer.cccdMasked,
             }}
           />
+          <Link
+            href={`/cam-do/moi?khach=${customer.id}`}
+            className="btn btn-outline"
+          >
+            + Cầm đồ / Tín chấp
+          </Link>
         </div>
       </div>
 

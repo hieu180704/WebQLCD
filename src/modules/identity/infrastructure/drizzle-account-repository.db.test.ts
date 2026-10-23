@@ -11,6 +11,7 @@ import type { OwnerRegistration } from "../application/ports";
 import { DrizzleAccountRepository } from "./drizzle-account-repository";
 
 const url = process.env.DATABASE_URL;
+const MONTH = "2026-10-01";
 
 describe.skipIf(!url)("DrizzleAccountRepository", () => {
   let pool: Pool;
@@ -122,8 +123,8 @@ describe.skipIf(!url)("DrizzleAccountRepository", () => {
       );
       expect(rows).toEqual([{ user_id: ownerA.id, action: "create" }]);
 
-      expect((await repo.listStaff(ownerA.shopId, 10)).map((s) => s.username)).toEqual([staffName]);
-      expect(await repo.listStaff(ownerB.shopId, 10)).toEqual([]);
+      expect((await repo.listStaff(ownerA.shopId, 10, MONTH)).map((s) => s.username)).toEqual([a.username, staffName]);
+      expect((await repo.listStaff(ownerB.shopId, 10, MONTH)).map((s) => s.username)).toEqual([b.username]);
       expect(await repo.createStaff({ userId: ownerB.id, shopId: ownerB.shopId }, { name: "Trùng", username: staffName, password: "matkhau456" })).toBe(
         "username_taken",
       );
@@ -160,7 +161,7 @@ describe.skipIf(!url)("DrizzleAccountRepository", () => {
       await db.insert(schema.sessions).values([session(staff.id), session(staff.id), session(ownerA.id)]);
       const countSessions = async (userId: string) =>
         (await db.execute<{ n: number }>(sql`SELECT count(*)::int AS n FROM sessions WHERE user_id = ${userId}`)).rows[0].n;
-      const isActive = async () => (await repo.listStaff(ownerA.shopId, 10))[0].isActive;
+      const isActive = async () => (await repo.listStaff(ownerA.shopId, 10, MONTH)).find((m) => m.id === staff.id)!.isActive;
 
       expect(await repo.setStaffActive(actor, staff.id, false)).toBe("ok");
       expect(await isActive()).toBe(false);
@@ -200,7 +201,7 @@ describe.skipIf(!url)("DrizzleAccountRepository", () => {
       expect(await repo.setStaffActive(actorB, staffA.id, false)).toBe("not_found");
       // Giả mạo shopId của cửa hàng A với người thực hiện thuộc cửa hàng B: khoá ngoại audit chặn, cả transaction rollback.
       await expect(repo.setStaffActive({ userId: ownerB.id, shopId: ownerA.shopId }, staffA.id, false)).rejects.toThrow();
-      expect((await repo.listStaff(ownerA.shopId, 10))[0].isActive).toBe(true);
+      expect((await repo.listStaff(ownerA.shopId, 10, MONTH)).find((m) => m.id === staffA.id)!.isActive).toBe(true);
     }));
 
   it("đặt lại mật khẩu KTV: mật khẩu mới dùng được, cũ hết dùng được, xoá mọi phiên KTV, có audit", () =>
@@ -254,5 +255,59 @@ describe.skipIf(!url)("DrizzleAccountRepository", () => {
       await expect(repo.resetStaffPassword({ userId: ownerB.id, shopId: ownerA.shopId }, staffA.id, "matkhaumoi789")).rejects.toThrow();
       expect(await verifyPassword((await findUser(db, staffName)).password!, "matkhau456")).toBe(true);
       expect(await verifyPassword((await findUser(db, a.username)).password!, a.password)).toBe(true);
+    }));
+
+  it("danh sách nhân viên: chủ tiệm trước, đếm hợp đồng chưa xoá tạo trong tháng theo KTV, đăng nhập gần nhất", () =>
+    inTx(async (db) => {
+      const repo = new DrizzleAccountRepository(db);
+      const a = owner();
+      const b = owner();
+      await repo.registerOwner(a, 7);
+      await repo.registerOwner(b, 7);
+      const ownerA = await findUser(db, a.username);
+      const ownerB = await findUser(db, b.username);
+      const staffName = `ktv_${Date.now()}_${n++}`;
+      await repo.createStaff({ userId: ownerA.id, shopId: ownerA.shopId }, { name: "KTV Đếm", username: staffName, password: "matkhau456" });
+      const staff = await findUser(db, staffName);
+      const loginAt = new Date("2026-10-20T01:02:03Z");
+      await db.update(schema.users).set({ lastLoginAt: loginAt }).where(sql`${schema.users.id} = ${staff.id}`);
+
+      const customer = async (shopId: string) =>
+        (await db.insert(schema.customers).values({ shopId, fullName: "Khách" }).returning({ id: schema.customers.id }))[0].id;
+      const customerA = await customer(ownerA.shopId);
+      const customerB = await customer(ownerB.shopId);
+      let code = 0;
+      const contract = (shopId: string, customerId: string, staffId: string, createdAt: string, deleted = false) => ({
+        shopId,
+        code: `TC-${code++}`,
+        customerId,
+        kind: "unsecured" as const,
+        principal: 1_000_000n,
+        outstandingPrincipal: 1_000_000n,
+        interestType: "per_million_per_day" as const,
+        interestRate: "3",
+        interestPeriodDays: 10,
+        termDays: 30,
+        loanDate: "2026-09-01",
+        interestPaidUntil: "2026-09-01",
+        staffId,
+        createdAt: new Date(createdAt),
+        ...(deleted ? { deletedAt: new Date(createdAt), deletedBy: staffId, deletedReason: "Nhập nhầm" } : {}),
+      });
+      await db.insert(schema.contracts).values([
+        // 00:30 ngày 01/10 giờ Việt Nam = 17:30 ngày 30/09 UTC: vẫn tính vào tháng 10.
+        contract(ownerA.shopId, customerA, staff.id, "2026-09-30T17:30:00Z"),
+        contract(ownerA.shopId, customerA, staff.id, "2026-10-15T03:00:00Z"),
+        contract(ownerA.shopId, customerA, staff.id, "2026-10-16T03:00:00Z", true),
+        contract(ownerA.shopId, customerA, staff.id, "2026-09-30T16:59:00Z"),
+        contract(ownerA.shopId, customerA, ownerA.id, "2026-10-02T03:00:00Z"),
+        contract(ownerB.shopId, customerB, ownerB.id, "2026-10-02T03:00:00Z"),
+      ]);
+
+      const rows = await repo.listStaff(ownerA.shopId, 10, MONTH);
+      expect(rows.map((m) => ({ role: m.role, contracts: m.contractsThisMonth, lastLoginAt: m.lastLoginAt }))).toEqual([
+        { role: "owner", contracts: 1, lastLoginAt: null },
+        { role: "staff", contracts: 2, lastLoginAt: loginAt },
+      ]);
     }));
 });

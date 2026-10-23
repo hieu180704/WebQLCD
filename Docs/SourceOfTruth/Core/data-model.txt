@@ -34,10 +34,12 @@
 
 ## 3.1 `shops`
 - `name`, `opened_at` (ngày mở két), `subscription_status` (`trial` / `active` / `expired`), `trial_ends_at`, `paid_until`.
+- `phone`, `address` (tuỳ chọn): chủ tiệm sửa cùng `name` ở trang Cài đặt, audit `edit` entity `shop`.
+- Mặc định khi tạo hợp đồng cầm đồ/tín chấp: `default_interest_type` (mặc định `per_million_per_day`), `default_interest_rate` (numeric(9,4), null = không điền sẵn), `default_term_days` (30), `default_interest_period_days` (10), `default_prepaid_interest` (false). CHECK: lãi ≥ 0, số ngày vay 1–3650, kỳ lãi 1 tới số ngày vay.
 - Quỹ đầu két không lưu trên bảng này: nó là giao dịch `opening_balance` ghi vào ngày `opened_at`. Mỗi cửa hàng tối đa một dòng (partial unique index `cash_transactions_one_opening_balance_key`); dòng gốc vẫn còn sau khi bị đảo, nên nhập lại phải dùng `capital_in`.
 
 ## 3.2 `users` và bảng auth
-- `users`: `shop_id`, `username`, `display_username`, `name` (họ tên), `email`, `email_verified`, `image`, `role` (`owner` / `staff`), `is_active`. Hình dạng theo yêu cầu của Better Auth. `username` lưu viết thường (plugin username so khớp viết thường), cách viết gốc ở `display_username`.
+- `users`: `shop_id`, `username`, `display_username`, `name` (họ tên), `email`, `email_verified`, `image`, `role` (`owner` / `staff`), `is_active`, `last_login_at` (ghi ở hook tạo phiên của Better Auth trong `auth.ts`, mỗi lần đăng nhập kể cả tự đăng nhập sau đăng ký; không suy ra từ `sessions` vì phiên bị xoá khi đăng xuất, khoá, đặt lại mật khẩu). Hình dạng theo yêu cầu của Better Auth. `username` lưu viết thường (plugin username so khớp viết thường), cách viết gốc ở `display_username`.
 - `UNIQUE (lower(username))` toàn hệ thống, để đăng nhập không phải chọn cửa hàng trước.
 - `email` bắt buộc và UNIQUE (Better Auth đòi). Chủ tiệm dùng email thật; KTV do chủ tiệm tạo dùng email nội bộ sinh tự động dạng `staff-<uuid>@tp83.invalid` (TLD `.invalid` không bao giờ gửi được thư).
 - Đăng ký và tạo KTV ghi thẳng `shops`/`users`/`accounts` trong một transaction, không qua `signUpEmail` của Better Auth: `Docs/Decisions/2026-10-20-signup-direct-insert.txt`.
@@ -61,7 +63,7 @@
 - `principal` (số tiền vay ban đầu), `outstanding_principal` (gốc còn lại).
 - `interest_type` (`per_million_per_day` / `percent_per_month` / `percent_per_week`), `interest_rate`, `interest_period_days` (kỳ lãi), `term_days` (số ngày vay).
 - `loan_date`, `interest_paid_until` (kỳ lãi nửa mở, ngày này chưa trả lãi; core-spec mục 2), `prepaid_interest` (`boolean`, bật "Thu lãi trước"; số tiền nằm ở dòng `interest_payment` lúc giải ngân).
-- `status` (`active` / `closed`), `closed_at`, `note`, `staff_id` (KTV), `deleted_at`, `deleted_by`, `deleted_reason`.
+- `status` (`active` / `closed`), `closed_at`, `note`, `staff_id` (KTV người dùng chọn khi tạo: chủ tiệm hoặc KTV đang hoạt động của cửa hàng; có thể khác `audit_logs.user_id` là người bấm lưu), `deleted_at`, `deleted_by`, `deleted_reason`.
 - CHECK: `kind = 'secured'` thì `asset_name` không rỗng (bỏ khoảng trắng). CHECK: `principal`, số ngày > 0; `outstanding_principal`, `interest_rate` >= 0; `status = 'closed'` khi và chỉ khi có `closed_at`; `deleted_at` và `deleted_by` cùng có hoặc cùng trống; `deleted_reason` có (không rỗng) khi và chỉ khi có `deleted_at`.
 - `UNIQUE (shop_id, code)`.
 - Gia hạn: đổi `term_days` và ghi `audit_logs` (`extend`). Lãi thu khi gia hạn ghi thành `interest_payment`. Không có loại giao dịch riêng cho gia hạn; gia hạn không thu lãi không sinh dòng sổ két nào.

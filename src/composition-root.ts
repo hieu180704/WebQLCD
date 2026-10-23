@@ -23,7 +23,9 @@ import { BetterAuthAuthenticator } from "@/modules/identity/infrastructure/bette
 import { DrizzleAccountRepository } from "@/modules/identity/infrastructure/drizzle-account-repository";
 import { IpSignupLimiter } from "@/modules/identity/infrastructure/ip-signup-limiter";
 import { ThrottledPasswordChanger } from "@/modules/identity/infrastructure/throttled-password-changer";
+import { GetContractDefaults, UpdateContractDefaults } from "@/modules/shop/application/contract-defaults";
 import { GetSubscription } from "@/modules/shop/application/get-subscription";
+import { GetShopProfile, UpdateShopInfo } from "@/modules/shop/application/shop-info";
 import { ChangePrincipal } from "@/modules/pawn/application/change-principal";
 import { CreateContract } from "@/modules/pawn/application/create-contract";
 import { DeleteContract } from "@/modules/pawn/application/delete-contract";
@@ -33,6 +35,7 @@ import { GetContractDetail } from "@/modules/pawn/application/get-contract-detai
 import { ListContracts } from "@/modules/pawn/application/list-contracts";
 import { ListDueContracts } from "@/modules/pawn/application/list-due-contracts";
 import { PayInterest } from "@/modules/pawn/application/pay-interest";
+import { PrepareNewContract } from "@/modules/pawn/application/prepare-new-contract";
 import { RedeemContract } from "@/modules/pawn/application/redeem-contract";
 import { ReverseOperation } from "@/modules/pawn/application/reverse-operation";
 import { DrizzleContractRepository } from "@/modules/pawn/infrastructure/drizzle-contract-repository";
@@ -66,7 +69,12 @@ export const setStaffActive = new SetStaffActive(accounts);
 export const resetStaffPassword = new ResetStaffPassword(accounts);
 export const changeOwnPassword = new ChangeOwnPassword(new ThrottledPasswordChanger(db));
 
-export const getSubscription = new GetSubscription(new DrizzleShopRepository(db));
+const shops = new DrizzleShopRepository(db);
+export const getSubscription = new GetSubscription(shops);
+export const getShopProfile = new GetShopProfile(shops);
+export const updateShopInfo = new UpdateShopInfo(shops);
+export const getContractDefaults = new GetContractDefaults(shops);
+export const updateContractDefaults = new UpdateContractDefaults(shops);
 
 const cashbook = new DrizzleCashbookRepository(db);
 export const setOpeningBalance = new SetOpeningBalance(cashbook);
@@ -85,6 +93,7 @@ export const revealCccd = new RevealCccd(customerRepository);
 const hashCccd = (shopId: string, cccd: string) => lazyCccdCipher().hash(shopId, cccd);
 const contracts = new DrizzleContractRepository(db, customerWriter, appendCashEntries, hashCccd);
 export const createContract = new CreateContract(contracts);
+export const prepareNewContract = new PrepareNewContract(contracts);
 export const listContracts = new ListContracts(contracts);
 export const listDueContracts = new ListDueContracts(contracts);
 export const getContractDetail = new GetContractDetail(contracts);
