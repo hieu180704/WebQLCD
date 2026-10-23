@@ -1,0 +1,9 @@
+# 2026-10-24: Gộp wt-2 (trả góp còn sót + mục Báo cáo core-spec) vào main — [verified: lint, typecheck, vitest 246/246, e2e 55/55 (gồm build)]
+
+- Commit: 62c34c4 (merge `--no-ff` của `wt-2`: 37d0330); worklog/handoff: commit kế tiếp.
+- Đã làm:
+  1. Người dùng duyệt việc 1 (dọn chỗ trả góp còn sót) + 2 (mục Báo cáo, CCCD khi xuất Excel theo phương án (a)). Làm cả hai trong `wt-2` vì cùng sửa `core-spec.txt`, gộp một lần khỏi xung đột. Chi tiết: worklog `2026-10-24-tra-gop-con-sot-bao-cao-spec.txt`.
+  2. `/merge-worktree wt-2`: sạch, không conflict; verify lại trên `main`. Không migration.
+  3. Kéo 3 tree lên `main` (`merge --ff-only`). Handoff: thêm mục đã xong, rút gọn danh sách còn sót.
+- File: Docs/Handoffs/handoff-webqlcd-mvp.txt, Docs/Done/2026-10-24-gop-wt2-con-sot.txt.
+- Lưu ý cho phiên sau: còn sót, chưa ai nhận: Excel quỹ két không kèm 4 ô tổng két; core-spec chưa có mục bộ lọc `/quy-ket` và mục xuất Excel.
