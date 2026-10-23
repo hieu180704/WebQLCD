@@ -89,10 +89,19 @@ test("CCCD trùng: hợp đồng mới gắn với khách cũ, báo cho người
   await signIn(page);
   await fillContract(page, "Tên Gõ Khác");
   await page.getByLabel("Loại tài sản").selectOption("unsecured");
+  await expect(page.getByLabel("Tên tài sản")).toHaveCount(0);
   await page.getByRole("button", { name: "Lưu hợp đồng và giải ngân" }).click();
   await expect(page).toHaveURL(/moi=TC-1/);
   await expect(page.getByRole("status")).toContainText("khách hàng đã có cùng số CCCD");
   await expect(page.getByRole("row", { name: /TC-1/ })).toContainText("Nguyễn Văn E2E");
+
+  // Thống kê cả cửa hàng: CD-1 thu lãi trước 150.000, cả hai vay hôm nay nên chưa có lãi đến hôm nay.
+  await expect(page.getByText("2 hợp đồng đang mở")).toBeVisible();
+  const tile = (label: string) => page.getByRole("region", { name: "Thống kê hợp đồng" }).getByText(label, { exact: true }).locator("..");
+  await expect(tile("Tiền đang cho vay")).toContainText("10.000.000");
+  await expect(tile("Lãi đến hôm nay")).toHaveText(/^Lãi đến hôm nay\s*0$/);
+  await expect(tile("Lãi đã thu tháng này")).toContainText("150.000");
+  await expect(tile("Quá hạn")).toHaveText(/^Quá hạn\s*0$/);
 });
 
 test("chi tiết hợp đồng: đóng lãi sớm một kỳ, được giảm lãi, ghi sổ quỹ", async ({ page }) => {

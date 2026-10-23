@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { z } from "zod";
 import { listContracts, requireSession } from "@/composition-root";
 import { normalizeCccd } from "@/modules/customer";
@@ -44,7 +45,16 @@ function contractHref(params: Params) {
   return { pathname: "/cam-do", query };
 }
 
-export async function ContractListPage({ query }: { query: Record<string, string | string[] | undefined> }) {
+/** `summary` (dưới tiêu đề) và `stats` (dưới hàng tiêu đề) do route ghép từ module reporting. */
+export async function ContractListPage({
+  query,
+  summary,
+  stats,
+}: {
+  query: Record<string, string | string[] | undefined>;
+  summary?: ReactNode;
+  stats?: ReactNode;
+}) {
   const principal = await requireSession();
   const params = querySchema.parse(Object.fromEntries(Object.keys(querySchema.shape).map((key) => [key, first(query[key])])));
   const { moi, khach } = params;
@@ -66,13 +76,17 @@ export async function ContractListPage({ query }: { query: Record<string, string
   return (
     <>
       <div className="flex flex-wrap items-end gap-3">
-        <h1 className="text-2xl font-bold">Cầm đồ & Tín chấp</h1>
+        <div>
+          <h1 className="text-2xl font-bold">Cầm đồ & Tín chấp</h1>
+          {summary && <p className="text-sm text-slate-500">{summary}</p>}
+        </div>
         <div className="ml-auto flex flex-wrap gap-2">
           <Link href="/cam-do/moi" className="btn btn-primary">
             + Thêm hồ sơ
           </Link>
         </div>
       </div>
+      {stats}
 
       {moi && (
         <p role="status" className="mt-4 rounded-lg bg-emerald-50 text-emerald-800 px-4 py-3 text-sm">

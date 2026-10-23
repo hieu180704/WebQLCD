@@ -37,6 +37,8 @@ describe.skipIf(!url)("DrizzleDashboardStats", () => {
       const stats = await load(db, shop.shopId);
       expect(stats).toMatchObject({ openSecured: 2, openUnsecured: 2, overdue: 2 });
       expect(stats.lending.toBigInt()).toBe(11_000_000n);
+      // 3 %/tháng: 5tr × 11 ngày = 55.000; 3tr × 10 ngày = 30.000; 2tr × 1 ngày = 2.000; lãi suất 0, đã đóng, đã xoá không tính.
+      expect(stats.accruedInterest.toBigInt()).toBe(87_000n);
     }));
 
   it("lãi tháng này: dòng lãi + dòng đảo lãi ghi trong tháng; bỏ tháng khác, loại khác, đảo của dòng không phải lãi", () =>
@@ -67,5 +69,6 @@ describe.skipIf(!url)("DrizzleDashboardStats", () => {
       expect(stats).toMatchObject({ openSecured: 0, openUnsecured: 0, overdue: 0 });
       expect(stats.lending.isZero()).toBe(true);
       expect(stats.interestThisMonth.isZero()).toBe(true);
+      expect(stats.accruedInterest.isZero()).toBe(true);
     }));
 });

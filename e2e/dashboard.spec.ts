@@ -15,7 +15,7 @@ async function createContract(page: Page, kind: "secured" | "unsecured", loanDat
   await page.goto("/cam-do/moi");
   await page.getByLabel("Tên khách hàng").fill(kind === "secured" ? "Khách Quá Hạn" : "Khách Tín Chấp");
   await page.getByLabel("Loại tài sản").selectOption(kind);
-  await page.getByLabel("Tên tài sản").fill("Honda Vision 2022");
+  if (kind === "secured") await page.getByLabel("Tên tài sản").fill("Honda Vision 2022"); // Tín chấp không có ô tài sản.
   await page.getByLabel("Số tiền vay").fill("5.000.000");
   await page.getByLabel("Ngày vay *", { exact: true }).fill(loanDate);
   await page.getByLabel("Lãi *", { exact: true }).fill("3");

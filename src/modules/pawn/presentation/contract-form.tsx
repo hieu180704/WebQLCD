@@ -18,7 +18,7 @@ const RATE_UNIT: Record<InterestType, string> = {
   percent_per_week: "(% / tuần)",
 };
 
-type Snapshot = { principal: string; interestType: string; interestRate: string; interestPeriodDays: string; prepaidInterest: boolean };
+type Snapshot = { kind: string; principal: string; interestType: string; interestRate: string; interestPeriodDays: string; prepaidInterest: boolean };
 
 export function ContractForm({ today }: { today: string }) {
   const initialState: CreateContractState = {
@@ -28,6 +28,7 @@ export function ContractForm({ today }: { today: string }) {
   const [state, formAction, pending] = useActionState(createContractAction, initialState);
   const v = state.values;
   const [snapshot, setSnapshot] = useState<Snapshot>(() => ({
+    kind: v.kind,
     principal: v.principal ?? "",
     interestType: v.interestType,
     interestRate: v.interestRate ?? "",
@@ -39,6 +40,7 @@ export function ContractForm({ today }: { today: string }) {
     const data = new FormData(event.currentTarget);
     const text = (name: string) => String(data.get(name) ?? "");
     setSnapshot({
+      kind: text("kind"),
       principal: text("principal"),
       interestType: text("interestType"),
       interestRate: text("interestRate"),
@@ -76,7 +78,10 @@ export function ContractForm({ today }: { today: string }) {
                 <option value="unsecured">Tín chấp</option>
               </select>
             </div>
-            <Field label="Tên tài sản" name="assetName" defaultValue={v.assetName} maxLength={200} placeholder="VD: Honda Vision 2022, biển 59X1-xxx.xx" />
+            {/* Tín chấp không có tài sản: bỏ hẳn ô (không chỉ ẩn) để không gửi ngầm tên đã gõ trước khi đổi loại. */}
+            {snapshot.kind !== "unsecured" && (
+              <Field label="Tên tài sản" name="assetName" defaultValue={v.assetName} maxLength={200} placeholder="VD: Honda Vision 2022, biển 59X1-xxx.xx" />
+            )}
             <Field label="Số tiền vay (đồng)" name="principal" defaultValue={v.principal} inputMode="numeric" required maxLength={30} className="num" />
             <Field label="Ngày vay" name="loanDate" type="date" defaultValue={v.loanDate} max={today} required />
             <div className="field">

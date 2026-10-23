@@ -21,6 +21,8 @@ export class DrizzleDashboardStats implements DashboardStatsSource {
       .select({
         // sum(bigint) trả numeric nên đọc dạng chuỗi.
         lending: sql<string>`coalesce(sum(${c.outstandingPrincipal}), 0)`,
+        // Hàm SQL contract_accrued_interest (migration 0009) tính như `accruedInterest` của pawn.
+        accrued: sql<string>`coalesce(sum(contract_accrued_interest(${c.interestType}, ${c.outstandingPrincipal}, ${c.interestRate}, ${c.interestPaidUntil}, ${today})), 0)`,
         openSecured: sql<number>`count(*) FILTER (WHERE ${c.kind} = 'secured')`.mapWith(Number),
         openUnsecured: sql<number>`count(*) FILTER (WHERE ${c.kind} = 'unsecured')`.mapWith(Number),
         overdue: sql<number>`count(*) FILTER (WHERE ${overdue})`.mapWith(Number),
@@ -49,6 +51,7 @@ export class DrizzleDashboardStats implements DashboardStatsSource {
       openSecured: stats.openSecured,
       openUnsecured: stats.openUnsecured,
       interestThisMonth: Money.of(BigInt(income.total)),
+      accruedInterest: Money.of(BigInt(stats.accrued)),
       overdue: stats.overdue,
     };
   }

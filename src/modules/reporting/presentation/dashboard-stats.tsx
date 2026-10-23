@@ -33,3 +33,27 @@ export function DashboardStatTiles({ stats }: { stats: DashboardStats }) {
     </section>
   );
 }
+
+/** 4 ô thống kê ở `/cam-do` theo mockup cam-do.html; cả cửa hàng, không theo bộ lọc; chưa tính trả góp. */
+export function ContractStatTiles({ stats }: { stats: DashboardStats }) {
+  return (
+    <section className="mt-6 grid sm:grid-cols-2 lg:grid-cols-4 gap-4" aria-label="Thống kê hợp đồng">
+      <div className="card p-5">
+        <div className="text-sm text-slate-500">Tiền đang cho vay</div>
+        <div className="mt-1 text-2xl font-bold num">{formatVnd(stats.lending)}</div>
+      </div>
+      <div className="card p-5">
+        <div className="text-sm text-slate-500">Lãi đến hôm nay</div>
+        <div className="mt-1 text-2xl font-bold num">{formatVnd(stats.accruedInterest)}</div>
+      </div>
+      <div className="card p-5">
+        <div className="text-sm text-slate-500">Lãi đã thu tháng này</div>
+        <div className="mt-1 text-2xl font-bold num text-emerald-700">{formatVnd(stats.interestThisMonth)}</div>
+      </div>
+      <div className="card p-5">
+        <div className="text-sm text-slate-500">Quá hạn</div>
+        <div className={`mt-1 text-2xl font-bold num ${stats.overdue > 0 ? "text-red-700" : ""}`}>{stats.overdue}</div>
+      </div>
+    </section>
+  );
+}

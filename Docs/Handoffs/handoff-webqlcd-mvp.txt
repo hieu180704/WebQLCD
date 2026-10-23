@@ -51,13 +51,14 @@
 - [x] Lát 4a: khoá / mở khoá KTV ở `/nhan-vien` (chỉ chủ tiệm, khoá xoá mọi phiên + audit `lock`/`unlock`; hết hạn vẫn khoá được, không mở khoá được) (worklog `Docs/Done/2026-10-22-khoa-ktv-4a.txt`).
 - [x] Lát 4b: chủ tiệm đặt lại mật khẩu KTV ở `/nhan-vien` (một transaction: mật khẩu mới + xoá mọi phiên KTV + audit `reset_password`; hết hạn vẫn làm được) (worklog `Docs/Done/2026-10-23-dat-lai-mat-khau-4b.txt`).
 - [x] Lát 4c: tự đổi mật khẩu ở `/cai-dat` (mục "Tài khoản của tôi", mọi vai trò; sai mật khẩu hiện tại đếm vào `login_throttles`; xoá phiên khác, giữ phiên đang dùng; audit `change_password`) (worklog `Docs/Done/2026-10-23-doi-mat-khau-4c.txt`).
+- [x] Phần mockup còn thiếu ở `/cam-do`: số HĐ đang mở + 4 ô thống kê (hàm SQL `contract_accrued_interest`, migration 0009), form tạo HĐ bỏ ô tài sản khi chọn tín chấp (worklog `Docs/Done/2026-10-23-thong-ke-cam-do.txt`).
 - [x] Giao diện theo mockup: theme ở `globals.css`, khung trang `src/app/(app)/` (sidebar/topbar, menu mobile), các trang cầm đồ/quỹ két/trang chủ/nhân viên/đăng nhập/đăng ký; guard thêm `requireProfile` + `React.cache` (worklog `Docs/Done/2026-10-20-ui-mockup.txt`).
 
 ---
 
 # 3. Đầu Việc Tiếp Theo & Lưu Ý
-- [ ] **Việc kế tiếp:** mục 5 của Decision `2026-10-21-pilot-scope.txt` (deploy kèm sao lưu tự động): chưa có đề xuất chia lát; phiên sau explore rồi đề xuất cho người dùng duyệt. Điều kiện trước deploy: người dùng xác minh luật lưu CCCD (chọn hosting). Nút "+ Cầm đồ" từ trang khách: hoãn.
-- [ ] Phần mockup chưa làm: 4 ô thống kê + Xuất Excel (`/cam-do`; Excel hoãn theo pilot-scope), ẩn ô tài sản khi chọn tín chấp.
+- [ ] **Việc kế tiếp:** mục 5 của Decision `2026-10-21-pilot-scope.txt` (deploy kèm sao lưu tự động): chưa có đề xuất chia lát; phiên sau explore rồi đề xuất cho người dùng duyệt. Việc khác còn ngoài pilot-scope (trả góp, báo cáo, Excel...) chỉ làm khi người dùng đổi phạm vi. Nút "+ Cầm đồ" từ trang khách: hoãn.
+- [ ] Phần mockup chưa làm: nút Xuất Excel ở `/cam-do` (hoãn theo pilot-scope).
 - [ ] Dọn cấu hình shadcn còn sót (chưa duyệt gỡ): element `ui` trong `eslint.config.mjs`, `components.json`, deps `radix-ui`, `class-variance-authority`, `cn`, `tw-animate-css`, `shadcn`.
 - [ ] Hỏi khách xác nhận mọi GIẢ ĐỊNH TẠM ở core-spec mục 2: hoãn tới khi bản dùng thử xong (Decision `2026-10-21-pilot-scope.txt`).
 - [ ] Chưa làm (đã duyệt hoãn ở 5a): xác minh email, quên mật khẩu, captcha, thanh toán thuê bao.

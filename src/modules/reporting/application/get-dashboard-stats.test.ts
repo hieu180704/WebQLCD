@@ -17,7 +17,7 @@ describe("GetDashboardStats", () => {
     const source: DashboardStatsSource = {
       load: async (...args) => {
         calls.push(args);
-        return { lending: Money.ZERO, openSecured: 0, openUnsecured: 0, interestThisMonth: Money.ZERO, overdue: 0 };
+        return { lending: Money.ZERO, openSecured: 0, openUnsecured: 0, interestThisMonth: Money.ZERO, accruedInterest: Money.ZERO, overdue: 0 };
       },
     };
     // 2026-10-31 23:30 UTC = 2026-11-01 06:30 giờ Việt Nam.

@@ -1,7 +1,7 @@
 import { businessDate, type LocalDate } from "@/shared/kernel/local-date";
 import type { Money } from "@/shared/kernel/money";
 
-/** Bốn ô thống kê hợp đồng ở trang chủ (cầm đồ/tín chấp; chưa tính trả góp). */
+/** Thống kê hợp đồng ở trang chủ và `/cam-do` (cầm đồ/tín chấp; chưa tính trả góp). */
 export type DashboardStats = {
   /** Σ gốc còn lại của hợp đồng đang mở, chưa xoá. */
   lending: Money;
@@ -9,6 +9,8 @@ export type DashboardStats = {
   openUnsecured: number;
   /** Lãi thu trong tháng theo ngày nghiệp vụ, đã trừ dòng đảo lãi ghi trong tháng. */
   interestThisMonth: Money;
+  /** Σ lãi từ ngày đã trả đến tới hôm nay trên gốc còn lại của hợp đồng đang mở, chưa xoá (ô ở `/cam-do`). */
+  accruedInterest: Money;
   /** Số hợp đồng có hạn đóng lãi trước hôm nay. */
   overdue: number;
 };

@@ -1,0 +1,14 @@
+# 2026-10-23: Phần mockup còn thiếu ở /cam-do (4 ô thống kê, ẩn ô tài sản khi tín chấp) — [verified: lint, typecheck, 177 unit/DB test, 35 e2e]
+
+- Commit: xem commit "Thống kê /cam-do, bỏ ô tài sản khi tín chấp" ngay sau e6fd29a
+- Đã làm:
+  1. Người dùng chọn làm phần nhỏ còn thiếu so với mockup trước mục 5 (hướng 1); trả góp vẫn hoãn theo pilot-scope.
+  2. Migration 0009 (viết tay): hàm SQL `contract_accrued_interest` tính lãi đến hôm nay như `accruedInterest` + `interest-policy.ts` (round numeric = half-up với số không âm). Test so khớp SQL ↔ domain: 7 ca biên (chưa tới ngày, lãi 0, đúng nửa đồng, gốc 100 tỷ 10 năm) + 300 ca ngẫu nhiên có hạt giống.
+  3. `reporting`: `DashboardStats` thêm `accruedInterest` (cộng trong cùng truy vấn thống kê hợp đồng); component thuần `ContractStatTiles`. Route `/cam-do` tải thống kê một lần, truyền `summary` ("N hợp đồng đang mở") và `stats` (4 ô) vào `ContractListPage` của pawn (slot ReactNode, pawn không import reporting).
+  4. Form tạo hợp đồng: chọn tín chấp thì bỏ hẳn ô "Tên tài sản" khỏi form (không chỉ ẩn), để tên đã gõ trước khi đổi loại không bị gửi ngầm.
+  5. Test: DB test thống kê thêm tổng lãi đến hôm nay (87.000) và cách ly cửa hàng; e2e: ô tài sản biến mất khi chọn tín chấp, 4 ô + số HĐ đang mở ở `/cam-do`. Sửa helper `dashboard.spec.ts` chỉ điền tài sản với cầm đồ.
+  6. Docs: core-spec mục 2 (tín chấp không có ô tài sản; ô thống kê `/cam-do`), data-model (hàm 0009), handoff.
+- Trạng thái: xong; kế tiếp mục 5 pilot-scope (deploy kèm sao lưu tự động), chưa chia lát.
+- Lưu ý cho phiên sau:
+  - Đổi công thức lãi hoặc thêm hình thức lãi mới: sửa cả `interest-policy.ts` và hàm `contract_accrued_interest` (migration mới); test so khớp sẽ báo nếu lệch.
+  - 4 ô ở `/cam-do` là của cả cửa hàng, không đổi theo bộ lọc (giống mockup).
