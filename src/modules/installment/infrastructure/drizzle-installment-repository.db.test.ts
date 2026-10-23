@@ -243,4 +243,80 @@ describe.skipIf(!url)("DrizzleInstallmentRepository", () => {
       expect(ops.map((o) => o.kind)).toEqual(["disbursement", "close"]);
       expect(await repo(db).listPayments(actor.shopId, id)).toEqual([]);
     }));
+
+  it("huỷ lần lượt từ mới về cũ: huỷ tất toán mở lại hợp đồng, tính lại đã thu; không huỷ giải ngân", () =>
+    inTx(async (db) => {
+      const actor = await seedShop(db);
+      const other = await seedShop(db);
+      await repo(db).create(actor, draft());
+      const id = await idOf(db, actor, "TG-1");
+      await pay(db, actor, id, 450_000);
+      await pay(db, actor, id, 3_000_000, "close");
+      const reverseLatest = async (who: Actor = actor) => {
+        const latest = await repo(db).findLatestOperation(actor.shopId, id);
+        return (
+          latest && repo(db).reverseOperation(who, { contractId: id, operationId: latest.id, reason: "nhập nhầm", businessDate: TODAY })
+        );
+      };
+
+      const closing = await repo(db).findLatestOperation(actor.shopId, id);
+      expect(closing).toMatchObject({ kind: "close", createdByName: "Chủ Test" });
+      expect(closing?.cashNet.toBigInt()).toBe(3_000_000n);
+      expect(await reverseLatest(other)).toBe(false); // cửa hàng khác
+      expect(await reverseLatest()).toBe(true);
+      expect(await repo(db).findRecord(actor.shopId, id)).toMatchObject({ status: "active" });
+      expect((await repo(db).findRecord(actor.shopId, id))?.amountPaid.toBigInt()).toBe(450_000n);
+      const [closedAt] = await rows<{ closed_at: unknown }>(db, sql`SELECT closed_at FROM installment_contracts WHERE id = ${id}`);
+      expect(closedAt.closed_at).toBeNull();
+      await reconcile(db, id);
+      // Thao tác đã huỷ không huỷ lại được (đã có thao tác mới nhất khác).
+      expect(await repo(db).reverseOperation(actor, { contractId: id, operationId: closing!.id, reason: "x", businessDate: TODAY })).toBe(
+        false,
+      );
+
+      expect(await reverseLatest()).toBe(true);
+      expect((await repo(db).findRecord(actor.shopId, id))?.amountPaid.isZero()).toBe(true);
+      expect((await repo(db).findLatestOperation(actor.shopId, id))?.kind).toBe("disbursement");
+      expect(await reverseLatest()).toBe(false);
+
+      const history = await repo(db).listTransactions(actor.shopId, id, 10);
+      expect(history.filter((t) => t.type === "reversal").map((t) => [t.amount.toBigInt(), t.note])).toEqual([
+        [-450_000n, "nhập nhầm"],
+        [-3_000_000n, "nhập nhầm"],
+      ]);
+      expect(history.filter((t) => t.type === "installment_payment").every((t) => t.reversed)).toBe(true);
+      expect(await repo(db).listPayments(actor.shopId, id)).toEqual([]);
+    }));
+
+  it("xoá hợp đồng: đảo mọi dòng chưa đảo, giữ số liệu, không còn thao tác; cửa hàng khác không xoá được", () =>
+    inTx(async (db) => {
+      const actor = await seedShop(db);
+      const other = await seedShop(db);
+      await repo(db).create(actor, draft());
+      const id = await idOf(db, actor, "TG-1");
+      await pay(db, actor, id, 200_000);
+      await pay(db, actor, id, 300_000);
+      const latest = await repo(db).findLatestOperation(actor.shopId, id);
+      await repo(db).reverseOperation(actor, { contractId: id, operationId: latest!.id, reason: "nhầm", businessDate: TODAY });
+
+      const remove = (who: Actor) => repo(db).deleteContract(who, { contractId: id, reason: "khách huỷ", businessDate: TODAY });
+      expect(await remove(other)).toBe(false);
+      expect(await remove(actor)).toBe(true);
+      expect(await remove(actor)).toBe(false);
+
+      const detail = await repo(db).findDetail(actor.shopId, id);
+      expect(detail?.deleted).toEqual({ on: expect.any(String), reason: "khách huỷ" });
+      expect(detail?.ledgerNet.isZero()).toBe(true);
+      expect(detail?.amountPaid.toBigInt()).toBe(200_000n);
+      expect(await repo(db).findRecord(actor.shopId, id)).toBeNull();
+      expect(await repo(db).findLatestOperation(actor.shopId, id)).toBeNull();
+      expect(await repo(db).list(actor.shopId, null, 10)).toEqual([]);
+      // Đảo giải ngân (+4tr) và lần góp còn lại (−200k) chung một operation_id; lần góp đã huỷ không đảo lần nữa.
+      const deletion = await rows<{ amount: string; ops: string }>(
+        db,
+        sql`SELECT sum(amount)::text AS amount, count(DISTINCT operation_id)::text AS ops FROM cash_transactions
+            WHERE installment_contract_id = ${id} AND type = 'reversal' AND note = 'khách huỷ'`,
+      );
+      expect(deletion).toEqual([{ amount: "3800000", ops: "1" }]);
+    }));
 });

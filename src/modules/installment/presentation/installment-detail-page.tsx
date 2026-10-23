@@ -1,19 +1,39 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import type { ReactNode } from "react";
 import { z } from "zod";
 import { getInstallmentDetail, requireSession } from "@/composition-root";
 import { BUSINESS_TIME_ZONE, businessDate, diffDays } from "@/shared/kernel/local-date";
 import { formatVnd } from "@/shared/kernel/vnd";
 import type { HistoryLine, InstallmentDetailView } from "../application/get-installment-detail";
+import type { LatestOperation } from "../application/ports";
 import { CloseDialog } from "./close-dialog";
+import { DeleteDialog } from "./delete-dialog";
 import { DueBadge, ProgressBar, formatDay } from "./format";
 import { OperationStatus, OperationStatusMessage } from "./operation-status";
 import { PayDialog } from "./pay-dialog";
+import { ReverseDialog } from "./reverse-dialog";
 
 const formatTime = new Intl.DateTimeFormat("vi-VN", { timeZone: BUSINESS_TIME_ZONE, timeStyle: "short" }).format;
 
 /** "05/10/2026 10:15" theo giờ Việt Nam, như mockup. */
 const formatDateTime = (at: Date) => `${formatDay(businessDate(at))} ${formatTime(at)}`;
+
+/** Số tiền có dấu như mockup: "+400.000", "−4.000.000". */
+const formatSigned = (amount: LatestOperation["cashNet"]) =>
+  amount.isNegative() ? `−${formatVnd(amount.negate())}` : `+${formatVnd(amount)}`;
+
+const OPERATION_LABEL: Record<LatestOperation["kind"], string> = {
+  disbursement: "Giải ngân",
+  pay: "Đóng tiền góp",
+  close: "Đóng hợp đồng (tất toán)",
+};
+
+function reverseEffect(op: LatestOperation, closed: boolean): string {
+  const cash = op.cashNet.isZero() ? "" : `Quỹ két ghi bút toán đảo ${formatSigned(op.cashNet.negate())} đ hôm nay. `;
+  if (op.kind === "close") return `${cash}Hợp đồng mở lại, số đã thu trở về như trước lần tất toán.`;
+  return `${cash}Số đã thu trở về như trước lần góp này.${closed ? " Hợp đồng mở lại." : ""}`;
+}
 
 function historyLabel(t: HistoryLine): string {
   switch (t.type) {
@@ -28,14 +48,18 @@ function historyLabel(t: HistoryLine): string {
   }
 }
 
-/** Trang chi tiết hợp đồng trả góp (mockup tra-gop-chi-tiet.html). Thao tác: đóng tiền góp, đóng / tất toán. */
+/**
+ * Trang chi tiết hợp đồng trả góp (mockup tra-gop-chi-tiet.html). Thao tác: đóng tiền góp, đóng / tất toán; chủ tiệm huỷ
+ * giao dịch mới nhất, xoá hợp đồng.
+ */
 export async function InstallmentDetailPage({ id, fullSchedule }: { id: string; fullSchedule: boolean }) {
   const principal = await requireSession();
   const contractId = z.uuid().safeParse(id);
   if (!contractId.success) notFound();
   const view = await getInstallmentDetail.execute(principal.shopId, contractId.data, fullSchedule);
   if (!view) notFound();
-  const { contract, open, progress } = view;
+  const { contract, open, progress, reversible } = view;
+  const isOwner = principal.role === "owner";
 
   return (
     <OperationStatus>
@@ -53,6 +77,18 @@ export async function InstallmentDetailPage({ id, fullSchedule }: { id: string; 
           <DueBadge status={open.dueStatus} />
         ) : (
           <span className="badge badge-muted">Đã đóng{contract.closedOn && ` ${formatDay(contract.closedOn)}`}</span>
+        )}
+        {!contract.deleted && isOwner && (
+          <div className="sm:ml-auto flex flex-wrap gap-2">
+            <DeleteDialog
+              contractId={contract.id}
+              code={contract.code}
+              disbursementText={formatSigned(contract.amountGiven)}
+              paymentsLabel={view.paymentCount > 0 ? `Đảo ${view.paymentCount} lần thu` : null}
+              paymentsText={formatSigned(contract.amountPaid.negate())}
+              cashChangeText={formatSigned(contract.ledgerNet.negate())}
+            />
+          </div>
         )}
       </div>
       {contract.deleted && (
@@ -96,7 +132,21 @@ export async function InstallmentDetailPage({ id, fullSchedule }: { id: string; 
             </div>
           </section>
           <Schedule view={view} />
-          <History history={view.history} />
+          <History
+            history={view.history}
+            reverse={
+              isOwner && reversible ? (
+                <ReverseDialog
+                  contractId={contract.id}
+                  operationId={reversible.id}
+                  label={OPERATION_LABEL[reversible.kind]}
+                  when={`${formatDateTime(reversible.createdAt)} · ${reversible.createdByName}`}
+                  amountText={reversible.cashNet.isZero() ? null : formatSigned(reversible.cashNet)}
+                  effect={reverseEffect(reversible, contract.status === "closed")}
+                />
+              ) : null
+            }
+          />
         </div>
 
         <aside className="flex flex-col gap-6">
@@ -232,13 +282,14 @@ function Schedule({ view }: { view: InstallmentDetailView }) {
   );
 }
 
-function History({ history }: { history: HistoryLine[] }) {
+function History({ history, reverse }: { history: HistoryLine[]; reverse: ReactNode }) {
   return (
     <section className="card" aria-labelledby="t-history">
       <div className="p-5 pb-3 flex flex-wrap items-center gap-2 justify-between">
         <h2 id="t-history" className="font-semibold">
           Lịch sử giao dịch
         </h2>
+        {reverse}
       </div>
       <div className="overflow-x-auto">
         <table className="table">

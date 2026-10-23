@@ -1,5 +1,5 @@
 import "server-only";
-import { and, asc, desc, eq, isNull, lt, sql } from "drizzle-orm";
+import { and, asc, desc, eq, isNotNull, isNull, lt, sql, type SQL } from "drizzle-orm";
 import type { AppendCashEntries } from "@/modules/cashbook";
 // Chỉ kiểu: index của customer kéo theo presentation, mà presentation import composition-root (vòng import).
 import type { DrizzleCustomerWriter } from "@/modules/customer";
@@ -14,13 +14,14 @@ import {
   shopCounters,
   users,
 } from "@/shared/infrastructure/db/schema";
-import { businessDate } from "@/shared/kernel/local-date";
+import { businessDate, type LocalDate } from "@/shared/kernel/local-date";
 import { Money } from "@/shared/kernel/money";
 import { maskPhone } from "@/shared/kernel/personal-data";
 import { CODE_PREFIX, type OperationKind } from "../domain/installment";
 import type {
   Actor,
   CreatedInstallment,
+  DeletionDraft,
   InstallmentCashType,
   InstallmentDetailRow,
   InstallmentDraft,
@@ -28,8 +29,10 @@ import type {
   InstallmentRecord,
   InstallmentRepository,
   InstallmentTransaction,
+  LatestOperation,
   PaymentDraft,
   PaymentRecord,
+  ReversalDraft,
 } from "../application/ports";
 
 const AUDIT_ENTITY = "installment_contract";
@@ -263,6 +266,138 @@ export class DrizzleInstallmentRepository implements InstallmentRepository {
     } catch (error) {
       throw dbCause(error);
     }
+  }
+
+  async findLatestOperation(shopId: string, contractId: string): Promise<LatestOperation | null> {
+    const o = installmentOperations;
+    const c = installmentContracts;
+    const [row] = await this.db
+      .select({
+        id: o.id,
+        kind: o.kind,
+        createdAt: o.createdAt,
+        createdByName: users.name,
+        cashNet: sql<string>`coalesce((
+          SELECT sum(t.amount) FROM cash_transactions t WHERE t.shop_id = ${o.shopId} AND t.operation_id = ${o.id}
+        ), 0)`,
+      })
+      .from(o)
+      .innerJoin(c, and(eq(c.shopId, o.shopId), eq(c.id, o.installmentContractId)))
+      .innerJoin(users, and(eq(users.shopId, o.shopId), eq(users.id, o.createdBy)))
+      .where(and(eq(o.shopId, shopId), eq(o.installmentContractId, contractId), isNull(o.reversedAt), isNull(c.deletedAt)))
+      .orderBy(desc(o.createdAt), desc(o.id))
+      .limit(1);
+    return row ? { ...row, cashNet: Money.of(BigInt(row.cashNet)) } : null;
+  }
+
+  async reverseOperation(actor: Actor, draft: ReversalDraft): Promise<boolean> {
+    const { contractId, operationId } = draft;
+    const c = installmentContracts;
+    const o = installmentOperations;
+    try {
+      return await this.db.transaction(async (tx) => {
+        // Khoá dòng hợp đồng như các thao tác khác: thao tác đồng thời phải chờ, rồi thấy thao tác mới nhất đã đổi.
+        const [locked] = await tx
+          .select({ id: c.id })
+          .from(c)
+          .where(and(eq(c.shopId, actor.shopId), eq(c.id, contractId), isNull(c.deletedAt)))
+          .for("update");
+        if (!locked) return false;
+        const [latest] = await tx
+          .select({ id: o.id, kind: o.kind })
+          .from(o)
+          .where(and(eq(o.shopId, actor.shopId), eq(o.installmentContractId, contractId), isNull(o.reversedAt)))
+          .orderBy(desc(o.createdAt), desc(o.id))
+          .limit(1);
+        if (!latest || latest.id !== operationId || latest.kind === "disbursement") return false;
+        await tx
+          .update(o)
+          .set({ reversedAt: sql`now()`, reversedBy: actor.userId, reverseReason: draft.reason })
+          .where(and(eq(o.shopId, actor.shopId), eq(o.id, operationId)));
+
+        await this.reverseCash(tx, actor, draft.businessDate, draft.reason, eq(cashTransactions.operationId, operationId));
+        // Tính lại từ các lần thu chưa đảo (data-model mục 4). Hợp đồng đã đóng thì thao tác mới nhất chính là lần đóng,
+        // nên huỷ thao tác mới nhất luôn để hợp đồng ở trạng thái đang góp.
+        await tx
+          .update(c)
+          .set({
+            amountPaid: sql`coalesce((
+              SELECT sum(t.amount) FROM cash_transactions t
+              WHERE t.shop_id = ${c.shopId} AND t.installment_contract_id = ${c.id} AND t.type = 'installment_payment'
+                AND NOT EXISTS (SELECT 1 FROM cash_transactions r WHERE r.reverses_id = t.id)
+            ), 0)`,
+            status: "active",
+            closedAt: null,
+          })
+          .where(and(eq(c.shopId, actor.shopId), eq(c.id, contractId)));
+        await tx.insert(auditLogs).values({
+          shopId: actor.shopId,
+          userId: actor.userId,
+          entity: AUDIT_ENTITY,
+          entityId: contractId,
+          action: "reverse",
+          changedFields: latest.kind === "close" ? ["amount_paid", "status"] : ["amount_paid"],
+        });
+        return true;
+      });
+    } catch (error) {
+      throw dbCause(error);
+    }
+  }
+
+  async deleteContract(actor: Actor, draft: DeletionDraft): Promise<boolean> {
+    const { contractId } = draft;
+    const c = installmentContracts;
+    try {
+      return await this.db.transaction(async (tx) => {
+        const updated = await tx
+          .update(c)
+          .set({ deletedAt: sql`now()`, deletedBy: actor.userId, deletedReason: draft.reason })
+          .where(and(eq(c.shopId, actor.shopId), eq(c.id, contractId), isNull(c.deletedAt)))
+          .returning({ id: c.id });
+        if (updated.length === 0) return false;
+        await this.reverseCash(tx, actor, draft.businessDate, draft.reason, eq(cashTransactions.installmentContractId, contractId));
+        await tx.insert(auditLogs).values({
+          shopId: actor.shopId,
+          userId: actor.userId,
+          entity: AUDIT_ENTITY,
+          entityId: contractId,
+          action: "delete",
+          changedFields: ["deleted_at", "deleted_reason"],
+        });
+        return true;
+      });
+    } catch (error) {
+      throw dbCause(error);
+    }
+  }
+
+  /** Đảo mọi dòng trả góp chưa đảo khớp `filter` trong cửa hàng, chung một operation_id mới, ghi chú là lý do. */
+  private async reverseCash(tx: Tx, actor: Actor, date: LocalDate, reason: string, filter: SQL): Promise<void> {
+    const t = cashTransactions;
+    const originals = await tx
+      .select({ id: t.id, installmentContractId: t.installmentContractId, amount: t.amount })
+      .from(t)
+      .where(
+        and(
+          eq(t.shopId, actor.shopId),
+          filter,
+          isNotNull(t.installmentContractId),
+          sql`${t.type} <> 'reversal'`,
+          sql`NOT EXISTS (SELECT 1 FROM cash_transactions r WHERE r.reverses_id = ${t.id})`,
+        ),
+      );
+    await this.appendCashEntries(
+      tx,
+      { shopId: actor.shopId, createdBy: actor.userId, businessDate: date, note: reason },
+      originals.map((row) => ({
+        type: "reversal",
+        reversesId: row.id,
+        contractId: null,
+        installmentContractId: row.installmentContractId,
+        amount: Money.of(row.amount),
+      })),
+    );
   }
 }
 

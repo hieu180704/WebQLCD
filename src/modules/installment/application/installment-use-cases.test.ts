@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 import { Money } from "@/shared/kernel/money";
 import { CloseInstallment } from "./close-installment";
 import { CreateInstallment, type CreateInstallmentInput } from "./create-installment";
+import { DeleteInstallment } from "./delete-installment";
 import { PayInstallment } from "./pay-installment";
-import type { InstallmentDraft, InstallmentRecord, InstallmentRepository, PaymentDraft } from "./ports";
+import type { InstallmentDraft, InstallmentRecord, InstallmentRepository, LatestOperation, PaymentDraft } from "./ports";
+import { ReverseInstallmentOperation } from "./reverse-installment-operation";
 
 const ACTOR = { userId: "u1", shopId: "s1" };
 // 10:00 ngày 20/10/2026 giờ Việt Nam.
@@ -26,6 +28,9 @@ function fakeRepo(overrides: Partial<InstallmentRepository> = {}) {
     listTransactions: unused,
     listPayments: unused,
     findRecord: unused,
+    findLatestOperation: unused,
+    reverseOperation: unused,
+    deleteContract: unused,
     async recordPayment(_actor, draft) {
       payments.push(draft);
       return true;
@@ -111,5 +116,43 @@ describe("CloseInstallment", () => {
     });
     expect(await close(fakeRepo({ findRecord: async () => record(1_800_000) }).repo, 1_600_000, 0)).toEqual({ ok: false, error: "stale" });
     expect(await close(fakeRepo({ findRecord: async () => record(0, "closed") }).repo, 0, 0)).toEqual({ ok: false, error: "closed" });
+  });
+});
+
+describe("ReverseInstallmentOperation", () => {
+  const op = (kind: LatestOperation["kind"], id = "op2"): LatestOperation => ({
+    id,
+    kind,
+    createdAt: NOW,
+    createdByName: "Chủ",
+    cashNet: vnd(200_000),
+  });
+  const reverse = (repo: InstallmentRepository, operationId = "op2") =>
+    new ReverseInstallmentOperation(repo).execute(ACTOR, { contractId: "i1", operationId, reason: "nhầm" }, NOW);
+
+  it("chỉ huỷ thao tác mới nhất, không huỷ giải ngân", async () => {
+    let reversed = 0;
+    const ok = fakeRepo({ findLatestOperation: async () => op("pay"), reverseOperation: async () => (reversed++, true) });
+    expect(await reverse(ok.repo)).toEqual({ ok: true });
+    expect(reversed).toBe(1);
+    expect(await reverse(fakeRepo({ findLatestOperation: async () => op("pay", "op3") }).repo)).toEqual({ ok: false, error: "stale" });
+    expect(await reverse(fakeRepo({ findLatestOperation: async () => op("disbursement") }).repo)).toEqual({
+      ok: false,
+      error: "not_reversible",
+    });
+    expect(await reverse(fakeRepo({ findLatestOperation: async () => null }).repo)).toEqual({ ok: false, error: "not_found" });
+  });
+});
+
+describe("DeleteInstallment", () => {
+  it("gõ lại mã không phân biệt hoa thường; sai mã thì không xoá", async () => {
+    let deleted = 0;
+    const { repo } = fakeRepo({ findRecord: async () => record(0), deleteContract: async () => (deleted++, true) });
+    const remove = (confirmCode: string) =>
+      new DeleteInstallment(repo).execute(ACTOR, { contractId: "i1", confirmCode, reason: "nhầm" }, NOW);
+    expect(await remove("TG-2")).toEqual({ ok: false, error: "code_mismatch" });
+    expect(deleted).toBe(0);
+    expect(await remove(" tg-1 ")).toEqual({ ok: true, code: "TG-1" });
+    expect(deleted).toBe(1);
   });
 });

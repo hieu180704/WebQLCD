@@ -79,6 +79,20 @@ export type PaymentDraft = {
   businessDate: LocalDate;
 };
 
+/** Thao tác mới nhất chưa huỷ của hợp đồng. */
+export type LatestOperation = {
+  id: string;
+  kind: OperationKind;
+  createdAt: Date;
+  createdByName: string;
+  /** Tổng có dấu các dòng sổ két của thao tác; huỷ làm két thay đổi −cashNet. */
+  cashNet: Money;
+};
+
+export type ReversalDraft = { contractId: string; operationId: string; reason: string; businessDate: LocalDate };
+
+export type DeletionDraft = { contractId: string; reason: string; businessDate: LocalDate };
+
 /** Hợp đồng trả góp của một cửa hàng; mọi truy vấn lọc theo shopId của phiên. */
 export interface InstallmentRepository {
   create(actor: Actor, draft: InstallmentDraft): Promise<CreatedInstallment>;
@@ -97,4 +111,14 @@ export interface InstallmentRepository {
    * một transaction. Chỉ ghi khi hợp đồng còn góp, chưa xoá và `amount_paid` bằng `expectedPaid`; không thì trả false.
    */
   recordPayment(actor: Actor, draft: PaymentDraft): Promise<boolean>;
+  /** Thao tác mới nhất chưa huỷ của hợp đồng chưa xoá, hoặc null. */
+  findLatestOperation(shopId: string, contractId: string): Promise<LatestOperation | null>;
+  /**
+   * Huỷ thao tác: đánh dấu đã huỷ, đảo mọi dòng sổ két chung id, tính lại `amount_paid` từ các lần thu chưa đảo (data-model
+   * mục 4), mở lại hợp đồng (thao tác mới nhất của hợp đồng đã đóng luôn là lần đóng); audit; một transaction. Chỉ ghi khi
+   * `operationId` vẫn là thao tác mới nhất chưa huỷ và không phải giải ngân; không thì trả false.
+   */
+  reverseOperation(actor: Actor, draft: ReversalDraft): Promise<boolean>;
+  /** Xoá mềm hợp đồng chưa xoá kèm lý do, đảo mọi dòng sổ két chưa đảo trong một thao tác, audit; không thấy thì false. */
+  deleteContract(actor: Actor, draft: DeletionDraft): Promise<boolean>;
 }

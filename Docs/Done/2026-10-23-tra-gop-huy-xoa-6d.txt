@@ -1,0 +1,10 @@
+# 2026-10-23: Lát 6d trả góp — huỷ giao dịch mới nhất, xoá hợp đồng — [verified: lint, typecheck, unit/DB test, e2e]
+
+- Nhánh: `feat/tra-gop`. Commit: "Lát 6d: huỷ giao dịch, xoá hợp đồng trả góp".
+- Đã làm:
+  1. Repository: `findLatestOperation`, `reverseOperation` (khoá dòng, đảo dòng sổ két của thao tác, tính lại `amount_paid` từ lần thu chưa đảo, mở lại hợp đồng), `deleteContract` (xoá mềm + lý do, đảo mọi dòng chưa đảo một thao tác).
+  2. Use case `ReverseInstallmentOperation`, `DeleteInstallment` (gõ lại mã không phân biệt hoa thường); action chỉ chủ tiệm (`requireSession({ role: "owner", write: true })`).
+  3. Trang chi tiết: nút "Huỷ giao dịch gần nhất" ở lịch sử, nút "Xoá" (bảng đảo giải ngân / đảo N lần thu / quỹ két thay đổi như mockup); hợp đồng đã xoá hiện nhãn "Đã xoá" + lý do, không còn thao tác.
+  4. Docs: core-spec, data-model.
+- Lưu ý cho phiên sau:
+  - Hợp đồng đã xoá chưa có lối vào từ danh sách (bộ lọc "Đã xoá" làm ở 6e).

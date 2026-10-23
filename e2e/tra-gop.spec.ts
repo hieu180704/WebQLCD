@@ -137,3 +137,45 @@ test("đóng hợp đồng: tất toán sớm được giảm, hợp đồng chu
   await page.goto("/tra-gop");
   await expect(page.getByRole("row", { name: /TG-1/ })).toContainText("Đã đóng");
 });
+
+test("chủ tiệm huỷ giao dịch mới nhất (huỷ tất toán mở lại hợp đồng), xoá hợp đồng", async ({ page }) => {
+  await signIn(page);
+  await page.goto("/tra-gop");
+  await page.getByRole("link", { name: "TG-1" }).click();
+  await expect(page.getByRole("heading", { name: "Hợp đồng TG-1" })).toBeVisible();
+  const history = page.getByRole("region", { name: "Lịch sử giao dịch" });
+  const stats = page.getByRole("region", { name: "Số liệu" });
+
+  // Huỷ tất toán: hợp đồng mở lại, đã thu về 250.000.
+  await history.getByRole("button", { name: "Huỷ giao dịch gần nhất" }).click();
+  const reverse = page.getByRole("dialog", { name: "Huỷ giao dịch" });
+  await expect(reverse).toContainText("Đóng hợp đồng (tất toán)");
+  await expect(reverse).toContainText("+4.500.000");
+  await reverse.getByLabel("Lý do huỷ").fill("Nhập nhầm tất toán");
+  await reverse.getByRole("button", { name: "Huỷ giao dịch" }).click();
+  await expect(page.getByRole("status")).toContainText("Đã huỷ giao dịch");
+  await expect(page.getByRole("button", { name: "Đóng tiền góp" })).toBeVisible();
+  await expect(stats.getByText("Đã thu").locator("..")).toContainText("250.000");
+  await expect(history.getByRole("row", { name: /Huỷ giao dịch — Nhập nhầm tất toán/ })).toContainText("4.500.000");
+  await expect(history.getByRole("row", { name: /Tất toán/ })).toContainText("Đã huỷ");
+
+  // Xoá: gõ sai mã thì từ chối; đúng mã (chữ thường) thì đảo giải ngân và lần góp còn lại.
+  await page.getByRole("button", { name: "Xoá", exact: true }).click();
+  const remove = page.getByRole("dialog", { name: "Xoá hợp đồng TG-1" });
+  await expect(remove.getByText("Đảo giải ngân").locator("..")).toContainText("+4.000.000");
+  await expect(remove.getByText("Đảo 1 lần thu").locator("..")).toContainText("−250.000");
+  await expect(remove.getByText("Quỹ két thay đổi").locator("..")).toContainText("+3.750.000");
+  await remove.getByLabel("Lý do xoá").fill("Khách huỷ hợp đồng");
+  await remove.getByLabel("Gõ mã hợp đồng để xác nhận").fill("TG-2");
+  await remove.getByRole("button", { name: "Xoá hợp đồng" }).click();
+  await expect(remove.getByRole("alert")).toContainText("không khớp");
+  await remove.getByLabel("Gõ mã hợp đồng để xác nhận").fill("tg-1");
+  await remove.getByRole("button", { name: "Xoá hợp đồng" }).click();
+  await expect(page.getByText(/^Đã xoá \d{2}\/\d{2}\/\d{4}$/)).toBeVisible();
+  await expect(page.getByText("Lý do: Khách huỷ hợp đồng")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Đóng tiền góp" })).toHaveCount(0);
+  await expect(history.getByRole("button", { name: "Huỷ giao dịch gần nhất" })).toHaveCount(0);
+
+  await page.goto("/tra-gop");
+  await expect(page.getByRole("row", { name: /TG-1/ })).toHaveCount(0);
+});

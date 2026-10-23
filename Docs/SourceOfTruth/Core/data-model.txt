@@ -85,6 +85,8 @@
 - Cùng cách với `contract_operations` (mục 3.4a, lý do ở `Docs/Decisions/2026-10-22-contract-operations.txt`): `shop_id`, `installment_contract_id`, `kind` (`disbursement` / `pay` / `close`), `created_by`, `created_at` (`clock_timestamp()` sau khi khoá dòng hợp đồng), `reversed_at`, `reversed_by`, `reverse_reason` (cùng có hoặc cùng trống).
 - `id` = `operation_id` của các dòng sổ két do thao tác sinh ra. CHECK: `disbursement` không bao giờ bị đánh dấu huỷ. Index `(shop_id, installment_contract_id, created_at)`: thao tác mới nhất.
 - Không dùng chung bảng với cầm đồ vì khoá ngoại kép `(shop_id, contract_id)` trỏ tới `contracts`.
+- Huỷ: khoá dòng hợp đồng `FOR UPDATE`, đánh dấu `reversed_*`, đảo các dòng sổ két chung `id`, tính lại `amount_paid` theo mục 4, đặt `status = 'active'`, `closed_at = NULL` (hợp đồng đã đóng thì thao tác mới nhất luôn là lần đóng). Audit `reverse`.
+- Xoá hợp đồng: như `contracts` (mục 3.6), đảo mọi dòng chưa đảo chung một `operation_id` mới không thuộc `installment_operations`, `note` = lý do; audit `delete`.
 
 ## 3.6 `cash_transactions` (nguồn sự thật về tiền)
 - `shop_id`, `operation_id`, `occurred_at`, `business_date`, `amount` (có dấu: + thu, − chi), `type`.

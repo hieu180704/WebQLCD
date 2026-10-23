@@ -4,6 +4,7 @@ import {
   dueStatus,
   dueThrough,
   endDate,
+  isReversible,
   paymentOptions,
   periodsCovered,
   progress,
@@ -13,7 +14,7 @@ import {
   type Progress,
   type SchedulePeriod,
 } from "../domain/installment";
-import type { InstallmentDetailRow, InstallmentRepository, InstallmentTransaction } from "./ports";
+import type { InstallmentDetailRow, InstallmentRepository, InstallmentTransaction, LatestOperation } from "./ports";
 
 export type { DueStatus, PaymentOption, SchedulePeriod };
 
@@ -40,6 +41,10 @@ export type InstallmentDetailView = {
   /** Lịch đang hiện thu gọn (còn kỳ khác chưa hiện). */
   scheduleTruncated: boolean;
   history: HistoryLine[];
+  /** Số lần thu chưa huỷ (xoá hợp đồng đảo từng lần). */
+  paymentCount: number;
+  /** Thao tác huỷ được (mới nhất chưa huỷ, không phải giải ngân); null nếu không có hoặc hợp đồng đã xoá. */
+  reversible: LatestOperation | null;
   /** Chỉ khi hợp đồng đang góp, chưa xoá. */
   open: { dueStatus: DueStatus; paymentOptions: PaymentOption[] } | null;
 };
@@ -50,10 +55,11 @@ export class GetInstallmentDetail {
   /** `shopId` lấy từ session (guard); hợp đồng của cửa hàng khác thì trả null. `fullSchedule` = hiện đủ mọi kỳ. */
   async execute(shopId: string, contractId: string, fullSchedule: boolean, now = new Date()): Promise<InstallmentDetailView | null> {
     const today = businessDate(now);
-    const [contract, transactions, payments] = await Promise.all([
+    const [contract, transactions, payments, latest] = await Promise.all([
       this.installments.findDetail(shopId, contractId),
       this.installments.listTransactions(shopId, contractId, INSTALLMENT_HISTORY_LIMIT),
       this.installments.listPayments(shopId, contractId),
+      this.installments.findLatestOperation(shopId, contractId),
     ]);
     if (!contract) return null;
     const p = progress(contract, today);
@@ -94,6 +100,8 @@ export class GetInstallmentDetail {
       schedule,
       scheduleTruncated: from > 1 || to < p.periods,
       history,
+      paymentCount: payments.length,
+      reversible: latest && isReversible(latest.kind) ? latest : null,
       open,
     };
   }

@@ -26,9 +26,11 @@ import { ThrottledPasswordChanger } from "@/modules/identity/infrastructure/thro
 import { GetSubscription } from "@/modules/shop/application/get-subscription";
 import { CloseInstallment } from "@/modules/installment/application/close-installment";
 import { CreateInstallment } from "@/modules/installment/application/create-installment";
+import { DeleteInstallment } from "@/modules/installment/application/delete-installment";
 import { GetInstallmentDetail } from "@/modules/installment/application/get-installment-detail";
 import { ListInstallments } from "@/modules/installment/application/list-installments";
 import { PayInstallment } from "@/modules/installment/application/pay-installment";
+import { ReverseInstallmentOperation } from "@/modules/installment/application/reverse-installment-operation";
 import { DrizzleInstallmentRepository } from "@/modules/installment/infrastructure/drizzle-installment-repository";
 import { ChangePrincipal } from "@/modules/pawn/application/change-principal";
 import { CreateContract } from "@/modules/pawn/application/create-contract";
@@ -104,6 +106,8 @@ export const listInstallments = new ListInstallments(installments);
 export const getInstallmentDetail = new GetInstallmentDetail(installments);
 export const payInstallment = new PayInstallment(installments);
 export const closeInstallment = new CloseInstallment(installments);
+export const reverseInstallmentOperation = new ReverseInstallmentOperation(installments);
+export const deleteInstallment = new DeleteInstallment(installments);
 
 export const getDashboardStats = new GetDashboardStats(new DrizzleDashboardStats(db));
 export const listCustomers = new ListCustomers(

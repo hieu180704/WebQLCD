@@ -2,12 +2,29 @@
 
 import { refresh } from "next/cache";
 import { redirect } from "next/navigation";
-import { AccessDeniedError, closeInstallment, createInstallment, payInstallment, requireSession } from "@/composition-root";
+import {
+  AccessDeniedError,
+  closeInstallment,
+  createInstallment,
+  deleteInstallment,
+  payInstallment,
+  requireSession,
+  reverseInstallmentOperation,
+} from "@/composition-root";
 import { formatVnd } from "@/shared/kernel/vnd";
 import type { CloseInstallmentError } from "../application/close-installment";
 import type { InstallmentRuleViolation } from "../application/create-installment";
+import type { DeleteInstallmentError } from "../application/delete-installment";
 import type { PayInstallmentError } from "../application/pay-installment";
-import { INSTALLMENT_FORM_FIELDS, closeInstallmentSchema, installmentFormSchema, payInstallmentSchema } from "./schemas";
+import type { ReverseInstallmentOperationError } from "../application/reverse-installment-operation";
+import {
+  INSTALLMENT_FORM_FIELDS,
+  closeInstallmentSchema,
+  deleteSchema,
+  installmentFormSchema,
+  payInstallmentSchema,
+  reverseSchema,
+} from "./schemas";
 
 export type CreateInstallmentState = { error: string | null; values: Record<string, string> };
 
@@ -130,6 +147,76 @@ export async function closeInstallmentAction(previous: InstallmentOperationState
     return fail(CLOSE_MESSAGE[result.error]);
   }
   // Hợp đồng đã đóng: trang tải lại không còn hộp thoại; nhãn trạng thái, lịch sử và dòng "Giảm khi tất toán" cho thấy kết quả.
+  refresh();
+  return { error: null, message: null, done: previous.done + 1 };
+}
+
+const OWNER_DENIED: Record<AccessDeniedError["reason"], string> = {
+  inactive: "Tài khoản đã bị vô hiệu hoá.",
+  role: "Chỉ chủ tiệm được thực hiện thao tác này.",
+  read_only: "Cửa hàng đã hết hạn sử dụng, không ghi được giao dịch.",
+};
+
+const REVERSE_MESSAGE: Record<ReverseInstallmentOperationError, string> = {
+  not_found: "Không tìm thấy giao dịch để huỷ.",
+  stale: "Đã có giao dịch mới hơn hoặc giao dịch vừa bị huỷ. Số liệu đã tải lại, kiểm tra rồi thử lại.",
+  not_reversible: "Không huỷ riêng được giải ngân; muốn bỏ hợp đồng thì xoá hợp đồng.",
+};
+
+export async function reverseInstallmentAction(
+  previous: InstallmentOperationState,
+  formData: FormData,
+): Promise<InstallmentOperationState> {
+  const fail = (error: string): InstallmentOperationState => ({ ...previous, error, message: null });
+  let actor;
+  try {
+    actor = await requireSession({ role: "owner", write: true });
+  } catch (error) {
+    if (error instanceof AccessDeniedError) return fail(OWNER_DENIED[error.reason]);
+    throw error;
+  }
+
+  const parsed = reverseSchema.safeParse({
+    contractId: formData.get("contractId"),
+    operationId: formData.get("operationId"),
+    reason: String(formData.get("reason") ?? ""),
+  });
+  if (!parsed.success) return fail(parsed.error.issues[0].message);
+
+  const result = await reverseInstallmentOperation.execute({ userId: actor.userId, shopId: actor.shopId }, parsed.data);
+  if (!result.ok) {
+    if (result.error === "stale") refresh();
+    return fail(REVERSE_MESSAGE[result.error]);
+  }
+  refresh();
+  return { error: null, message: "Đã huỷ giao dịch, bút toán đảo ghi vào quỹ két hôm nay.", done: previous.done + 1 };
+}
+
+const DELETE_MESSAGE: Record<DeleteInstallmentError, string> = {
+  not_found: "Không tìm thấy hợp đồng (có thể đã bị xoá).",
+  code_mismatch: "Mã hợp đồng gõ lại không khớp.",
+};
+
+export async function deleteInstallmentAction(previous: InstallmentOperationState, formData: FormData): Promise<InstallmentOperationState> {
+  const fail = (error: string): InstallmentOperationState => ({ ...previous, error, message: null });
+  let actor;
+  try {
+    actor = await requireSession({ role: "owner", write: true });
+  } catch (error) {
+    if (error instanceof AccessDeniedError) return fail(OWNER_DENIED[error.reason]);
+    throw error;
+  }
+
+  const parsed = deleteSchema.safeParse({
+    contractId: formData.get("contractId"),
+    confirmCode: String(formData.get("confirmCode") ?? ""),
+    reason: String(formData.get("reason") ?? ""),
+  });
+  if (!parsed.success) return fail(parsed.error.issues[0].message);
+
+  const result = await deleteInstallment.execute({ userId: actor.userId, shopId: actor.shopId }, parsed.data);
+  if (!result.ok) return fail(DELETE_MESSAGE[result.error]);
+  // Hợp đồng đã xoá vẫn xem được: trang tải lại hiện nhãn "Đã xoá" kèm lý do.
   refresh();
   return { error: null, message: null, done: previous.done + 1 };
 }
