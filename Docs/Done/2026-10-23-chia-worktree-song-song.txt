@@ -1,0 +1,10 @@
+# 2026-10-23: Chia việc còn lại thành 3 worktree chạy song song — [verified: e2e 35/35 ở cổng 3105; 3 DB đủ 10 migration + seed]
+
+- Commit: 1cbbb1c (E2E_PORT), worklog/handoff: commit đóng phiên
+- Đã làm:
+  1. Liệt kê chức năng còn thiếu so với mockup (handoff mục 3): trả góp, báo cáo, Excel, trang sao lưu, thu phí, cài đặt, cột nhân viên, chọn KTV, nút "+ Cầm đồ", tài khoản (email, captcha), dọn shadcn, deploy thật.
+  2. Người dùng duyệt chia đợt 1 thành 3 nhánh không đụng nhau: `feat/tra-gop`, `feat/bao-cao`, `feat/cai-dat` (phạm vi file từng nhánh: handoff mục 3).
+  3. `playwright.config.ts` đọc cổng từ `E2E_PORT` (mặc định 3100).
+  4. Tạo worktree `C:/Project/WebQLCD-tragop|-baocao|-caidat` (từ 1cbbb1c), `npm ci`; DB `webqlcd_tragop|_baocao|_caidat` (owner `webqlcd_app`) đã migrate + seed. Người dùng chạy script chép env (đổi DB, `E2E_PORT` 3101/3102/3103) vì hook chặn agent đụng `.env`.
+- Trạng thái: chuẩn bị xong; người dùng mở 3 session ở 3 worktree với prompt A/B/C (gate: chỉ sửa file trong phạm vi, không `db:start`/`db:stop`, không merge vào main).
+- Lưu ý cho phiên sau: chạy chung một thư mục bị loại vì dùng chung index git, `.next`, cổng e2e, DB dev và số migration.
