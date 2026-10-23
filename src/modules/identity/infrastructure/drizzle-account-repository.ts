@@ -4,7 +4,7 @@ import { DrizzleQueryError, and, asc, eq, isNull, ne, sql } from "drizzle-orm";
 import { DatabaseError } from "pg";
 import { hashPassword } from "@/shared/infrastructure/auth/password";
 import type { Db } from "@/shared/infrastructure/db/client";
-import { accounts, auditLogs, contracts, sessions, shops, users } from "@/shared/infrastructure/db/schema";
+import { accounts, auditLogs, contracts, installmentContracts, sessions, shops, users } from "@/shared/infrastructure/db/schema";
 import { BUSINESS_TIME_ZONE } from "@/shared/kernel/local-date";
 import type {
   Actor,
@@ -71,19 +71,21 @@ export class DrizzleAccountRepository implements OwnerRegistrar, StaffRepository
   }
 
   async listStaff(shopId: string, limit: number, monthStart: string): Promise<StaffMember[]> {
-    // Đếm gộp một lần theo staff_id (không truy vấn từng người); ngày tạo so theo giờ Việt Nam.
+    // Đếm gộp một lần theo staff_id cho mỗi bảng hợp đồng (không truy vấn từng người); ngày tạo so theo giờ Việt Nam.
+    const since = sql`(${monthStart}::date::timestamp AT TIME ZONE ${BUSINESS_TIME_ZONE})`;
     const monthly = this.db
       .select({ staffId: contracts.staffId, n: sql<number>`count(*)::int`.as("n") })
       .from(contracts)
-      .where(
-        and(
-          eq(contracts.shopId, shopId),
-          isNull(contracts.deletedAt),
-          sql`${contracts.createdAt} >= (${monthStart}::date::timestamp AT TIME ZONE ${BUSINESS_TIME_ZONE})`,
-        ),
-      )
+      .where(and(eq(contracts.shopId, shopId), isNull(contracts.deletedAt), sql`${contracts.createdAt} >= ${since}`))
       .groupBy(contracts.staffId)
       .as("monthly");
+    const i = installmentContracts;
+    const monthlyInstallment = this.db
+      .select({ staffId: i.staffId, n: sql<number>`count(*)::int`.as("installment_n") })
+      .from(i)
+      .where(and(eq(i.shopId, shopId), isNull(i.deletedAt), sql`${i.createdAt} >= ${since}`))
+      .groupBy(i.staffId)
+      .as("monthly_installment");
     return this.db
       .select({
         id: users.id,
@@ -93,10 +95,11 @@ export class DrizzleAccountRepository implements OwnerRegistrar, StaffRepository
         isActive: users.isActive,
         createdAt: users.createdAt,
         lastLoginAt: users.lastLoginAt,
-        contractsThisMonth: sql<number>`coalesce(${monthly.n}, 0)`.mapWith(Number),
+        contractsThisMonth: sql<number>`coalesce(${monthly.n}, 0) + coalesce(${monthlyInstallment.n}, 0)`.mapWith(Number),
       })
       .from(users)
       .leftJoin(monthly, eq(monthly.staffId, users.id))
+      .leftJoin(monthlyInstallment, eq(monthlyInstallment.staffId, users.id))
       .where(eq(users.shopId, shopId))
       .orderBy(sql`${users.role} = 'owner' DESC`, asc(users.createdAt))
       .limit(limit);

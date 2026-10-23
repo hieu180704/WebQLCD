@@ -6,8 +6,10 @@ import { GetContractReport, type ContractReportSource } from "./get-contract-rep
 const EMPTY = {
   securedLending: Money.ZERO,
   unsecuredLending: Money.ZERO,
+  installmentRemaining: Money.ZERO,
   accruedInterest: Money.ZERO,
   overdue: 0,
+  installmentLate: 0,
   opened: 0,
   closed: 0,
   deleted: 0,

@@ -303,11 +303,30 @@ describe.skipIf(!url)("DrizzleAccountRepository", () => {
         contract(ownerA.shopId, customerA, ownerA.id, "2026-10-02T03:00:00Z"),
         contract(ownerB.shopId, customerB, ownerB.id, "2026-10-02T03:00:00Z"),
       ]);
+      const installment = (shopId: string, customerId: string, staffId: string, createdAt: string, deleted = false) => ({
+        shopId,
+        code: `TG-${code++}`,
+        customerId,
+        amountGiven: 4_000_000n,
+        totalDue: 5_000_000n,
+        totalDays: 50,
+        periodDays: 2,
+        startDate: "2026-10-01",
+        staffId,
+        createdAt: new Date(createdAt),
+        ...(deleted ? { deletedAt: new Date(createdAt), deletedBy: staffId, deletedReason: "Nhập nhầm" } : {}),
+      });
+      await db.insert(schema.installmentContracts).values([
+        installment(ownerA.shopId, customerA, staff.id, "2026-10-03T03:00:00Z"),
+        installment(ownerA.shopId, customerA, staff.id, "2026-10-04T03:00:00Z", true),
+        installment(ownerA.shopId, customerA, staff.id, "2026-09-30T16:59:00Z"),
+        installment(ownerB.shopId, customerB, ownerB.id, "2026-10-02T03:00:00Z"),
+      ]);
 
       const rows = await repo.listStaff(ownerA.shopId, 10, MONTH);
       expect(rows.map((m) => ({ role: m.role, contracts: m.contractsThisMonth, lastLoginAt: m.lastLoginAt }))).toEqual([
         { role: "owner", contracts: 1, lastLoginAt: null },
-        { role: "staff", contracts: 2, lastLoginAt: loginAt },
+        { role: "staff", contracts: 3, lastLoginAt: loginAt },
       ]);
     }));
 });
