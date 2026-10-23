@@ -230,16 +230,18 @@ describe.skipIf(!url)("DrizzleContractRepository", () => {
       expect(counts).toEqual({ customers: 0, counters: 0, cash: 0 });
     }));
 
-  it("danh sách: mới nhất trước, phân trang keyset, SĐT đã che, lãi suất đọc đúng", () =>
+  it("danh sách: mới nhất trước, phân trang keyset, SĐT và CCCD đã che, lãi suất đọc đúng", () =>
     inTx(async (db) => {
       const actor = await seedShop(db);
-      for (let i = 0; i < 3; i++) await repo(db).create(actor, draft({ interestType: "percent_per_month", interestRate: 15_000n }));
+      await repo(db).create(actor, draft({ interestType: "percent_per_month", interestRate: 15_000n }, { cccd: "001099012345" }));
+      for (let i = 0; i < 2; i++) await repo(db).create(actor, draft({ interestType: "percent_per_month", interestRate: 15_000n }));
       const page1 = await repo(db).list(actor.shopId, ALL, TODAY, null, 2);
       expect(page1.map((c) => c.code)).toEqual(["CD-3", "CD-2"]);
-      expect(page1[0]).toMatchObject({ customerPhone: "091****678", interestRate: 15_000n, interestType: "percent_per_month" });
+      expect(page1[0]).toMatchObject({ customerPhone: "091****678", customerCccdMasked: null, interestRate: 15_000n, interestType: "percent_per_month" });
       expect(page1[0].principal.toBigInt()).toBe(5_000_000n);
       const page2 = await repo(db).list(actor.shopId, ALL, TODAY, page1[1].id, 2);
       expect(page2.map((c) => c.code)).toEqual(["CD-1"]);
+      expect(page2[0].customerCccdMasked).toBe("********2345");
     }));
 
   it("lọc: trạng thái (hạn theo hôm nay, lãi suất 0 không đến hạn), loại, tìm mã / tên / tài sản không dấu / SĐT, CCCD; cách ly cửa hàng", () =>

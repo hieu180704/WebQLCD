@@ -24,6 +24,8 @@ export type InstallmentListRow = {
   customerName: string;
   /** Đã che giữa (web-security). */
   customerPhone: string | null;
+  /** Chỉ 4 số cuối (cột `cccd_masked`). */
+  customerCccdMasked: string | null;
   amountGiven: Money;
   totalDue: Money;
   amountPaid: Money;
@@ -34,7 +36,7 @@ export type InstallmentListRow = {
   deleted: boolean;
 };
 
-export type InstallmentDetailRow = Omit<InstallmentListRow, "customerPhone" | "deleted"> & {
+export type InstallmentDetailRow = Omit<InstallmentListRow, "customerPhone" | "customerCccdMasked" | "deleted"> & {
   note: string | null;
   staffName: string;
   /** Ngày nghiệp vụ lúc đóng hợp đồng; null khi còn góp. */

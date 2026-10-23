@@ -5,6 +5,7 @@ import { formatRate } from "../domain/interest/rate";
 import type { ContractFilter, ContractListRow, ContractRepository } from "./ports";
 
 export const CONTRACT_PAGE_SIZE = 50;
+export const EXPORT_BATCH_SIZE = 500;
 
 export type ContractListItem = ContractListRow & {
   /** Lãi suất dạng chuỗi ("3", "1.5") để hiển thị. */
@@ -25,16 +26,29 @@ export class ListContracts {
     const rows = await this.contracts.list(shopId, filter, today, after, CONTRACT_PAGE_SIZE + 1);
     const hasMore = rows.length > CONTRACT_PAGE_SIZE;
     const page = hasMore ? rows.slice(0, CONTRACT_PAGE_SIZE) : rows;
-    const items = page.map((row) => {
-      // Hợp đồng đã xoá không còn lãi, hạn (kể cả khi xoá lúc đang mở).
-      const active = row.status === "active" && !row.deleted;
-      return {
-        ...row,
-        rateText: formatRate(row.interestRate),
-        accruedInterest: active ? accruedInterest(row, today) : null,
-        nextInterestDue: active ? nextInterestDue(row) : null,
-      };
-    });
-    return { items, nextAfter: hasMore ? page[page.length - 1].id : null, today };
+    return { items: page.map((row) => toItem(row, today)), nextAfter: hasMore ? page[page.length - 1].id : null, today };
   }
+
+  /** Mọi hợp đồng khớp bộ lọc, từng lô theo keyset (xuất Excel); cùng một "hôm nay" cho cả file. */
+  async *batches(shopId: string, filter: ContractFilter, now = new Date()): AsyncGenerator<ContractListItem[]> {
+    const today = businessDate(now);
+    let after: string | null = null;
+    for (;;) {
+      const rows = await this.contracts.list(shopId, filter, today, after, EXPORT_BATCH_SIZE);
+      if (rows.length > 0) yield rows.map((row) => toItem(row, today));
+      if (rows.length < EXPORT_BATCH_SIZE) return;
+      after = rows[rows.length - 1].id;
+    }
+  }
+}
+
+function toItem(row: ContractListRow, today: LocalDate): ContractListItem {
+  // Hợp đồng đã xoá không còn lãi, hạn (kể cả khi xoá lúc đang mở).
+  const active = row.status === "active" && !row.deleted;
+  return {
+    ...row,
+    rateText: formatRate(row.interestRate),
+    accruedInterest: active ? accruedInterest(row, today) : null,
+    nextInterestDue: active ? nextInterestDue(row) : null,
+  };
 }

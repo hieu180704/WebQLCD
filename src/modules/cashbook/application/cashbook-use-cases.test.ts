@@ -1,7 +1,7 @@
 // Use case sổ két với repository giả trong bộ nhớ.
 import { describe, expect, it } from "vitest";
 import { Money } from "@/shared/kernel/money";
-import { CASH_PAGE_SIZE, GetCashDay } from "./get-cash-day";
+import { CASH_PAGE_SIZE, EXPORT_BATCH_SIZE, GetCashDay, resolveCashDate } from "./get-cash-day";
 import type { CashLine, CashLineQuery, CashbookRepository, ManualEntry } from "./ports";
 import { RecordManualEntry } from "./record-manual-entry";
 import { ReverseManualEntry } from "./reverse-manual-entry";
@@ -96,6 +96,32 @@ describe("ReverseManualEntry", () => {
     expect(calls.reverse).toBeUndefined();
     expect(await use.execute(actor, "t1", "Nhập nhầm", now)).toBe("ok");
     expect(calls.reverse).toEqual({ id: "t1", reason: "Nhập nhầm", date: "2026-10-20" });
+  });
+});
+
+describe("GetCashDay.batches", () => {
+  it("đi hết keyset trong ngày, lô cuối ngắn hơn thì dừng, bộ lọc như danh sách", async () => {
+    const rows = Array.from({ length: EXPORT_BATCH_SIZE + 1 }, (_, i) => line(i));
+    const afters: (string | null)[] = [];
+    const { repo, calls } = fakeRepo();
+    repo.listDay = async (_shop, date, query, after, limit) => {
+      calls.date = date;
+      calls.query = query;
+      afters.push(after);
+      const start = after ? rows.findIndex((r) => r.id === after) + 1 : 0;
+      return rows.slice(start, start + limit);
+    };
+    const sizes: number[] = [];
+    for await (const batch of new GetCashDay(repo).batches("s", "2026-10-01", { group: "dong-lai", createdBy: "u1" })) sizes.push(batch.length);
+    expect(sizes).toEqual([EXPORT_BATCH_SIZE, 1]);
+    expect(afters).toEqual([null, `id-${EXPORT_BATCH_SIZE - 1}`]);
+    expect(calls).toMatchObject({ date: "2026-10-01", query: { types: ["interest_payment"], createdBy: "u1" } });
+  });
+
+  it("ngày xuất: mặc định hôm nay theo giờ Việt Nam, ngày tương lai quy về hôm nay", () => {
+    expect(resolveCashDate(null, now)).toBe("2026-10-20");
+    expect(resolveCashDate("2026-10-25", now)).toBe("2026-10-20");
+    expect(resolveCashDate("2026-09-30", now)).toBe("2026-09-30");
   });
 });
 

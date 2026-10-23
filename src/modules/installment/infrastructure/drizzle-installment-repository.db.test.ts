@@ -138,19 +138,21 @@ describe.skipIf(!url)("DrizzleInstallmentRepository", () => {
       expect(second.customer).toMatchObject({ reused: true, fullName: "Đỗ Minh Tâm" });
     }));
 
-  it("danh sách: mới nhất trước, che SĐT, phân trang keyset; cửa hàng khác không thấy", () =>
+  it("danh sách: mới nhất trước, che SĐT và CCCD, phân trang keyset; cửa hàng khác không thấy", () =>
     inTx(async (db) => {
       const actor = await seedShop(db);
       const other = await seedShop(db);
-      for (let i = 0; i < 3; i++) await repo(db).create(actor, draft());
+      await repo(db).create(actor, draft({}, { cccd: "001099012345" }));
+      for (let i = 0; i < 2; i++) await repo(db).create(actor, draft());
       await repo(db).create(other, draft());
 
       const page1 = await repo(db).list(actor.shopId, ALL, TODAY, null, 2);
       expect(page1.map((r) => r.code)).toEqual(["TG-3", "TG-2"]);
-      expect(page1[0]).toMatchObject({ customerPhone: "093****552", status: "active", deleted: false, periodDays: 2 });
+      expect(page1[0]).toMatchObject({ customerPhone: "093****552", customerCccdMasked: null, status: "active", deleted: false, periodDays: 2 });
       expect(page1[0].amountGiven.toBigInt()).toBe(4_000_000n);
       const page2 = await repo(db).list(actor.shopId, ALL, TODAY, page1[1].id, 2);
       expect(page2.map((r) => r.code)).toEqual(["TG-1"]);
+      expect(page2[0].customerCccdMasked).toBe("********2345");
       expect((await repo(db).list(other.shopId, ALL, TODAY, null, 10)).map((r) => r.code)).toEqual(["TG-1"]);
     }));
 

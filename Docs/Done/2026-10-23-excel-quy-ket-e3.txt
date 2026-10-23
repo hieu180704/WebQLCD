@@ -1,0 +1,12 @@
+# 2026-10-23: Xuất Excel lát E3 — /quy-ket — [verified: lint, typecheck, vitest 241/241, e2e 52/52 (gồm build)]
+
+- Nhánh: worktree wt-3, DB `webqlcd_wt3`, E2E_PORT 3102. Nối tiếp E1, E2 (`2026-10-23-excel-cam-do-e1.txt`, `2026-10-23-excel-tra-gop-e2.txt`). Xong đầu việc xuất Excel ba trang.
+- Đã làm:
+  1. `GetCashDay.batches` đọc keyset lô 500 trong một ngày, dùng chung cách quy nhóm loại → loại cụ thể với danh sách. Tách `resolveCashDate` (mặc định hôm nay, ngày tương lai quy về hôm nay) dùng chung cho trang và file.
+  2. Tách parse URL sang `cashbook/presentation/cash-query.ts`. Route `src/app/(app)/quy-ket/xuat-excel/route.ts` → `exportCashbook`: chỉ chủ tiệm (KTV 403), audit `export` entity `cash`. Cột: ngày, giờ, loại, đã huỷ, nội dung (như cột Nội dung trên trang: mã HĐ · nội dung phiếu, dòng đảo nêu dòng bị huỷ + lý do), thu, chi, người thực hiện.
+  3. Nút "Xuất Excel" ở hàng lọc giao dịch (vị trí theo mockup `quy-ket.html`), chỉ chủ tiệm, giữ ngày + bộ lọc.
+  4. e2e: xuất `/quy-ket` lọc "Chi khác" (nội dung bắt đầu bằng `-` có `'`), không lọc đủ dòng giải ngân; KTV bị chặn ở cả ba trang.
+- File: src/modules/cashbook/{application/get-cash-day.ts, index.ts, presentation/cash-query.ts, cashbook-page.tsx, export-cashbook.ts} + test, src/app/(app)/quy-ket/xuat-excel/route.ts, e2e/excel.spec.ts.
+- Lưu ý cho phiên sau:
+  - File quỹ két chỉ có danh sách giao dịch theo bộ lọc, không kèm 4 ô tổng két (bộ lọc không ảnh hưởng 4 ô; muốn thêm thì `xlsxResponse` cần hỗ trợ dòng tóm tắt trên đầu).
+  - Có sẵn từ trước, không thuộc lát này: bộ lọc loại ở `/quy-ket` chưa có nhóm trả góp (`cash-filter.ts`), cột Nội dung trên trang luôn link `/cam-do/<id>` kể cả hợp đồng trả góp.

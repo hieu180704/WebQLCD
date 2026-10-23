@@ -4,16 +4,21 @@ import type { DueStatus } from "../application/list-installments";
 export const formatDay = (date: string) => date.split("-").reverse().join("/");
 
 /** Nhãn hạn góp theo mockup tra-gop.html; `status` null = hợp đồng đã đóng. */
-export function DueBadge({ status }: { status: DueStatus | null }) {
-  if (!status) return <span className="badge badge-muted">Đã đóng</span>;
+export function dueLabel(status: DueStatus | null): { text: string; badge: string } {
+  if (!status) return { text: "Đã đóng", badge: "badge-muted" };
   switch (status.kind) {
     case "late":
-      return <span className="badge badge-late">Chậm {status.periods} kỳ</span>;
+      return { text: `Chậm ${status.periods} kỳ`, badge: "badge-late" };
     case "today":
-      return <span className="badge badge-warn">Hôm nay</span>;
+      return { text: "Hôm nay", badge: "badge-warn" };
     case "on_time":
-      return <span className="badge badge-ok">Đúng hạn</span>;
+      return { text: "Đúng hạn", badge: "badge-ok" };
   }
+}
+
+export function DueBadge({ status }: { status: DueStatus | null }) {
+  const { text, badge } = dueLabel(status);
+  return <span className={`badge ${badge}`}>{text}</span>;
 }
 
 /** Thanh tiến độ "8 / 25 kỳ". Dùng `<progress>` vì CSP không cho thuộc tính style inline (style-src chỉ có nonce). */

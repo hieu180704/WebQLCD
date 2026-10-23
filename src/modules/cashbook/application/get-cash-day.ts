@@ -1,9 +1,10 @@
 import { addDays, businessDate, diffDays, type LocalDate } from "@/shared/kernel/local-date";
 import { isManualEntryType, summarizeDay, type CashDaySummary } from "../domain/cash-entry";
 import { CASH_TYPE_GROUPS, type CashLineFilter } from "./cash-filter";
-import type { CashLine, CashbookRepository } from "./ports";
+import type { CashLine, CashLineQuery, CashbookRepository } from "./ports";
 
 export const CASH_PAGE_SIZE = 50;
+export const EXPORT_BATCH_SIZE = 500;
 
 /** `reversible`: phiếu thu khác / chi khác / nạp vốn chưa bị huỷ (giao dịch hợp đồng huỷ ở trang hợp đồng). */
 export type CashDayLine = CashLine & { reversible: boolean };
@@ -34,11 +35,10 @@ export class GetCashDay {
     now = new Date(),
   ): Promise<CashDayView> {
     const today = businessDate(now);
-    const date = requested && diffDays(today, requested) <= 0 ? requested : today;
-    const query = { types: filter.group ? CASH_TYPE_GROUPS[filter.group].types : null, createdBy: filter.createdBy ?? null };
+    const date = resolveCashDate(requested, now);
     const [totals, rows, openingBalanceSet] = await Promise.all([
       this.cashbook.dayTotals(shopId, date),
-      this.cashbook.listDay(shopId, date, query, after, CASH_PAGE_SIZE + 1),
+      this.cashbook.listDay(shopId, date, toQuery(filter), after, CASH_PAGE_SIZE + 1),
       this.cashbook.hasOpeningBalance(shopId),
     ]);
     const hasMore = rows.length > CASH_PAGE_SIZE;
@@ -54,4 +54,27 @@ export class GetCashDay {
       openingBalanceSet,
     };
   }
+
+  /** Mọi giao dịch ngày `date` (đã qua `resolveCashDate`) khớp bộ lọc, từng lô theo keyset (xuất Excel). */
+  async *batches(shopId: string, date: LocalDate, filter: CashLineFilter = {}): AsyncGenerator<CashLine[]> {
+    const query = toQuery(filter);
+    let after: string | null = null;
+    for (;;) {
+      const rows = await this.cashbook.listDay(shopId, date, query, after, EXPORT_BATCH_SIZE);
+      if (rows.length > 0) yield rows;
+      if (rows.length < EXPORT_BATCH_SIZE) return;
+      after = rows[rows.length - 1].id;
+    }
+  }
 }
+
+/** Ngày sổ quỹ được xem: mặc định hôm nay, ngày tương lai quy về hôm nay. */
+export function resolveCashDate(requested: LocalDate | null, now = new Date()): LocalDate {
+  const today = businessDate(now);
+  return requested && diffDays(today, requested) <= 0 ? requested : today;
+}
+
+const toQuery = (filter: CashLineFilter): CashLineQuery => ({
+  types: filter.group ? CASH_TYPE_GROUPS[filter.group].types : null,
+  createdBy: filter.createdBy ?? null,
+});

@@ -6,6 +6,7 @@ import type { InstallmentFilter, InstallmentListRow, InstallmentRepository } fro
 export type { DueStatus };
 
 export const INSTALLMENT_PAGE_SIZE = 50;
+export const EXPORT_BATCH_SIZE = 500;
 
 export type InstallmentListItem = InstallmentListRow & {
   progress: Progress;
@@ -26,15 +27,28 @@ export class ListInstallments {
     const rows = await this.installments.list(shopId, filter, today, after, INSTALLMENT_PAGE_SIZE + 1);
     const hasMore = rows.length > INSTALLMENT_PAGE_SIZE;
     const page = hasMore ? rows.slice(0, INSTALLMENT_PAGE_SIZE) : rows;
-    const items = page.map((row) => {
-      const p = progress(row, today);
-      return {
-        ...row,
-        progress: p,
-        perPeriod: dueThrough(row, 1),
-        dueStatus: row.status === "active" && !row.deleted ? dueStatus(p, today) : null,
-      };
-    });
-    return { items, nextAfter: hasMore ? page[page.length - 1].id : null, today };
+    return { items: page.map((row) => toItem(row, today)), nextAfter: hasMore ? page[page.length - 1].id : null, today };
   }
+
+  /** Mọi hợp đồng khớp bộ lọc, từng lô theo keyset (xuất Excel); cùng một "hôm nay" cho cả file. */
+  async *batches(shopId: string, filter: InstallmentFilter, now = new Date()): AsyncGenerator<InstallmentListItem[]> {
+    const today = businessDate(now);
+    let after: string | null = null;
+    for (;;) {
+      const rows = await this.installments.list(shopId, filter, today, after, EXPORT_BATCH_SIZE);
+      if (rows.length > 0) yield rows.map((row) => toItem(row, today));
+      if (rows.length < EXPORT_BATCH_SIZE) return;
+      after = rows[rows.length - 1].id;
+    }
+  }
+}
+
+function toItem(row: InstallmentListRow, today: LocalDate): InstallmentListItem {
+  const p = progress(row, today);
+  return {
+    ...row,
+    progress: p,
+    perPeriod: dueThrough(row, 1),
+    dueStatus: row.status === "active" && !row.deleted ? dueStatus(p, today) : null,
+  };
 }

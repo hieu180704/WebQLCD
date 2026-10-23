@@ -1,0 +1,13 @@
+# 2026-10-23: Xuất Excel lát E1 — /cam-do — [verified: lint, typecheck, vitest 238/238, e2e 50/50 (gồm build)]
+
+- Nhánh: worktree wt-3 (`C:/Project/WebQLCD-3`), DB `webqlcd_wt3`, E2E_PORT 3102.
+- Đã làm:
+  1. Thêm `exceljs` 4.4.0 (ghim cứng). `npm audit` báo `uuid <11.1.1` qua exceljs (advisory chỉ dính v3/v5/v6 có `buf`, exceljs chỉ gọi `v4`): vẫn ghim `overrides.exceljs.uuid = 11.1.1`, hết cảnh báo. Còn lại là cảnh báo cũ của devDeps (`eslint-plugin-boundaries` → handlebars, `drizzle-kit` → esbuild), không thuộc phạm vi.
+  2. Dùng chung: `src/shared/infrastructure/excel/xlsx-stream.ts` (`xlsxResponse`: `WorkbookWriter` → `PassThrough` → `ReadableStream`, commit từng dòng, đọc lô sau khi luồng ra rút bớt; `excelText` thêm `'` trước `= + - @`; tiền ghi kiểu số định dạng `#,##0`), `record-export.ts` (audit `export`, `entity_id` = shop, không lưu tham số lọc). Đưa ra presentation qua `composition-root.ts`.
+  3. `/cam-do`: tách parse URL sang `pawn/presentation/contract-query.ts` (trang và file dùng chung), `ListContracts.batches` đọc keyset lô 500 dùng chung hàm tính lãi/hạn với danh sách, list row thêm `customerCccdMasked`. Route `src/app/(app)/cam-do/xuat-excel/route.ts` → `exportContracts` (chủ tiệm; KTV 403; CCCD sai định dạng 400). Nút "Xuất Excel" chỉ hiện với chủ tiệm, giữ bộ lọc, bỏ trang. Nhãn trạng thái tách `dueLabel` dùng chung với `DueBadge`.
+  4. Docs: `architecture-spec.txt` mục 3.1 (xuất Excel ở module sở hữu danh sách, không ở `reporting`), `data-model.txt` mục 3.7 (action `export`).
+- File: package.json, package-lock.json, src/shared/infrastructure/excel/*, src/composition-root.ts, src/modules/pawn/{application/list-contracts.ts, application/ports.ts, index.ts, infrastructure/drizzle-contract-repository.ts, presentation/contract-query.ts, contract-list-page.tsx, export-contracts.ts, format.tsx} + test, src/app/(app)/cam-do/xuat-excel/route.ts, e2e/excel.spec.ts, e2e/db.ts.
+- Lưu ý cho phiên sau:
+  - SĐT trong file che giữa như danh sách. Chưa làm tuỳ chọn "Xuất số CCCD đầy đủ" của mockup `sao-luu.html` (ngoài phạm vi đợt này).
+  - exceljs không có backpressure thật: chờ `drain` theo lô nên RAM giữ khoảng một lô. Lỗi giữa chừng khi header đã gửi thì file tải về hỏng (audit vẫn đã ghi).
+  - Log `next start` có DEP0005 (`Buffer()` deprecated) lúc xuất file, từ thư viện phụ của exceljs; không ảnh hưởng.

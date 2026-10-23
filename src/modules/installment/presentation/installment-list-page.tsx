@@ -1,36 +1,8 @@
 import Link from "next/link";
-import { z } from "zod";
 import { getInstallmentStats, listInstallments, requireSession } from "@/composition-root";
-import { normalizeCccd } from "@/modules/customer";
 import { formatVnd } from "@/shared/kernel/vnd";
-import type { InstallmentFilter, InstallmentStatusFilter } from "../application/ports";
 import { DueBadge, ProgressBar, formatDay } from "./format";
-
-// Khoá = giá trị tham số trên URL.
-const STATUSES: Record<string, { label: string; value: InstallmentStatusFilter }> = {
-  "dang-gop": { label: "Đang góp", value: "open" },
-  "cham-gop": { label: "Chậm góp", value: "late" },
-  "hom-nay": { label: "Đến hạn hôm nay", value: "due_today" },
-  "da-dong": { label: "Đã đóng", value: "closed" },
-  "da-xoa": { label: "Đã xoá", value: "deleted" },
-};
-
-// Tham số URL sai định dạng thì bỏ qua, không báo lỗi; CCCD sai định dạng thì báo để người nhập sửa.
-const querySchema = z.object({
-  q: z.string().trim().max(100).nullable().catch(null),
-  cccd: z.string().trim().max(30).nullable().catch(null),
-  tt: z
-    .enum(Object.keys(STATUSES) as [string, ...string[]])
-    .nullable()
-    .catch(null),
-  sau: z.uuid().nullable().catch(null),
-  moi: z
-    .string()
-    .regex(/^TG-\d{1,18}$/)
-    .nullable()
-    .catch(null),
-  khach: z.literal("cu").nullable().catch(null),
-});
+import { STATUSES, parseInstallmentQuery } from "./installment-query";
 
 type Params = { q?: string; cccd?: string; tt?: string; sau?: string };
 
@@ -42,20 +14,17 @@ function listHref(params: Params) {
 /** Danh sách hợp đồng trả góp (mockup tra-gop.html): 4 ô thống kê của cả cửa hàng, tìm / lọc, tiến độ góp. */
 export async function InstallmentListPage({ query }: { query: Record<string, string | string[] | undefined> }) {
   const principal = await requireSession();
-  const params = querySchema.parse(Object.fromEntries(Object.keys(querySchema.shape).map((key) => [key, first(query[key])])));
+  const { params, q, cccdText, filter, invalidCccd } = parseInstallmentQuery((key) => first(query[key]));
   const { moi, khach } = params;
-  const q = params.q || null;
-  const cccdText = params.cccd || null;
-  const cccd = cccdText ? normalizeCccd(cccdText) : null;
-  const filter: InstallmentFilter = { search: q, cccd, status: params.tt ? STATUSES[params.tt].value : null };
-  // CCCD nhập sai định dạng: không tìm, không trả danh sách đầy đủ (người dùng tưởng là kết quả tìm).
-  const invalidCccd = cccdText !== null && cccd === null;
   const [view, stats] = await Promise.all([
     invalidCccd ? null : listInstallments.execute(principal.shopId, filter, params.sau),
     getInstallmentStats.execute(principal.shopId),
   ]);
   const filtered = Boolean(q || cccdText || params.tt);
   const kept: Params = { q: q ?? undefined, cccd: cccdText ?? undefined, tt: params.tt ?? undefined };
+  // Xuất đúng bộ lọc đang xem, cả danh sách (không theo trang).
+  const exportQuery = new URLSearchParams(Object.entries(kept).filter((entry): entry is [string, string] => Boolean(entry[1]))).toString();
+  const exportHref = `/tra-gop/xuat-excel${exportQuery ? `?${exportQuery}` : ""}`;
 
   return (
     <>
@@ -65,6 +34,11 @@ export async function InstallmentListPage({ query }: { query: Record<string, str
           <p className="text-sm text-slate-500">{stats.openCount} hợp đồng đang góp</p>
         </div>
         <div className="ml-auto flex flex-wrap gap-2">
+          {principal.role === "owner" && !invalidCccd && (
+            <a href={exportHref} className="btn btn-outline" download>
+              Xuất Excel
+            </a>
+          )}
           <Link href="/tra-gop/moi" className="btn btn-primary">
             + Thêm hợp đồng
           </Link>
