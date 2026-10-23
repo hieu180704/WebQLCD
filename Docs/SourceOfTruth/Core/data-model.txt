@@ -78,7 +78,7 @@
 - `shop_id`, `code`, `customer_id`, `amount_given` (tiền đưa khách), `total_due` (tổng phải thu), `total_days`, `period_days`, `start_date`.
 - `amount_paid`, `status` (`active` / `closed`), `closed_at`, `note`, `staff_id`, `deleted_at`, `deleted_by`, `deleted_reason`.
 - CHECK: `total_due >= amount_given > 0`; `0 < period_days <= total_days`; `amount_paid >= 0`; `status`/`closed_at`, `deleted_at`/`deleted_by`/`deleted_reason` như `contracts`. `UNIQUE (shop_id, code)`.
-- Không lưu lịch góp: số kỳ, luỹ kế phải thu, kỳ tới, số kỳ chậm tính lúc đọc từ `amount_paid` (core-spec mục 2; domain `src/modules/installment/domain/installment.ts`). Lọc và đếm trong SQL dùng hàm `installment_due_through`, `installment_late`, `installment_due_today` (migration 0013), tính như domain; test so khớp `installment/infrastructure/installment-due.db.test.ts`; đổi cách chia kỳ thì sửa cả hai.
+- Không lưu lịch góp: số kỳ, luỹ kế phải thu, kỳ tới, số kỳ chậm tính lúc đọc từ `amount_paid` (core-spec mục 2; domain `src/modules/installment/domain/installment.ts`). Lọc và đếm trong SQL dùng hàm `installment_due_through`, `installment_late`, `installment_due_today` (migration 0013), `installment_next_due` (hạn kỳ tới, migration 0014, bảng đến hạn trang chủ), tính như domain; test so khớp `installment/infrastructure/installment-due.db.test.ts`; đổi cách chia kỳ thì sửa cả hai.
 - Tạo hợp đồng: dòng `installment_disbursement` = −`amount_given`, chung `operation_id` với thao tác `disbursement`; audit `entity = installment_contract`.
 - Đóng tiền góp: UPDATE có điều kiện `amount_paid = <số đã thu lúc tính>` (khoá lạc quan, khoá dòng), cộng `amount_paid`, thu đủ thì `status = 'closed'`; thao tác `pay` + một dòng `installment_payment`; audit `pay`.
 - Đóng / tất toán: cùng lệnh ghi, thao tác `close`, luôn đặt `status = 'closed'`; số tiền thu là dòng `installment_payment` (bỏ khi bằng 0). Phần giảm không lưu riêng: `total_due − amount_paid` của hợp đồng đã đóng. Audit `close`.
@@ -129,7 +129,7 @@
 - `cash_transactions (shop_id, contract_id)`, `(shop_id, installment_contract_id)`: lịch sử giao dịch của một hợp đồng.
 - `cash_transactions (shop_id, operation_id)`: đảo cả một thao tác.
 - `cash_transactions (shop_id) WHERE type = 'opening_balance'` UNIQUE: một quỹ đầu két mỗi cửa hàng.
-- `installment_contracts (shop_id, status)`: danh sách, ô thống kê và lọc chậm góp / đến hạn (lọc thô theo trạng thái rồi tính hạn bằng hàm SQL trên từng dòng; chưa cần index riêng). `audit_logs (shop_id, entity, entity_id)`.
+- `installment_contracts (shop_id, status)`: danh sách, ô thống kê và lọc chậm góp / đến hạn (lọc thô theo trạng thái rồi tính hạn bằng hàm SQL trên từng dòng; chưa cần index riêng). `installment_contracts (shop_id, customer_id)` (migration 0015): trả góp của một khách ở trang khách. `audit_logs (shop_id, entity, entity_id)`.
 - `contract_operations (shop_id, contract_id, created_at)`: thao tác mới nhất của hợp đồng.
 - `customers (shop_id, cccd_hash)`: tìm khớp chính xác CCCD (đã có qua UNIQUE).
 - `pg_trgm` GIN: `search_text(customers.full_name)`, `customers.phone`, `contracts.code`, `search_text(contracts.asset_name)` (migration 0008), `installment_contracts.code`.

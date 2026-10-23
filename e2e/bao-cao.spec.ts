@@ -80,10 +80,11 @@ test("chủ tiệm: tổng quan, theo loại, theo ngày khớp sổ quỹ; ch�
   await expect(debt.getByText("Cầm đồ đang cho vay (gốc)").locator("+ dd")).toHaveText("5.000.000");
   await expect(debt.getByText("Tín chấp đang cho vay (gốc)").locator("+ dd")).toHaveText("0");
   await expect(debt.getByText("Lãi đến hôm nay chưa thu").locator("+ dd")).toHaveText("0");
-  await expect(debt.getByText("Hợp đồng quá hạn").locator("+ dd")).toHaveText("0 cầm đồ/tín chấp");
+  await expect(debt.getByText("Trả góp còn phải thu").locator("+ dd")).toHaveText("0");
+  await expect(debt.getByText("Hợp đồng quá hạn").locator("+ dd")).toHaveText("0 cầm đồ/tín chấp · 0 trả góp");
   const period = page.getByRole("region", { name: "Hợp đồng trong kỳ" });
   await expect(period.getByText("Mở mới").locator("+ dd")).toHaveText("1");
-  await expect(period.getByText("Chuộc đồ / đóng hợp đồng").locator("+ dd")).toHaveText("0");
+  await expect(period.getByText("Chuộc đồ / đóng hợp đồng / tất toán").locator("+ dd")).toHaveText("0");
   await expect(period.getByText("Đã xoá").locator("+ dd")).toHaveText("0");
 
   const byType = page.getByRole("region", { name: "Theo loại giao dịch" });
@@ -128,4 +129,27 @@ test("KTV không thấy menu Báo cáo, vào thẳng /bao-cao thì về trang ch
   await expect(page.getByRole("navigation", { name: "Menu chính" }).getByText("Báo cáo")).toHaveCount(0);
   await page.goto("/bao-cao");
   await expect(page).toHaveURL("/");
+});
+
+test("trả góp vào báo cáo (dư nợ, hợp đồng trong kỳ) và cột HĐ tháng này ở trang nhân viên", async ({ page }) => {
+  await signIn(page, OWNER.username, OWNER.password);
+  await page.goto("/tra-gop/moi");
+  await page.getByLabel("Tên khách hàng").fill("Khách Góp Báo Cáo");
+  await page.getByLabel("Tiền đưa khách").fill("4.000.000");
+  await page.getByLabel("Tổng tiền phải thu").fill("5.000.000");
+  await page.getByLabel("Số ngày góp").fill("50");
+  await page.getByLabel("Số ngày mỗi kỳ").fill("2");
+  await page.getByRole("button", { name: "Lưu hợp đồng" }).click();
+  await expect(page).toHaveURL(/\/tra-gop\?moi=TG-1$/);
+
+  await page.goto("/bao-cao");
+  const debt = page.getByRole("region", { name: /^Dư nợ hôm nay/ });
+  await expect(debt.getByText("Trả góp còn phải thu").locator("+ dd")).toHaveText("5.000.000");
+  await expect(debt.getByText("Hợp đồng quá hạn").locator("+ dd")).toHaveText("0 cầm đồ/tín chấp · 0 trả góp");
+  // CD-1 (test đầu) + TG-1, cùng tháng này.
+  await expect(page.getByRole("region", { name: "Hợp đồng trong kỳ" }).getByText("Mở mới").locator("+ dd")).toHaveText("2");
+
+  await page.goto("/nhan-vien");
+  const owner = page.getByRole("row").filter({ has: page.getByRole("cell", { name: OWNER.username, exact: true }) });
+  await expect(owner.getByRole("cell").nth(3)).toHaveText("2");
 });

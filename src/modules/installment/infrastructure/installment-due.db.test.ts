@@ -1,5 +1,6 @@
-// Hàm SQL installment_due_through / installment_late / installment_due_today (migration 0013) phải ra đúng như domain:
-// danh sách lọc "Chậm góp", "Đến hạn hôm nay" và ô thống kê dùng hàm SQL, trang hiển thị nhãn dùng domain.
+// Hàm SQL installment_due_through / installment_late / installment_due_today (migration 0013), installment_next_due (0014)
+// phải ra đúng như domain: danh sách lọc "Chậm góp", "Đến hạn hôm nay", ô thống kê và bảng đến hạn trang chủ dùng hàm SQL,
+// trang hiển thị nhãn dùng domain.
 import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
@@ -21,7 +22,7 @@ function rng(seed: number) {
 
 type Case = InstallmentStanding & { today: LocalDate };
 
-describe.skipIf(!url)("installment_due_*", () => {
+describe.skipIf(!url)("installment_due_*, installment_next_due", () => {
   let pool: Pool;
 
   beforeAll(() => {
@@ -38,16 +39,25 @@ describe.skipIf(!url)("installment_due_*", () => {
       const args = sql`${c.totalDue.toBigInt()}::bigint, ${c.totalDays}::int, ${c.periodDays}::int`;
       const state = sql`${c.startDate}::date, ${c.amountPaid.toBigInt()}::bigint, ${c.today}::date`;
       const k = 1 + (c.totalDays % (periodCount(c) + 1));
-      const { rows } = await db.execute<{ through: string; late: boolean; today: boolean }>(
+      const standing = sql`${c.startDate}::date, ${c.amountPaid.toBigInt()}::bigint`;
+      const { rows } = await db.execute<{ through: string; late: boolean; today: boolean; next: string | null }>(
         sql`SELECT installment_due_through(${args}, ${k}::int)::text AS through,
-                   installment_late(${args}, ${state}) AS late, installment_due_today(${args}, ${state}) AS today`,
+                   installment_late(${args}, ${state}) AS late, installment_due_today(${args}, ${state}) AS today,
+                   installment_next_due(${args}, ${standing})::text AS next`,
       );
       const p = progress(c, c.today);
       const status = dueStatus(p, c.today);
       expect(
-        { through: rows[0].through, late: rows[0].late, today: rows[0].today },
+        { through: rows[0].through, late: rows[0].late, today: rows[0].today, next: rows[0].next },
         JSON.stringify({ ...c, totalDue: c.totalDue.toString(), amountPaid: c.amountPaid.toString(), k }),
-      ).toEqual({ through: dueThrough(c, k).toString(), late: status.kind === "late", today: status.kind === "today" });
+      ).toEqual({
+        through: dueThrough(c, k).toString(),
+        late: status.kind === "late",
+        today: status.kind === "today",
+        next: p.next?.due ?? null,
+      });
+      // Bảng đến hạn trang chủ coi "hạn kỳ tới trước hôm nay" là chậm góp.
+      expect(rows[0].next !== null && rows[0].next < c.today).toBe(status.kind === "late");
     }
   }
 
@@ -79,6 +89,8 @@ describe.skipIf(!url)("installment_due_*", () => {
       make(7, 30, 1, 0, 3),
       make(7, 30, 1, 0, 5),
       make(100_000_000_000, 3650, 1, 0, 3650),
+      make(100_000_000_000, 3650, 1, 99_999_999_999, 3651),
+      make(5_000_000, 50, 2, 5_000_000, 20),
     ]));
 
   it("300 ca ngẫu nhiên", () => {

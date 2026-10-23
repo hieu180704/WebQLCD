@@ -1,0 +1,10 @@
+# 2026-10-23: Lát T3 trả góp vào số liệu tổng — nút "+ Trả góp" ở trang khách — [verified: lint, typecheck, unit/DB test, e2e]
+
+- Nhánh: `wt-2`. Commit: "Lát T3: nút + Trả góp ở trang khách (điền sẵn khách)".
+- Đã làm:
+  1. installment application: `InstallmentCustomer = NewCustomer | { existingId }`; `create` trả thêm "customer_not_found" (khách không thuộc cửa hàng thì không ghi gì); `findCustomerSummary`; use case `PrepareNewInstallment`; `CreateInstallment` không báo "khách cũ" khi khách chọn sẵn (như pawn).
+  2. Repository: nhánh `existingId` trong transaction tạo hợp đồng (kiểm `shop_id`), `findCustomerSummary`.
+  3. Presentation: schema tách `newCustomerSchema` + `customerId`; action rẽ nhánh như `createContractAction`; form hiện khối "Khách có sẵn" + "Nhập khách mới"; route `/tra-gop/moi?khach=<uuid>` (sai định dạng = form khách mới, không thuộc cửa hàng = 404); nút "+ Trả góp" (btn-primary như mockup) ở trang chi tiết khách.
+  4. Test: unit (khách chọn sẵn, customer_not_found), DB test (gắn khách có sẵn, cửa hàng khác không đọc / không ghi được), E2E `customers.spec.ts` (+ Trả góp, lỗi giữ khách, "Nhập khách mới").
+  5. Docs: core-spec (Tạo hợp đồng từ trang khách).
+- Lưu ý cho phiên sau: không có migration.

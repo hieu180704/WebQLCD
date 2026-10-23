@@ -13,7 +13,7 @@ import {
 } from "@/composition-root";
 import { formatVnd } from "@/shared/kernel/vnd";
 import type { CloseInstallmentError } from "../application/close-installment";
-import type { InstallmentRuleViolation } from "../application/create-installment";
+import type { CreateInstallmentError, CreateInstallmentInput } from "../application/create-installment";
 import type { DeleteInstallmentError } from "../application/delete-installment";
 import type { PayInstallmentError } from "../application/pay-installment";
 import type { ReverseInstallmentOperationError } from "../application/reverse-installment-operation";
@@ -22,6 +22,7 @@ import {
   closeInstallmentSchema,
   deleteSchema,
   installmentFormSchema,
+  newCustomerSchema,
   payInstallmentSchema,
   reverseSchema,
 } from "./schemas";
@@ -34,11 +35,12 @@ const DENIED: Record<AccessDeniedError["reason"], string> = {
   read_only: "Cửa hàng đã hết hạn sử dụng, không tạo được hợp đồng mới.",
 };
 
-const RULE_MESSAGE: Record<InstallmentRuleViolation, string> = {
+const RULE_MESSAGE: Record<CreateInstallmentError, string> = {
   amount_not_positive: "Tiền đưa khách phải lớn hơn 0.",
   total_less_than_given: "Tổng tiền phải thu không được nhỏ hơn tiền đưa khách.",
   period_exceeds_total: "Số ngày mỗi kỳ không được dài hơn số ngày góp.",
   start_date_in_future: "Ngày bắt đầu không được sau hôm nay.",
+  customer_not_found: "Không tìm thấy khách hàng.",
 };
 
 export async function createInstallmentAction(_previous: CreateInstallmentState, formData: FormData): Promise<CreateInstallmentState> {
@@ -53,12 +55,17 @@ export async function createInstallmentAction(_previous: CreateInstallmentState,
 
   const parsed = installmentFormSchema.safeParse(values);
   if (!parsed.success) return { error: parsed.error.issues[0].message, values };
-  const { fullName, cccd, phone, address, note, ...terms } = parsed.data;
+  const { customerId, note, ...terms } = parsed.data;
+  let customer: CreateInstallmentInput["customer"];
+  if (customerId) {
+    customer = { existingId: customerId };
+  } else {
+    const parsedCustomer = newCustomerSchema.safeParse(values);
+    if (!parsedCustomer.success) return { error: parsedCustomer.error.issues[0].message, values };
+    customer = parsedCustomer.data;
+  }
 
-  const result = await createInstallment.execute(
-    { userId: actor.userId, shopId: actor.shopId },
-    { terms, customer: { fullName, cccd, phone, address }, note },
-  );
+  const result = await createInstallment.execute({ userId: actor.userId, shopId: actor.shopId }, { terms, customer, note });
   if (!result.ok) return { error: RULE_MESSAGE[result.error], values };
 
   const query = new URLSearchParams({ moi: result.code });

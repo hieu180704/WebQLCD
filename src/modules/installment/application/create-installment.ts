@@ -1,14 +1,13 @@
-import type { NewCustomer } from "@/modules/customer";
 import { businessDate } from "@/shared/kernel/local-date";
 import { checkTerms, type InstallmentRuleViolation, type InstallmentTerms } from "../domain/installment";
-import type { Actor, InstallmentRepository } from "./ports";
+import type { Actor, InstallmentCustomer, InstallmentRepository } from "./ports";
 
-export type { InstallmentRuleViolation };
+export type CreateInstallmentError = InstallmentRuleViolation | "customer_not_found";
 
-export type CreateInstallmentInput = { terms: InstallmentTerms; customer: NewCustomer; note: string | null };
+export type CreateInstallmentInput = { terms: InstallmentTerms; customer: InstallmentCustomer; note: string | null };
 
 export type CreateInstallmentResult =
-  { ok: true; code: string; reusedCustomerName: string | null } | { ok: false; error: InstallmentRuleViolation };
+  { ok: true; code: string; reusedCustomerName: string | null } | { ok: false; error: CreateInstallmentError };
 
 /** Tạo hợp đồng trả góp và giải ngân: ghi khách, hợp đồng, sổ két, audit trong một transaction. */
 export class CreateInstallment {
@@ -24,6 +23,9 @@ export class CreateInstallment {
       note: input.note,
       businessDate: today,
     });
-    return { ok: true, code: created.code, reusedCustomerName: created.customer.reused ? created.customer.fullName : null };
+    if (created === "customer_not_found") return { ok: false, error: created };
+    // Báo "khách cũ" chỉ khi trùng CCCD lúc nhập khách mới; khách chọn sẵn từ trang khách thì không.
+    const reused = created.customer.reused && !("existingId" in input.customer);
+    return { ok: true, code: created.code, reusedCustomerName: reused ? created.customer.fullName : null };
   }
 }

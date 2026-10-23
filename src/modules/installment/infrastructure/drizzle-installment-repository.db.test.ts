@@ -98,7 +98,7 @@ describe.skipIf(!url)("DrizzleInstallmentRepository", () => {
       const actor = await seedShop(db);
       const created = await repo(db).create(actor, draft());
       expect(created).toMatchObject({ code: "TG-1", customer: { reused: false, fullName: "Đỗ Minh Tâm" } });
-      expect((await repo(db).create(actor, draft())).code).toBe("TG-2");
+      expect(await repo(db).create(actor, draft())).toMatchObject({ code: "TG-2" });
 
       const [contract] = await rows<Record<string, unknown>>(
         db,
@@ -135,7 +135,29 @@ describe.skipIf(!url)("DrizzleInstallmentRepository", () => {
       const actor = await seedShop(db);
       await repo(db).create(actor, draft({}, { cccd: "001099012345" }));
       const second = await repo(db).create(actor, draft({}, { cccd: "001099012345", fullName: "Tên Khác" }));
-      expect(second.customer).toMatchObject({ reused: true, fullName: "Đỗ Minh Tâm" });
+      expect(second).toMatchObject({ customer: { reused: true, fullName: "Đỗ Minh Tâm" } });
+    }));
+
+  it("khách có sẵn (từ trang khách): gắn thẳng vào khách; khách của cửa hàng khác thì không ghi gì", () =>
+    inTx(async (db) => {
+      const actor = await seedShop(db);
+      const other = await seedShop(db);
+      const first = await repo(db).create(actor, draft({}, { fullName: "Ngô Văn Tài", phone: "0909111731" }));
+      if (first === "customer_not_found") throw new Error("không tạo được");
+      const existingId = first.customer.id;
+      expect(await repo(db).findCustomerSummary(actor.shopId, existingId)).toEqual({
+        id: existingId,
+        fullName: "Ngô Văn Tài",
+        phone: "0909111731",
+        cccdMasked: null,
+      });
+      expect(await repo(db).findCustomerSummary(other.shopId, existingId)).toBeNull();
+
+      const linked = await repo(db).create(actor, { ...draft(), customer: { existingId } });
+      expect(linked).toMatchObject({ code: "TG-2", customer: { id: existingId, reused: true, fullName: "Ngô Văn Tài" } });
+      expect(await repo(db).create(other, { ...draft(), customer: { existingId } })).toBe("customer_not_found");
+      const [count] = await rows<{ n: string }>(db, sql`SELECT count(*)::text AS n FROM installment_contracts WHERE shop_id = ${other.shopId}`);
+      expect(count.n).toBe("0");
     }));
 
   it("danh sách: mới nhất trước, che SĐT và CCCD, phân trang keyset; cửa hàng khác không thấy", () =>
@@ -379,5 +401,29 @@ describe.skipIf(!url)("DrizzleInstallmentRepository", () => {
       expect(stats.collectedThisMonth.toBigInt()).toBe(300_000n);
       const nextMonth = await repo(db).stats(actor.shopId, TODAY, "2026-11-01", "2026-12-01");
       expect(nextMonth.collectedThisMonth.isZero()).toBe(true);
+    }));
+
+  it("đến hạn: chậm góp và kỳ tới ≤ ngày cuối cửa sổ, hạn sớm nhất trước; bỏ đã đóng, đã xoá, cửa hàng khác", () =>
+    inTx(async (db) => {
+      const actor = await seedShop(db);
+      const other = await seedShop(db);
+      // TG-1: bắt đầu 10/10, chưa góp: kỳ 1 hạn 12/10 (chậm). TG-2: bắt đầu hôm nay, kỳ 1 hạn 22/10.
+      await repo(db).create(actor, draft({ startDate: "2026-10-10" }));
+      await repo(db).create(actor, draft());
+      // TG-3: kỳ 10 ngày, hạn 30/10, ngoài cửa sổ. TG-4 đã đóng, TG-5 đã xoá (đều chậm nếu còn mở).
+      await repo(db).create(actor, draft({ periodDays: 10 }));
+      await repo(db).create(actor, draft({ startDate: "2026-10-10" }));
+      await repo(db).create(actor, draft({ startDate: "2026-10-10" }));
+      await pay(db, actor, await idOf(db, actor, "TG-4"), 0, "close");
+      await repo(db).deleteContract(actor, { contractId: await idOf(db, actor, "TG-5"), reason: "nhầm", businessDate: TODAY });
+      await repo(db).create(other, draft({ startDate: "2026-10-10" }));
+
+      const due = await repo(db).listDue(actor.shopId, "2026-10-23", 10);
+      expect(due.map((r) => [r.code, r.startDate])).toEqual([
+        ["TG-1", "2026-10-10"],
+        ["TG-2", TODAY],
+      ]);
+      expect(due[0].amountPaid.isZero()).toBe(true);
+      expect(await repo(db).listDue(actor.shopId, "2026-10-23", 1)).toHaveLength(1);
     }));
 });

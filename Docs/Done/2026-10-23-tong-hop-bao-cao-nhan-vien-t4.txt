@@ -1,0 +1,9 @@
+# 2026-10-23: Lát T4 trả góp vào số liệu tổng — báo cáo + nhân viên — [verified: lint, typecheck, unit/DB test, e2e]
+
+- Nhánh: `wt-2`. Commit: "Lát T4: trả góp vào báo cáo và cột HĐ tháng này".
+- Đã làm:
+  1. `/bao-cao` (`DrizzleContractReport`): truy vấn thứ hai trên `installment_contracts` chạy song song. `ContractReport` thêm `installmentRemaining`, `installmentLate`; "Hợp đồng trong kỳ" cộng trả góp (mở mới theo `start_date`, đóng / tất toán theo `closed_at`, xoá theo `deleted_at`, quy giờ Việt Nam như cầm đồ). Trang: dòng "Trả góp còn phải thu", "N cầm đồ/tín chấp · M trả góp", nhãn "Chuộc đồ / đóng hợp đồng / tất toán", ghi chú cuối trang bỏ "chưa tính trả góp". "Lãi đến hôm nay chưa thu" giữ chỉ cầm đồ/tín chấp.
+  2. `/nhan-vien` (`listStaff`): thêm subquery đếm `installment_contracts` theo `staff_id` (alias `installment_n` để khỏi trùng tên cột với subquery cầm đồ), cộng vào "HĐ tháng này".
+  3. Test: DB test báo cáo (dư nợ, chậm góp, trong kỳ, cách ly cửa hàng), DB test `listStaff`; E2E `bao-cao.spec.ts` thêm ca trả góp + cột nhân viên.
+  4. Docs: core-spec (ô `/cam-do` chỉ cầm đồ/tín chấp, trang nhân viên, ô `/tra-gop`). Không còn "chưa tính trả góp" ở core-spec và code.
+- Lưu ý cho phiên sau: màn Báo cáo chưa có mục riêng trong core-spec (định nghĩa chỉ nằm trong worklog R1/R2 và các worklog này); nên bổ sung khi người dùng duyệt. Không có migration.

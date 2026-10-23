@@ -21,7 +21,7 @@ export type OwnerRegistration = {
 
 export type NewStaff = { name: string; username: string; password: string };
 
-/** Một dòng ở trang nhân viên. `contractsThisMonth`: hợp đồng cầm đồ/tín chấp chưa xoá ghi người này là KTV, tạo trong tháng. */
+/** Một dòng ở trang nhân viên. `contractsThisMonth`: hợp đồng (cầm đồ/tín chấp và trả góp) chưa xoá ghi người này là KTV, tạo trong tháng. */
 export type StaffMember = {
   id: string;
   name: string;

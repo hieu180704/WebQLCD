@@ -174,13 +174,15 @@ export async function ReportPage({ query }: { query: Record<string, string | str
                     <dd className="text-right num">{formatVnd(contracts.securedLending)}</dd>
                     <dt className="text-slate-500">Tín chấp đang cho vay (gốc)</dt>
                     <dd className="text-right num">{formatVnd(contracts.unsecuredLending)}</dd>
+                    <dt className="text-slate-500">Trả góp còn phải thu</dt>
+                    <dd className="text-right num">{formatVnd(contracts.installmentRemaining)}</dd>
                     <dt className="text-slate-500">Lãi đến hôm nay chưa thu</dt>
                     <dd className="text-right num">{formatVnd(contracts.accruedInterest)}</dd>
                     <dt className="font-semibold border-t border-slate-200 pt-3">Hợp đồng quá hạn</dt>
                     <dd
-                      className={`text-right num font-semibold border-t border-slate-200 pt-3 ${contracts.overdue > 0 ? "text-red-700" : ""}`}
+                      className={`text-right num font-semibold border-t border-slate-200 pt-3 ${contracts.overdue + contracts.installmentLate > 0 ? "text-red-700" : ""}`}
                     >
-                      {contracts.overdue} cầm đồ/tín chấp
+                      {contracts.overdue} cầm đồ/tín chấp · {contracts.installmentLate} trả góp
                     </dd>
                   </dl>
                 </section>
@@ -192,7 +194,7 @@ export async function ReportPage({ query }: { query: Record<string, string | str
                   <dl className="mt-4 grid grid-cols-[1fr_auto] gap-y-3 text-sm">
                     <dt className="text-slate-500">Mở mới</dt>
                     <dd className="text-right num">{contracts.opened}</dd>
-                    <dt className="text-slate-500">Chuộc đồ / đóng hợp đồng</dt>
+                    <dt className="text-slate-500">Chuộc đồ / đóng hợp đồng / tất toán</dt>
                     <dd className="text-right num">{contracts.closed}</dd>
                     <dt className="text-slate-500">Đã xoá</dt>
                     <dd className="text-right num">{contracts.deleted}</dd>
@@ -257,8 +259,8 @@ export async function ReportPage({ query }: { query: Record<string, string | str
         </>
       )}
       <p className="mt-3 text-xs text-slate-500">
-        Thu chi tính từ sổ két, cùng cách tính với sổ quỹ: giao dịch bị huỷ vẫn tính ở ngày ghi, bút toán đảo tính ở ngày huỷ. Dư nợ và hợp
-        đồng chưa tính trả góp. Chỉ chủ tiệm xem được báo cáo.
+        Thu chi tính từ sổ két, cùng cách tính với sổ quỹ: giao dịch bị huỷ vẫn tính ở ngày ghi, bút toán đảo tính ở ngày huỷ. Hợp đồng
+        trong kỳ gồm cả trả góp (mở mới theo ngày bắt đầu); lãi chưa thu chỉ tính cầm đồ/tín chấp. Chỉ chủ tiệm xem được báo cáo.
       </p>
     </>
   );

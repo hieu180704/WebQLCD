@@ -3,7 +3,7 @@ import type { Money } from "@/shared/kernel/money";
 
 export const CUSTOMER_PAGE_SIZE = 50;
 
-/** Lọc theo hợp đồng cầm đồ/tín chấp đang mở, chưa xoá (chưa tính trả góp). */
+/** Lọc theo hợp đồng đang mở, chưa xoá: cầm đồ/tín chấp và trả góp ("quá hạn" gồm chậm góp). */
 export type CustomerFilter = "open" | "overdue";
 
 /** `search`: tên (không dấu, không phân biệt hoa thường) hoặc SĐT; `cccd`: đã chuẩn hoá, khớp đủ số qua hash. */
@@ -17,11 +17,13 @@ export type CustomerListRow = {
   address: string | null;
   /** Chỉ 4 số cuối; null = chưa có CCCD. */
   cccdMasked: string | null;
+  /** Cầm đồ/tín chấp đang mở + trả góp đang góp, chưa xoá. */
   openContracts: number;
+  /** Quá hạn đóng lãi + chậm góp. */
   overdueContracts: number;
-  /** Σ gốc còn lại của hợp đồng đang mở. */
+  /** Σ gốc còn lại của hợp đồng cầm đồ/tín chấp đang mở + Σ còn phải thu của trả góp đang góp. */
   debt: Money;
-  /** Ngày nghiệp vụ của giao dịch két gần nhất thuộc hợp đồng của khách. */
+  /** Ngày nghiệp vụ của giao dịch két gần nhất thuộc hợp đồng của khách (cả trả góp). */
   lastActivity: LocalDate | null;
 };
 

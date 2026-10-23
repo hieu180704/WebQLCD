@@ -1,11 +1,17 @@
 import Link from "next/link";
-import { requireSession } from "@/composition-root";
+import { notFound } from "next/navigation";
+import { prepareNewInstallment, requireSession } from "@/composition-root";
 import { businessDate } from "@/shared/kernel/local-date";
 import { InstallmentForm } from "./installment-form";
 
-/** Trang tạo hợp đồng trả góp: chủ tiệm và KTV; KTV hồ sơ là người đang đăng nhập. Quyền ghi kiểm lại ở server action. */
-export async function NewInstallmentPage() {
-  await requireSession();
+/**
+ * Trang tạo hợp đồng trả góp: chủ tiệm và KTV; KTV hồ sơ là người đang đăng nhập. `customerId` (từ nút "+ Trả góp" ở trang
+ * khách) điền sẵn khách có sẵn. Quyền ghi kiểm lại ở server action.
+ */
+export async function NewInstallmentPage({ customerId }: { customerId: string | null }) {
+  const principal = await requireSession();
+  const customer = await prepareNewInstallment.execute(principal.shopId, customerId);
+  if (customerId && !customer) notFound();
   return (
     <>
       <nav className="text-sm text-slate-500" aria-label="Breadcrumb">
@@ -15,7 +21,7 @@ export async function NewInstallmentPage() {
         / Thêm hợp đồng
       </nav>
       <h1 className="mt-1 text-2xl font-bold">Thêm hợp đồng trả góp</h1>
-      <InstallmentForm today={businessDate(new Date())} />
+      <InstallmentForm today={businessDate(new Date())} customer={customer} />
     </>
   );
 }

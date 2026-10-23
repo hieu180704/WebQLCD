@@ -7,6 +7,7 @@ import {
   seedCash,
   seedContract,
   seedCustomer,
+  seedInstallment,
   seedShop,
 } from "./db-test-kit";
 import { DrizzleCustomerProfile } from "./drizzle-customer-profile";
@@ -27,7 +28,7 @@ describe.skipIf(!url)("DrizzleCustomerProfile", () => {
 
   const inTx = (fn: (db: Db) => Promise<void>) => inRollbackTx(pool, fn);
 
-  it("số liệu: HĐ mở, quá hạn, dư nợ chỉ tính hợp đồng mở chưa xoá; lãi đã đóng bỏ dòng đã đảo; SĐT đầy đủ", () =>
+  it("số liệu: HĐ mở, quá hạn, dư nợ chỉ tính hợp đồng mở chưa xoá (cả trả góp); lãi đã đóng bỏ dòng đã đảo; SĐT đầy đủ", () =>
     inTx(async (db) => {
       const shop = await seedShop(db);
       const binh = await seedCustomer(db, shop.shopId, {
@@ -90,6 +91,28 @@ describe.skipIf(!url)("DrizzleCustomerProfile", () => {
         reverses: onDeleted,
       });
 
+      // Trả góp: chậm góp (bắt đầu 10/10, chưa góp), đúng hạn (bắt đầu 20/10, góp 400.000), đã đóng, đã xoá.
+      await seedInstallment(db, shop, {
+        customerId: binh,
+        startDate: "2026-10-10",
+      });
+      await seedInstallment(db, shop, {
+        customerId: binh,
+        startDate: "2026-10-20",
+        paid: 400_000,
+      });
+      await seedInstallment(db, shop, {
+        customerId: binh,
+        startDate: "2026-10-01",
+        paid: 5_000_000,
+        closed: true,
+      });
+      await seedInstallment(db, shop, {
+        customerId: binh,
+        startDate: "2026-10-01",
+        deleted: true,
+      });
+
       const summary = await new DrizzleCustomerProfile(db).findCustomer(
         shop.shopId,
         binh,
@@ -100,15 +123,16 @@ describe.skipIf(!url)("DrizzleCustomerProfile", () => {
         phone: "0912345678",
         address: "12 Lê Lợi",
         cccdMasked: null,
-        openContracts: 2,
-        overdueContracts: 1,
+        openContracts: 4,
+        overdueContracts: 2,
       });
-      expect(summary?.debt.toBigInt()).toBe(8_000_000n);
+      // 8.000.000 gốc + 5.000.000 + 4.600.000 trả góp còn phải thu.
+      expect(summary?.debt.toBigInt()).toBe(17_600_000n);
       expect(summary?.interestPaid.toBigInt()).toBe(300_000n);
       expect(summary?.createdAt).toBeInstanceOf(Date);
     }));
 
-  it("bảng hợp đồng gồm cả hợp đồng đã đóng / đã xoá, mới nhất trước; hạn đóng lãi chỉ với hợp đồng đang mở", () =>
+  it("bảng hợp đồng gồm cả trả góp, hợp đồng đã đóng / đã xoá, mới nhất trước; hạn chỉ với hợp đồng đang mở", () =>
     inTx(async (db) => {
       const shop = await seedShop(db);
       const open = await seedContract(db, shop, {
@@ -134,24 +158,57 @@ describe.skipIf(!url)("DrizzleCustomerProfile", () => {
         paidUntil: "2026-10-01",
       });
 
+      const late = await seedInstallment(db, shop, { startDate: "2026-10-10" });
+      // Bắt đầu 20/10, kỳ 1 hạn 22/10 = hôm nay.
+      const dueToday = await seedInstallment(db, shop, {
+        startDate: "2026-10-20",
+      });
+      const settled = await seedInstallment(db, shop, {
+        startDate: "2026-10-01",
+        paid: 4_500_000,
+        closed: true,
+      });
+      await seedInstallment(db, shop, {
+        customerId: other,
+        startDate: "2026-10-10",
+      });
+
       const rows = await new DrizzleCustomerProfile(db).listContracts(
         shop.shopId,
         shop.customerId,
+        TODAY,
       );
-      expect(rows.map((c) => c.id)).toEqual([deleted, closed, open]);
-      expect(rows[0]).toMatchObject({ deleted: true, nextInterestDue: null });
-      expect(rows[1]).toMatchObject({ deleted: false, nextInterestDue: null });
-      expect(rows[1].closedOn).not.toBeNull();
-      expect(rows[2]).toMatchObject({
+      expect(rows.map((c) => c.id)).toEqual([
+        settled,
+        dueToday,
+        late,
+        deleted,
+        closed,
+        open,
+      ]);
+      const [r0, r1, r2, r3, r4, r5] = rows;
+      if (r0.type !== "installment" || r2.type !== "installment" || r5.type !== "pawn")
+        throw new Error("sai loại hợp đồng");
+      expect(r0).toMatchObject({ dueStatus: null, deleted: false });
+      expect(r0.closedOn).not.toBeNull();
+      expect(r0.remaining.isZero()).toBe(true);
+      expect(r1).toMatchObject({ dueStatus: "today", closedOn: null });
+      expect(r2).toMatchObject({ dueStatus: "late", startDate: "2026-10-10" });
+      expect(r2.remaining.toBigInt()).toBe(5_000_000n);
+      expect(r2.amountGiven.toBigInt()).toBe(4_000_000n);
+      expect(r3).toMatchObject({ deleted: true, nextInterestDue: null });
+      expect(r4).toMatchObject({ deleted: false, nextInterestDue: null });
+      expect(r4.closedOn).not.toBeNull();
+      expect(r5).toMatchObject({
         deleted: false,
         nextInterestDue: "2026-10-11",
         closedOn: null,
         loanDate: "2026-09-01",
       });
-      expect(rows[2].outstandingPrincipal.toBigInt()).toBe(5_000_000n);
+      expect(r5.outstandingPrincipal.toBigInt()).toBe(5_000_000n);
     }));
 
-  it("giao dịch gần đây: mọi hợp đồng của khách, mới nhất trước, giới hạn số dòng, đánh dấu dòng đã đảo", () =>
+  it("giao dịch gần đây: mọi hợp đồng của khách (cả trả góp), mới nhất trước, giới hạn số dòng, đánh dấu dòng đã đảo", () =>
     inTx(async (db) => {
       const shop = await seedShop(db);
       const a = await seedContract(db, shop, {
@@ -201,6 +258,26 @@ describe.skipIf(!url)("DrizzleCustomerProfile", () => {
         amount: 99_000,
         contractId: foreign,
       });
+      const installment = await seedInstallment(db, shop, {
+        startDate: "2026-10-01",
+        paid: 200_000,
+      });
+      await seedCash(db, shop, {
+        date: "2026-10-05",
+        type: "installment_payment",
+        amount: 200_000,
+        installmentContractId: installment,
+      });
+      const foreignInstallment = await seedInstallment(db, shop, {
+        customerId: other,
+        startDate: "2026-10-01",
+      });
+      await seedCash(db, shop, {
+        date: "2026-10-06",
+        type: "installment_disbursement",
+        amount: -4_000_000,
+        installmentContractId: foreignInstallment,
+      });
 
       const profile = new DrizzleCustomerProfile(db);
       const rows = await profile.recentTransactions(
@@ -211,26 +288,28 @@ describe.skipIf(!url)("DrizzleCustomerProfile", () => {
       expect(
         rows.map((t) => [
           t.type,
-          t.contractCode === rows[0].contractCode,
+          t.contractCode === rows[1].contractCode,
           t.reversed,
         ]),
       ).toEqual([
+        ["installment_payment", false, false],
         ["reversal", true, false],
         ["principal_repayment", false, false],
         ["interest_payment", true, true],
         ["disbursement", true, false],
       ]);
-      expect(rows[2]).toMatchObject({
+      expect(rows[0].contractCode).toMatch(/^TG-/);
+      expect(rows[3]).toMatchObject({
         periodFrom: "2026-09-01",
         periodTo: "2026-09-11",
       });
-      expect(rows[2].amount.toBigInt()).toBe(150_000n);
+      expect(rows[3].amount.toBigInt()).toBe(150_000n);
       expect(
         await profile.recentTransactions(shop.shopId, shop.customerId, 2),
       ).toHaveLength(2);
     }));
 
-  it("cách ly cửa hàng: B không đọc được khách, hợp đồng, giao dịch của A", () =>
+  it("cách ly cửa hàng: B không đọc được khách, hợp đồng (cả trả góp), giao dịch của A", () =>
     inTx(async (db) => {
       const a = await seedShop(db);
       const contract = await seedContract(db, a, {
@@ -243,12 +322,23 @@ describe.skipIf(!url)("DrizzleCustomerProfile", () => {
         amount: 100_000,
         contractId: contract,
       });
+      const installment = await seedInstallment(db, a, {
+        startDate: "2026-10-01",
+      });
+      await seedCash(db, a, {
+        date: "2026-10-01",
+        type: "installment_disbursement",
+        amount: -4_000_000,
+        installmentContractId: installment,
+      });
       const b = await seedShop(db);
       const profile = new DrizzleCustomerProfile(db);
       expect(
         await profile.findCustomer(b.shopId, a.customerId, TODAY),
       ).toBeNull();
-      expect(await profile.listContracts(b.shopId, a.customerId)).toEqual([]);
+      expect(
+        await profile.listContracts(b.shopId, a.customerId, TODAY),
+      ).toEqual([]);
       expect(
         await profile.recentTransactions(b.shopId, a.customerId, 20),
       ).toEqual([]);

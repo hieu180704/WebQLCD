@@ -3,3 +3,5 @@ export { exportInstallments } from "./presentation/export-installments";
 export { InstallmentDetailPage } from "./presentation/installment-detail-page";
 export { InstallmentListPage } from "./presentation/installment-list-page";
 export { NewInstallmentPage } from "./presentation/new-installment-page";
+export type { DueInstallmentsView } from "./application/list-due-installments";
+export type { InstallmentStats } from "./application/ports";

@@ -31,8 +31,10 @@ import { CreateInstallment } from "@/modules/installment/application/create-inst
 import { DeleteInstallment } from "@/modules/installment/application/delete-installment";
 import { GetInstallmentDetail } from "@/modules/installment/application/get-installment-detail";
 import { GetInstallmentStats } from "@/modules/installment/application/get-installment-stats";
+import { ListDueInstallments } from "@/modules/installment/application/list-due-installments";
 import { ListInstallments } from "@/modules/installment/application/list-installments";
 import { PayInstallment } from "@/modules/installment/application/pay-installment";
+import { PrepareNewInstallment } from "@/modules/installment/application/prepare-new-installment";
 import { ReverseInstallmentOperation } from "@/modules/installment/application/reverse-installment-operation";
 import { DrizzleInstallmentRepository } from "@/modules/installment/infrastructure/drizzle-installment-repository";
 import { ChangePrincipal } from "@/modules/pawn/application/change-principal";
@@ -118,7 +120,9 @@ export const editContract = new EditContract(contracts);
 
 const installments = new DrizzleInstallmentRepository(db, customerWriter, appendCashEntries, hashCccd);
 export const createInstallment = new CreateInstallment(installments);
+export const prepareNewInstallment = new PrepareNewInstallment(installments);
 export const listInstallments = new ListInstallments(installments);
+export const listDueInstallments = new ListDueInstallments(installments);
 export const getInstallmentDetail = new GetInstallmentDetail(installments);
 export const getInstallmentStats = new GetInstallmentStats(installments);
 export const payInstallment = new PayInstallment(installments);

@@ -1,7 +1,7 @@
 import { businessDate, type LocalDate } from "@/shared/kernel/local-date";
 import type { Money } from "@/shared/kernel/money";
 
-/** Thống kê hợp đồng ở trang chủ và `/cam-do` (cầm đồ/tín chấp; chưa tính trả góp). */
+/** Thống kê hợp đồng ở trang chủ và `/cam-do` (cầm đồ/tín chấp; trang chủ cộng thêm ô thống kê trả góp). */
 export type DashboardStats = {
   /** Σ gốc còn lại của hợp đồng đang mở, chưa xoá. */
   lending: Money;
