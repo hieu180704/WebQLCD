@@ -1,0 +1,79 @@
+# Production trên một VPS. Chạy: docker compose --env-file deploy/.env up -d --build
+# Biến môi trường: deploy/.env.example. Runbook: Docs/SourceOfTruth/Architecture/deploy-runbook.txt.
+name: webqlcd
+
+x-owner-url: &owner-url postgres://webqlcd_owner:${OWNER_DB_PASSWORD:?}@db:5432/webqlcd
+
+services:
+  db:
+    image: postgres:18.6-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
+      OWNER_DB_PASSWORD: ${OWNER_DB_PASSWORD:?}
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:?}
+    volumes:
+      - pgdata:/var/lib/postgresql
+      - ./deploy/postgres/init-roles.sh:/docker-entrypoint-initdb.d/10-roles.sh:ro
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres"]
+      interval: 5s
+      retries: 10
+
+  migrate:
+    build: { context: ., target: migrate }
+    environment:
+      MIGRATE_DATABASE_URL: *owner-url
+      APP_DB_ROLE: webqlcd_app
+    depends_on:
+      db: { condition: service_healthy }
+
+  app:
+    build: { context: ., target: app }
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgres://webqlcd_app:${APP_DB_PASSWORD:?}@db:5432/webqlcd
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?}
+      BETTER_AUTH_URL: https://${DOMAIN:?}
+      CCCD_ENCRYPTION_KEY: ${CCCD_ENCRYPTION_KEY:?}
+      CCCD_HMAC_KEY: ${CCCD_HMAC_KEY:?}
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+
+  caddy:
+    image: caddy:2.10.2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      DOMAIN: ${DOMAIN:?}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on: [app]
+
+  backup:
+    build: { context: ., dockerfile: deploy/backup/Dockerfile }
+    restart: unless-stopped
+    environment:
+      BACKUP_DATABASE_URL: *owner-url
+      BACKUP_DIR: /backups
+      BACKUP_PUBLIC_KEY: /run/webqlcd/backup-public.asc
+      BACKUP_KEEP: ${BACKUP_KEEP:-30}
+      BACKUP_AT: ${BACKUP_AT:-02:00}
+      BACKUP_POST_HOOK: ${BACKUP_POST_HOOK:-}
+      TZ: Asia/Ho_Chi_Minh
+    volumes:
+      - backups:/backups
+      - ${BACKUP_PUBLIC_KEY_FILE:?}:/run/webqlcd/backup-public.asc:ro
+    depends_on:
+      db: { condition: service_healthy }
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:
+  backups:

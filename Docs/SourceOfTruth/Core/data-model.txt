@@ -135,6 +135,6 @@ Tính trên các dòng chưa bị đảo (loại dòng gốc có reversal trỏ 
 - **PostgreSQL Row-Level Security:** chưa bật. Cách ly dựa vào repository lọc `shop_id`, khoá ngoại kép và test chéo cửa hàng. Bật sau nếu cần, khi đó phải gắn biến session (`SET LOCAL`) cho mỗi transaction.
 - **Bảng chốt ngày `cash_daily_balances`:** chỉ thêm khi đo thấy truy vấn quỹ đầu két chậm.
 - **Phụ thuộc PostgreSQL 18:** `uuidv7()` chỉ có từ PG 18. Hosting chưa hỗ trợ thì sinh UUID v7 ở tầng ứng dụng, schema giữ nguyên.
-- **Dọn `login_throttles`:** dòng cũ (username dò bừa) chưa được xoá định kỳ; số dòng bị chặn trên bởi khoá IP. Thêm job dọn khi deploy.
-- **Quyền DB:** hiện role ứng dụng sở hữu bảng nên về lý thuyết tắt được trigger. Production nên tách role migrate (sở hữu bảng) và role runtime (chỉ SELECT/INSERT trên sổ két).
+- **Dọn `login_throttles`:** production xoá hằng đêm dòng quá 1 ngày, không đang khoá (`scripts/maintenance/cleanup.sql`, container `backup`). Dev không có job dọn.
+- **Quyền DB:** production tách `webqlcd_owner` (sở hữu bảng, migrate, backup) và `webqlcd_app` (runtime; không UPDATE/DELETE trên `cash_transactions`, `audit_logs`, không tắt được trigger), cấp quyền ở `scripts/migrate.mjs`. Dev vẫn một role sở hữu bảng. Runbook: `Docs/SourceOfTruth/Architecture/deploy-runbook.txt`.
 - **Hình thức lãi mở rộng** (ứng viên ở `core-spec.txt` mục 2): thêm giá trị enum `interest_type` và strategy tính lãi; có thể cần thêm cột tham số.

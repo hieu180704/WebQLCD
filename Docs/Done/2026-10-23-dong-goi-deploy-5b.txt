@@ -1,0 +1,39 @@
+# WORKLOG: LÁT 5B — ĐÓNG GÓI DEPLOY (DOCKER COMPOSE)
+
+# Mục lục
+1. Mục Tiêu
+2. Đã Làm & Kiểm Chứng
+3. File Thay Đổi
+4. Lưu Ý Cho Người Tiếp Quản
+
+---
+
+# 1. Mục Tiêu
+- Lát 5b của mục 5 pilot-scope (duyệt 2026-10-23): đóng gói để deploy lên một VPS, kèm lịch sao lưu của lát 5a. Không deploy thật.
+
+---
+
+# 2. Đã Làm & Kiểm Chứng
+- `output: "standalone"`; Dockerfile 2 target (`app` chạy `server.js`, `migrate`); stage build đặt `DATABASE_URL` giả vì `next build` import `client.ts` (ném lỗi khi thiếu biến) mà không truy vấn.
+- `scripts/migrate.mjs`: migrator runtime của drizzle-orm bằng role sở hữu, rồi cấp quyền role runtime (thu UPDATE/DELETE/TRUNCATE sổ két, audit). Chạy lại được.
+- Compose: `db` (init tạo 2 role), `migrate`, `app`, `caddy` (TLS), `backup` (vòng lặp hằng đêm: `backup.sh` + `cleanup.sql`).
+- `advanced.ipAddress`: không đổi code. Đã thử chỉ tin `x-real-ip` thì 2 e2e khoá IP hỏng (chạy không proxy không ai đặt header), hoàn tác. Next tự đặt `x-forwarded-for` chỉ khi chưa có (`base-server.js:567`) nên app trần bị giả IP; sau Caddy thì header được đặt lại.
+- Kiểm chứng:
+  - PG local, role runtime riêng: e2e 35/35; role runtime bị chặn UPDATE/DELETE sổ két, audit, ALTER TABLE, CREATE TABLE.
+  - Docker Desktop: build 3 image, `up` đủ 5 service, HTTPS qua Caddy (CSP nonce, HSTS, http→https 308), đăng ký + đăng nhập (cookie `__Secure-`, HttpOnly), `X-Forwarded-For` giả bị bỏ qua, sao lưu `--now`, khôi phục + đối soát + đổi tên DB + đăng nhập lại.
+  - Lint, typecheck, `npm test` 177, e2e 35; prettier (`--print-width 140`) trên `scripts/migrate.mjs`, `docker-compose.yml`.
+
+---
+
+# 3. File Thay Đổi
+- Mới: `Dockerfile`, `.dockerignore`, `docker-compose.yml`, `deploy/Caddyfile`, `deploy/.env.example`, `deploy/postgres/init-roles.sh`, `deploy/backup/Dockerfile`, `deploy/backup/nightly.sh`, `scripts/migrate.mjs`, `scripts/maintenance/cleanup.sql`, `Docs/SourceOfTruth/Architecture/deploy-runbook.txt`.
+- Sửa: `next.config.ts`, `.env.example` (thêm khoá CCCD), `Docs/SourceOfTruth/Core/data-model.txt` mục 5, handoff.
+
+---
+
+# 4. Lưu Ý Cho Người Tiếp Quản
+- Máy dev đã có Docker Desktop + WSL2 (cài 2026-10-23). Git Bash: lệnh `docker compose exec` với đường dẫn trong container cần `MSYS_NO_PATHCONV=1`, `--env-file` dùng đường dẫn dạng `C:/...`.
+- Bản sao lưu không chứa quyền mức database: khôi phục phải REVOKE PUBLIC / GRANT CONNECT (runbook mục 5).
+- `next start` báo cảnh báo khi bật standalone nhưng vẫn chạy; e2e vẫn dùng `next start`.
+- Chưa kiểm được IP thật của client trên Linux (Docker Desktop chỉ thấy IP gateway): kiểm ở lần deploy đầu (runbook mục 6).
+- Các ràng buộc mở khác (nơi chép bản sao lưu ra ngoài, một instance, image migrate lớn): runbook mục 6.

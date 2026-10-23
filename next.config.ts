@@ -10,6 +10,8 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  // Image Docker chỉ chép .next/standalone (Dockerfile), không cài lại node_modules.
+  output: "standalone",
   cacheComponents: true,
   partialPrefetching: true,
   // AGENTS.md là entry point chung của 3 engine, không để `next dev` chèn block tự sinh.

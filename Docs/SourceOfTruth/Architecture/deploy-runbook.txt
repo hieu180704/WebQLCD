@@ -1,0 +1,66 @@
+# RUNBOOK: DEPLOY, SAO LƯU, KHÔI PHỤC
+
+# Mục lục
+1. Thành Phần
+2. Khoá & Secret (Bắt Buộc Cất Ngoài VPS)
+3. Deploy Lần Đầu
+4. Cập Nhật Phiên Bản
+5. Sao Lưu & Khôi Phục
+6. Ràng Buộc Mở
+
+---
+
+# 1. Thành Phần
+- `docker-compose.yml` trên một VPS (Decision `2026-10-19-techstack.txt`), 5 service:
+  - `db`: `postgres:18.6-alpine`, không mở cổng ra ngoài. Lần đầu chạy `deploy/postgres/init-roles.sh` tạo `webqlcd_owner` (sở hữu DB) và `webqlcd_app` (runtime).
+  - `migrate`: chạy `scripts/migrate.mjs` bằng `webqlcd_owner` rồi cấp quyền cho `webqlcd_app`. Role runtime không có UPDATE/DELETE trên `cash_transactions`, `audit_logs`, không ALTER/CREATE được.
+  - `app`: Next standalone (`node server.js`), chỉ chạy sau khi `migrate` thành công. Kết nối bằng `webqlcd_app`.
+  - `caddy`: TLS tự động, reverse proxy duy nhất mở cổng 80/443. Đặt lại `X-Forwarded-For` bằng địa chỉ kết nối thật; Better Auth tin header một giá trị này (khoá IP đăng nhập, giới hạn đăng ký). Không chạy app trần ra internet: khi đó client tự đặt được `X-Forwarded-For`.
+  - `backup`: mỗi ngày lúc `BACKUP_AT` (giờ Việt Nam) chạy `scripts/backup/backup.sh` và dọn `login_throttles`. Bản sao lưu ở volume `backups`.
+- Biến môi trường: `deploy/.env.example` → chép thành `deploy/.env` trên VPS.
+
+---
+
+# 2. Khoá & Secret (Bắt Buộc Cất Ngoài VPS)
+- Cất bản sao trong password manager (hoặc nơi tương đương ngoài VPS) TRƯỚC khi nhập dữ liệu thật:
+  - Private key gpg của bản sao lưu (kèm passphrase). Server chỉ giữ public key.
+  - `CCCD_ENCRYPTION_KEY`, `CCCD_HMAC_KEY`: mất thì CCCD trong mọi bản sao lưu không giải mã / không tìm được.
+  - `BETTER_AUTH_SECRET`, ba mật khẩu DB trong `deploy/.env`.
+- Không đổi `CCCD_ENCRYPTION_KEY` khi đã có dữ liệu (chưa có quy trình xoay khoá).
+
+---
+
+# 3. Deploy Lần Đầu
+1. VPS cài Docker; trỏ DNS tên miền về VPS; mở cổng 80, 443.
+2. Tạo cặp key gpg trên máy cá nhân (không phải VPS): `gpg --quick-gen-key "webqlcd-backup" default default never`, xuất public key `gpg --armor --export webqlcd-backup > backup-public.asc`, chép lên VPS ở `deploy/backup-public.asc`.
+3. Tạo `deploy/.env` theo mẫu; sinh giá trị bằng lệnh ghi trong mẫu; cất bản sao (mục 2).
+4. `docker compose --env-file deploy/.env up -d --build`.
+5. Kiểm: `docker compose --env-file deploy/.env ps` (migrate thoát mã 0, các service khác chạy), mở `https://<tên miền>/dang-nhap`.
+6. Chạy thử một bản sao lưu ngay: `docker compose --env-file deploy/.env exec backup /opt/webqlcd/nightly.sh --now`, rồi diễn tập khôi phục (mục 5) trước khi đưa khách dùng.
+
+---
+
+# 4. Cập Nhật Phiên Bản
+- `git pull` rồi `docker compose --env-file deploy/.env up -d --build`. `migrate` chạy lại trước `app`; migration lỗi thì `app` không khởi động bản mới.
+- Trước khi cập nhật có migration: chạy một bản sao lưu ngay (mục 3 bước 6).
+
+---
+
+# 5. Sao Lưu & Khôi Phục
+- Xem: `docker compose --env-file deploy/.env exec backup ls -l /backups`. Log: `docker compose --env-file deploy/.env logs backup` (dòng "LỖI" là thất bại).
+- Chép một bản ra ngoài: `docker compose --env-file deploy/.env cp backup:/backups/<file> .`. Tự động: `BACKUP_POST_HOOK` (chưa chọn nơi lưu).
+- Khôi phục (bộ phận hỗ trợ làm, không có trên giao diện):
+  1. Tạo DB mới và đặt quyền kết nối như DB gốc (bản sao lưu không chứa quyền mức database): `docker compose --env-file deploy/.env exec db psql -U postgres -c "CREATE DATABASE webqlcd_restore OWNER webqlcd_owner" -c "REVOKE ALL ON DATABASE webqlcd_restore FROM PUBLIC" -c "GRANT CONNECT ON DATABASE webqlcd_restore TO webqlcd_app"`.
+  2. Nạp private key qua stdin, không chép file key lên VPS: `gpg --armor --export-secret-keys webqlcd-backup | ssh <vps> docker compose --env-file deploy/.env exec -T backup gpg --import` (hoặc dán tay). Rồi trong container `backup`: `/opt/webqlcd/backup/restore.sh /backups/<file> postgres://webqlcd_owner:<mật khẩu>@db:5432/webqlcd_restore`. Script dừng nếu DB đích có bảng, chạy đối soát sau khi khôi phục.
+  3. Đối soát khớp thì `stop app`, đổi tên `webqlcd` → `webqlcd_old`, `webqlcd_restore` → `webqlcd` (`ALTER DATABASE ... RENAME TO ...` bằng user `postgres`), chạy lại `up -d`. Giữ `webqlcd_old` tới khi chắc chắn. Key trong container `backup` mất khi container được tạo lại; xoá sớm hơn bằng `gpg --delete-secret-keys`.
+- Đã diễn tập trọn quy trình trên Docker Desktop (2026-10-23): sao lưu, khôi phục, đối soát, đổi tên DB, đăng nhập lại được.
+- Lý do thiết kế: Decision `2026-10-23-backup.txt`.
+
+---
+
+# 6. Ràng Buộc Mở
+- Nơi chép bản sao lưu ra ngoài VPS: chưa chọn; tới lúc đó bản sao lưu chỉ nằm trên VPS.
+- Chỉ một instance `app`: nhiều instance cần `NEXT_SERVER_ACTIONS_ENCRYPTION_KEY` chung và `deploymentId` (guide self-hosting của Next).
+- Lần deploy đầu: đăng nhập sai một lần rồi xem `SELECT key FROM login_throttles WHERE scope = 'ip'` phải là IP thật của máy client. Đã kiểm trên Docker Desktop: `X-Forwarded-For` giả bị bỏ qua, nhưng Docker Desktop chỉ cho thấy IP gateway (172.18.0.1), chưa kiểm được IP thật trên Linux.
+- Image `migrate` khoảng 1,15 GB vì cài mọi dependency production; chỉ chạy một lần mỗi lần deploy, chưa tối ưu.
+- Đặt Cloudflare hoặc proxy khác trước Caddy thì phải cấu hình lại nguồn IP tin cậy (Caddy `trusted_proxies`, Better Auth `advanced.ipAddress`).

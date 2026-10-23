@@ -1,0 +1,9 @@
+# Caddy tự xin chứng chỉ TLS cho {$DOMAIN}. X-Forwarded-For client gửi lên không được tin, Caddy đặt lại bằng
+# địa chỉ kết nối thật; Better Auth đọc header này (một giá trị). Cổng app không mở ra ngoài compose.
+{$DOMAIN} {
+	encode zstd gzip
+	reverse_proxy app:3000 {
+		# App Router stream HTML theo từng phần, không đệm.
+		flush_interval -1
+	}
+}
