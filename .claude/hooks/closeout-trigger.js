@@ -2,7 +2,7 @@
 // Hỗ trợ đồng thời: Codex, Claude Code & Antigravity IDE (Gemini)
 
 const { execFileSync } = require('child_process');
-const { parseContext, ask, allow } = require('./hook-adapter');
+const { parseContext, injectContext, allow } = require('./hook-adapter');
 
 function gitFiles(args, cwd) {
   try {
@@ -67,4 +67,4 @@ if (reasons.length === 0) {
   allow();
 }
 
-ask(reasons.join('\n\n'));
+injectContext(reasons.join('\n\n'));
