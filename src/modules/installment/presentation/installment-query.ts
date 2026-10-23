@@ -2,11 +2,12 @@ import { z } from "zod";
 import { normalizeCccd } from "@/modules/customer";
 import type { InstallmentFilter, InstallmentStatusFilter } from "../application/ports";
 
-// Khoá = giá trị tham số trên URL.
+// Khoá = giá trị tham số trên URL (trang chủ trỏ vào `tt=sap-den-han`).
 export const STATUSES: Record<string, { label: string; value: InstallmentStatusFilter }> = {
   "dang-gop": { label: "Đang góp", value: "open" },
   "cham-gop": { label: "Chậm góp", value: "late" },
   "hom-nay": { label: "Đến hạn hôm nay", value: "due_today" },
+  "sap-den-han": { label: "Đến hạn trong 3 ngày (gồm chậm góp)", value: "due_soon" },
   "da-dong": { label: "Đã đóng", value: "closed" },
   "da-xoa": { label: "Đã xoá", value: "deleted" },
 };

@@ -103,8 +103,9 @@ export type DeletionDraft = { contractId: string; reason: string; businessDate: 
 
 /**
  * Trạng thái lọc danh sách (core-spec mục 2). "Chậm góp", "Đến hạn hôm nay" như nhãn hạn góp; chỉ hợp đồng đang góp.
+ * `due_soon` = kỳ tới hạn không sau hôm nay + DUE_WINDOW_DAYS, gồm cả chậm góp (như bảng đến hạn ở trang chủ).
  */
-export type InstallmentStatusFilter = "open" | "late" | "due_today" | "closed" | "deleted";
+export type InstallmentStatusFilter = "open" | "late" | "due_today" | "due_soon" | "closed" | "deleted";
 
 /** `search`: mã HĐ, tên khách (không dấu), SĐT; `cccd`: đã chuẩn hoá, khớp đủ số qua hash. */
 export type InstallmentFilter = {

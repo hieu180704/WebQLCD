@@ -209,7 +209,7 @@ export async function CashbookPage({ query }: { query: Record<string, string | s
  */
 function LineContent({ line }: { line: CashLine }) {
   const contract = line.contractId && line.contractCode && (
-    <Link href={`/cam-do/${line.contractId}`} className="text-teal-700 hover:underline">
+    <Link href={`${line.contractKind === "installment" ? "/tra-gop" : "/cam-do"}/${line.contractId}`} className="text-teal-700 hover:underline">
       {line.contractCode}
     </Link>
   );

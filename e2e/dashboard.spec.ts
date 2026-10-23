@@ -89,11 +89,15 @@ test("thống kê hợp đồng, bảng đến hạn: quá hạn, chậm góp hi
   await row.getByRole("link", { name: "CD-1" }).click();
   await expect(page).toHaveURL(/\/cam-do\/[0-9a-f-]+$/);
   await page.goto("/");
-  await due.getByRole("link", { name: "Tất cả" }).click();
+  await due.getByRole("link", { name: "Tất cả cầm đồ, tín chấp đến hạn" }).click();
   await expect(page).toHaveURL("/cam-do?tt=sap-den-han");
   const contracts = page.getByRole("region", { name: "Danh sách hợp đồng" });
   await expect(contracts.getByRole("row", { name: /CD-1/ })).toBeVisible();
   await expect(contracts.getByRole("row", { name: /TC-1/ })).toHaveCount(0);
+  await page.goto("/");
+  await due.getByRole("link", { name: "Tất cả trả góp đến hạn" }).click();
+  await expect(page).toHaveURL("/tra-gop?tt=sap-den-han");
+  await expect(page.getByRole("row", { name: /TG-1/ })).toBeVisible();
 
   await page.goto("/");
   await tile(page, "Quá hạn / chậm góp").getByRole("link", { name: "Cầm đồ/tín chấp 1" }).click();

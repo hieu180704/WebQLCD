@@ -69,6 +69,15 @@ test("tạo hợp đồng trả góp: tóm tắt, cảnh báo lãi, giải ngân
   await page.goto("/quy-ket");
   const cash = page.getByRole("row", { name: /Giải ngân trả góp/ });
   await expect(cash).toContainText("4.000.000");
+  // Lọc nhóm trả góp; mã HĐ trả góp mở chi tiết trả góp.
+  const filter = page.getByRole("form", { name: "Lọc giao dịch" });
+  await filter.getByLabel("Loại giao dịch").selectOption({ label: "Trả góp (giải ngân / thu góp)" });
+  await filter.getByRole("button", { name: "Lọc" }).click();
+  await expect(page).toHaveURL(/loai=tra-gop/);
+  await expect(cash).toBeVisible();
+  await expect(page.getByRole("row", { name: /Nạp vốn|Quỹ đầu két/ })).toHaveCount(0);
+  await cash.getByRole("link", { name: "TG-1" }).click();
+  await expect(page).toHaveURL(/\/tra-gop\/[0-9a-f-]+$/);
 });
 
 test("chi tiết: lịch góp, đóng tiền góp lẻ dồn sang kỳ sau, ghi sổ quỹ", async ({ page }) => {

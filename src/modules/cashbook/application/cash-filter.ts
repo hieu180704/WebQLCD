@@ -2,12 +2,12 @@ import type { CashTransactionType } from "./ports";
 
 /**
  * Nhóm loại giao dịch để lọc sổ quỹ (mockup quy-ket). Khoá là giá trị tham số `loai` trên URL.
- * Chưa có nhóm trả góp: trả góp hoãn đến sau bản dùng thử.
  */
 export const CASH_TYPE_GROUPS = {
   "giai-ngan": { label: "Giải ngân / vay thêm", types: ["disbursement", "additional_loan"] },
   "dong-lai": { label: "Đóng lãi", types: ["interest_payment"] },
   "tra-goc": { label: "Trả gốc / chuộc đồ", types: ["principal_repayment"] },
+  "tra-gop": { label: "Trả góp (giải ngân / thu góp)", types: ["installment_disbursement", "installment_payment"] },
   "thu-khac": { label: "Thu khác", types: ["manual_income"] },
   "chi-khac": { label: "Chi khác", types: ["manual_expense"] },
   "nap-von": { label: "Nạp vốn / quỹ đầu két", types: ["capital_in", "opening_balance"] },

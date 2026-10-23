@@ -15,6 +15,7 @@ const line = (i: number): CashLine => ({
   amount: Money.of(-1n),
   contractId: "c",
   contractCode: "CD-1",
+  contractKind: "pawn",
   createdByName: "Chủ",
   note: null,
   reversed: false,
@@ -144,10 +145,10 @@ describe("GetCashDay", () => {
 
   it("chỉ phiếu thu/chi khác, nạp vốn chưa bị huỷ là huỷ được từ sổ quỹ", async () => {
     const lines: CashLine[] = [
-      { ...line(0), type: "manual_expense", contractId: null, contractCode: null },
-      { ...line(1), type: "capital_in", contractId: null, contractCode: null, reversed: true },
+      { ...line(0), type: "manual_expense", contractId: null, contractCode: null, contractKind: null },
+      { ...line(1), type: "capital_in", contractId: null, contractCode: null, contractKind: null, reversed: true },
       line(2),
-      { ...line(3), type: "opening_balance", contractId: null, contractCode: null },
+      { ...line(3), type: "opening_balance", contractId: null, contractCode: null, contractKind: null },
     ];
     const view = await new GetCashDay(fakeRepo(lines).repo).execute("s", null, null, {}, now);
     expect(view.lines.map((l) => l.reversible)).toEqual([true, false, false, false]);

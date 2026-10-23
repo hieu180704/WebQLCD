@@ -1,0 +1,11 @@
+# 2026-10-24: Dọn chỗ trả góp còn sót + mục Báo cáo trong core-spec — [verified: lint, typecheck, vitest 246/246, e2e 55/55 (gồm build)]
+
+- Nhánh: worktree wt-2, DB `webqlcd_wt2`, E2E_PORT 3101. Người dùng duyệt đề xuất 1 + 2 sau khi gộp đợt 2 (handoff mục 3), chọn phương án (a) cho CCCD khi xuất Excel.
+- Đã làm:
+  1. `/quy-ket`: nhóm lọc "Trả góp (giải ngân / thu góp)" (`loai=tra-gop`) trong `cash-filter.ts`. `CashLine` thêm `contractKind`; `listDay` join `installment_contracts` theo cặp (shop_id, id) nên dòng trả góp (kể cả dòng đảo) có mã TG-n, link sang `/tra-gop/<id>`. File Excel quỹ két, danh sách giao dịch ở trang chủ tự có mã TG-n vì dùng chung `CashLine`.
+  2. `/tra-gop`: trạng thái lọc "Đến hạn trong 3 ngày (gồm chậm góp)" (`tt=sap-den-han`, `due_soon`): hạn kỳ tới ≤ hôm nay + `DUE_WINDOW_DAYS`, dùng chung biểu thức `installment_next_due` với `listDue`.
+  3. Trang chủ: "Tất cả" của bảng đến hạn tách hai link (cầm đồ/tín chấp → `/cam-do?tt=sap-den-han`, trả góp → `/tra-gop?tt=sap-den-han`); `aria-label` để không trùng tên link menu "Trả góp".
+  4. core-spec: mục Báo cáo (theo worklog R1, R2, T4 và code `report-page.tsx`, `get-cash-report.ts`); quyền xuất Excel sửa thành "CCCD chỉ xuất 4 số cuối"; link "Tất cả", trạng thái lọc trả góp, mã HĐ trả góp trên quỹ két.
+  5. Test: DB test `due_soon` (biên hôm nay + 3, chậm góp, đã đóng); e2e lọc nhóm trả góp + link TG-1 ở `/quy-ket`, link "Tất cả" trả góp ở trang chủ.
+- File: src/modules/cashbook/{application/cash-filter.ts, application/ports.ts, application/cashbook-use-cases.test.ts, infrastructure/drizzle-cashbook-repository.ts, presentation/cashbook-page.tsx}, src/modules/installment/{application/ports.ts, infrastructure/drizzle-installment-repository.ts + db test, presentation/installment-query.ts}, src/app/(app)/page.tsx, e2e/{dashboard,tra-gop}.spec.ts, Docs/SourceOfTruth/Core/core-spec.txt.
+- Lưu ý cho phiên sau: bộ lọc loại ở `/quy-ket` vẫn chưa có trong core-spec (chỉ ở worklog 2c); xuất Excel chưa có mục riêng trong core-spec (chỉ dòng quyền và architecture-spec). Không có migration.
