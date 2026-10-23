@@ -8,3 +8,4 @@
 - Lưu ý cho phiên sau:
   - `npm run build` log lỗi BetterAuth "default secret" nhưng exit 0: build đọc `.env` không có `BETTER_AUTH_SECRET` (đã ghi ở worklog 4c); e2e tự sinh secret nên không lộ ra. Người dùng kiểm `.env`.
   - `audit_logs.action` là text: thêm action `export` không cần migration.
+- Bổ sung (cùng phiên): người dùng đổi sang 3 worktree phụ cố định thay vì worktree theo tính năng. `git worktree move` 2 tree vừa tạo thành `C:/Project/WebQLCD-2|-3`, đổi nhánh thành `wt-2|wt-3`, thêm `WebQLCD-4` / `wt-4`; đổi tên DB thành `webqlcd_wt2|_wt3`, tạo `webqlcd_wt4`; cả 3 tree ff lên 6e62efd. Quy ước dùng: handoff mục 1.
