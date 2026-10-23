@@ -2,6 +2,7 @@ import "server-only";
 import { z } from "zod";
 import { normalizeCccd, normalizePhone } from "@/modules/customer";
 import { isLocalDate } from "@/shared/kernel/local-date";
+import { Money } from "@/shared/kernel/money";
 import { parseVnd } from "@/shared/kernel/vnd";
 
 const MAX_AMOUNT = 100_000_000_000n; // 100 tỷ: chặn gõ nhầm thừa chữ số.
@@ -77,3 +78,17 @@ export const INSTALLMENT_FORM_FIELDS = [
   "startDate",
   "note",
 ] as const;
+
+/** Số đã thu người nhập đang thấy: chỉ dùng để so với DB (khoá lạc quan), không dùng làm số tiền. */
+const lock = {
+  contractId: z.uuid("Hợp đồng không hợp lệ."),
+  expectedPaid: z
+    .string()
+    .regex(/^\d{1,15}$/, "Hợp đồng không hợp lệ.")
+    .transform((text) => Money.of(BigInt(text))),
+};
+
+export const payInstallmentSchema = z.object({
+  ...lock,
+  amount: positiveMoney("Số tiền khách đưa phải lớn hơn 0."),
+});

@@ -77,6 +77,7 @@ GIẢ ĐỊNH TẠM (2026-10-23, trả góp, đội dự án tự chốt theo mo
 - **Chia tiền mỗi kỳ:** phải thu luỹ kế đến hết kỳ k = tổng phải thu × k / số kỳ, làm tròn half-up về 1 đồng; tiền mỗi kỳ là phần chênh hai mức luỹ kế liền nhau, nên tổng các kỳ đúng bằng tổng phải thu (các kỳ chênh nhau tối đa 1 đồng).
 - **Tạo hợp đồng:** tiền đưa khách > 0, tổng phải thu ≥ tiền đưa khách, số ngày mỗi kỳ ≤ số ngày góp. Ngày bắt đầu không được sau hôm nay, được lùi về trước; tiền đưa khách ghi sổ két vào hôm nay. KTV là người đang đăng nhập. Khách trùng CCCD như cầm đồ.
 - **Trạng thái góp** tính từ số tiền đã thu: kỳ đã góp đủ = các kỳ có luỹ kế ≤ đã thu; kỳ tới = kỳ đầu chưa góp đủ. "Chậm N kỳ" = số kỳ có hạn trước hôm nay mà chưa góp đủ; "Hôm nay" = không chậm và kỳ tới đến hạn hôm nay; còn lại "Đúng hạn".
+- **Đóng tiền góp:** ô "góp đến hết kỳ k" (tối đa 24 kỳ kế tiếp) chỉ gợi ý số tiền = luỹ kế phải thu kỳ k − đã thu. Số tiền nhập tự do, 0 < tiền ≤ còn phải thu; góp lẻ thì phần dư dồn sang kỳ sau. Ghi một khoản thu vào sổ két hôm nay. Góp chạm đủ tổng phải thu thì hợp đồng tự chuyển "Đã đóng". Chủ tiệm và KTV đều làm được. Trang đã cũ (người khác vừa thu) thì từ chối, tải lại số liệu. Lịch góp hiện vài kỳ quanh kỳ tới, "Xem đủ N kỳ" hiện toàn bộ; ngày góp của một kỳ là ngày của lần thu làm kỳ đó đủ tiền.
 
 ---
 

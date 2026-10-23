@@ -11,7 +11,7 @@ import type { Db } from "@/shared/infrastructure/db/client";
 import * as schema from "@/shared/infrastructure/db/schema";
 import { Money } from "@/shared/kernel/money";
 import type { Actor, InstallmentDraft } from "../application/ports";
-import type { InstallmentTerms } from "../domain/installment";
+import { planPayment, planSettlement, type InstallmentTerms } from "../domain/installment";
 import { DrizzleInstallmentRepository } from "./drizzle-installment-repository";
 
 const url = process.env.DATABASE_URL;
@@ -150,5 +150,97 @@ describe.skipIf(!url)("DrizzleInstallmentRepository", () => {
       const page2 = await repo(db).list(actor.shopId, page1[1].id, 2);
       expect(page2.map((r) => r.code)).toEqual(["TG-1"]);
       expect((await repo(db).list(other.shopId, null, 10)).map((r) => r.code)).toEqual(["TG-1"]);
+    }));
+
+  /** Id hợp đồng theo mã trong cửa hàng. */
+  const idOf = async (db: Db, actor: Actor, code: string) =>
+    (await rows<{ id: string }>(db, sql`SELECT id FROM installment_contracts WHERE shop_id = ${actor.shopId} AND code = ${code}`))[0].id;
+
+  /** Thu `amount` qua domain (như use case) rồi ghi; `kind = close` là tất toán. */
+  async function pay(db: Db, actor: Actor, contractId: string, amount: number, kind: "pay" | "close" = "pay") {
+    const record = await repo(db).findRecord(actor.shopId, contractId);
+    if (!record) throw new Error("không thấy hợp đồng");
+    const plan = kind === "pay" ? planPayment(record, Money.fromNumber(amount)) : planSettlement(record, Money.fromNumber(amount));
+    if (!plan.ok) throw new Error(plan.error);
+    return repo(db).recordPayment(actor, { contractId, kind, payment: plan.value, expectedPaid: record.amountPaid, businessDate: TODAY });
+  }
+
+  /** Truy vấn đối soát (data-model mục 4): amount_paid = Σ installment_payment chưa đảo. */
+  async function reconcile(db: Db, contractId: string) {
+    const [row] = await rows<{ stored: string; ledger: string }>(
+      db,
+      sql`SELECT c.amount_paid::text AS stored, coalesce((
+            SELECT sum(t.amount) FROM cash_transactions t
+            WHERE t.installment_contract_id = c.id AND t.type = 'installment_payment'
+              AND NOT EXISTS (SELECT 1 FROM cash_transactions r WHERE r.reverses_id = t.id)
+          ), 0)::text AS ledger
+          FROM installment_contracts c WHERE c.id = ${contractId}`,
+    );
+    expect(row.stored).toBe(row.ledger);
+  }
+
+  it("đóng tiền góp: cộng đã thu, dòng thu chung thao tác pay, audit; thu đủ thì đóng hợp đồng", () =>
+    inTx(async (db) => {
+      const actor = await seedShop(db);
+      await repo(db).create(actor, draft());
+      const id = await idOf(db, actor, "TG-1");
+      expect(await pay(db, actor, id, 450_000)).toBe(true);
+      await reconcile(db, id);
+      expect((await repo(db).findRecord(actor.shopId, id))?.amountPaid.toBigInt()).toBe(450_000n);
+
+      const payments = await repo(db).listPayments(actor.shopId, id);
+      expect(payments.map((x) => [x.on, x.amount.toBigInt()])).toEqual([[TODAY, 450_000n]]);
+      const history = await repo(db).listTransactions(actor.shopId, id, 10);
+      expect(history.map((t) => [t.type, t.operationKind, t.amount.toBigInt()])).toEqual([
+        ["installment_payment", "pay", 450_000n],
+        ["installment_disbursement", "disbursement", -4_000_000n],
+      ]);
+
+      expect(await pay(db, actor, id, 4_550_000)).toBe(true);
+      const detail = await repo(db).findDetail(actor.shopId, id);
+      expect(detail).toMatchObject({ status: "closed", closedOn: expect.any(String), deleted: null, customerName: "Đỗ Minh Tâm" });
+      expect(detail?.ledgerNet.toBigInt()).toBe(1_000_000n);
+      await reconcile(db, id);
+      const audit = await rows<{ action: string }>(
+        db,
+        sql`SELECT action FROM audit_logs WHERE entity = 'installment_contract' AND entity_id = ${id} ORDER BY at, action`,
+      );
+      expect(audit.map((a) => a.action).sort()).toEqual(["create", "pay", "pay"]);
+    }));
+
+  it("khoá lạc quan: số đã thu đổi, hợp đồng đã đóng hoặc cửa hàng khác thì không ghi", () =>
+    inTx(async (db) => {
+      const actor = await seedShop(db);
+      const other = await seedShop(db);
+      await repo(db).create(actor, draft());
+      const id = await idOf(db, actor, "TG-1");
+      const record = await repo(db).findRecord(actor.shopId, id);
+      const plan = planPayment(record!, Money.fromNumber(200_000));
+      if (!plan.ok) throw new Error(plan.error);
+      const write = (who: Actor) =>
+        repo(db).recordPayment(who, { contractId: id, kind: "pay", payment: plan.value, expectedPaid: Money.ZERO, businessDate: TODAY });
+
+      expect(await write(other)).toBe(false);
+      expect(await repo(db).findRecord(other.shopId, id)).toBeNull();
+      expect(await repo(db).findDetail(other.shopId, id)).toBeNull();
+      expect(await repo(db).listTransactions(other.shopId, id, 10)).toEqual([]);
+      expect(await write(actor)).toBe(true);
+      expect(await write(actor)).toBe(false); // expectedPaid 0 đã cũ.
+      await reconcile(db, id);
+    }));
+
+  it("tất toán thu 0 đồng: đóng hợp đồng, có thao tác nhưng không có dòng sổ két", () =>
+    inTx(async (db) => {
+      const actor = await seedShop(db);
+      await repo(db).create(actor, draft());
+      const id = await idOf(db, actor, "TG-1");
+      expect(await pay(db, actor, id, 0, "close")).toBe(true);
+      expect((await repo(db).findRecord(actor.shopId, id))?.status).toBe("closed");
+      const ops = await rows<{ kind: string }>(
+        db,
+        sql`SELECT kind FROM installment_operations WHERE installment_contract_id = ${id} ORDER BY created_at`,
+      );
+      expect(ops.map((o) => o.kind)).toEqual(["disbursement", "close"]);
+      expect(await repo(db).listPayments(actor.shopId, id)).toEqual([]);
     }));
 });

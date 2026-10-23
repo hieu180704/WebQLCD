@@ -127,3 +127,112 @@ export function annualPercent(t: Pick<InstallmentTerms, "amountGiven" | "totalDu
   const tenths = profit.mulDiv(365n * 100n * 10n, t.amountGiven.toBigInt() * BigInt(t.totalDays));
   return Number(tenths.toBigInt()) / 10;
 }
+
+/** Kỳ đầu và kỳ cuối mà một lần thu chạm tới, khi số đã thu đi từ `before` lên `after` ("Góp kỳ 7–8"). */
+export function periodsCovered(
+  s: Pick<Schedule, "totalDue" | "totalDays" | "periodDays">,
+  before: Money,
+  after: Money,
+): { first: number; last: number } {
+  const n = periodCount(s);
+  const first = Math.min(n, paidPeriods(s, before) + 1);
+  // Kỳ nhỏ nhất có luỹ kế >= after = (số kỳ có luỹ kế < after) + 1.
+  const last = Math.min(n, paidPeriods(s, after.subtract(Money.of(1n))) + 1);
+  return { first, last: Math.max(first, last) };
+}
+
+export type SchedulePeriod = {
+  index: number;
+  due: LocalDate;
+  amount: Money;
+  /** Phần đã góp vào kỳ này (góp dư kỳ trước dồn sang, góp thiếu thì nhỏ hơn `amount`). */
+  paid: Money;
+  /** Ngày nghiệp vụ của lần thu làm kỳ này đủ tiền; null khi chưa đủ. */
+  paidOn: LocalDate | null;
+};
+
+/**
+ * Các kỳ `from..to` của lịch góp. `payments` là các lần thu chưa huỷ, cũ trước; tiền dồn từ kỳ đầu (góp dư dồn sang kỳ sau),
+ * nên ngày góp đủ của kỳ k là ngày của lần thu đưa luỹ kế đã thu lên tới luỹ kế phải thu kỳ k.
+ */
+export function schedulePeriods(
+  c: InstallmentStanding,
+  payments: readonly { on: LocalDate; amount: Money }[],
+  from: number,
+  to: number,
+): SchedulePeriod[] {
+  const periods: SchedulePeriod[] = [];
+  let p = 0;
+  let cumulative = Money.ZERO;
+  for (let k = Math.max(1, from); k <= Math.min(to, periodCount(c)); k++) {
+    const start = dueThrough(c, k - 1);
+    const end = dueThrough(c, k);
+    let paidOn: LocalDate | null = null;
+    if (c.amountPaid.compare(end) >= 0) {
+      while (p < payments.length && cumulative.compare(end) < 0) cumulative = cumulative.add(payments[p++].amount);
+      paidOn = cumulative.compare(end) >= 0 && p > 0 ? payments[p - 1].on : null;
+    }
+    const over = c.amountPaid.subtract(start);
+    const amount = end.subtract(start);
+    const paid = over.isNegative() ? Money.ZERO : over.compare(amount) > 0 ? amount : over;
+    periods.push({ index: k, due: periodDueDate(c, k), amount, paid, paidOn });
+  }
+  return periods;
+}
+
+/** Số kỳ tối đa liệt kê trong ô "góp đến hết kỳ"; nhiều hơn thì nhập số tiền hoặc tất toán. */
+const MAX_PAYMENT_OPTIONS = 24;
+
+export type PaymentOption = { index: number; due: LocalDate; amount: Money };
+
+/** Lựa chọn "góp đến hết kỳ k" gợi ý số tiền = luỹ kế phải thu kỳ k − đã thu (GIẢ ĐỊNH TẠM, core-spec mục 2). */
+export function paymentOptions(c: InstallmentStanding): PaymentOption[] {
+  const n = periodCount(c);
+  const paid = paidPeriods(c, c.amountPaid);
+  const options: PaymentOption[] = [];
+  for (let k = paid + 1; k <= Math.min(n, paid + MAX_PAYMENT_OPTIONS); k++) {
+    options.push({ index: k, due: periodDueDate(c, k), amount: dueThrough(c, k).subtract(c.amountPaid) });
+  }
+  return options;
+}
+
+export type Payment = {
+  amount: Money;
+  paidAfter: Money;
+  /** Thu đủ tổng phải thu: hợp đồng tự chuyển "Đã đóng". */
+  closes: boolean;
+};
+
+export type PaymentViolation = "amount_not_positive" | "amount_exceeds_remaining";
+
+/** Đóng tiền góp: số tiền tự do, 0 < tiền ≤ còn phải thu; góp lẻ, góp dư dồn sang kỳ sau. */
+export function planPayment(c: InstallmentStanding, amount: Money): { ok: true; value: Payment } | { ok: false; error: PaymentViolation } {
+  if (!amount.isPositive()) return { ok: false, error: "amount_not_positive" };
+  const remaining = c.totalDue.subtract(c.amountPaid);
+  if (amount.compare(remaining) > 0) return { ok: false, error: "amount_exceeds_remaining" };
+  const paidAfter = c.amountPaid.add(amount);
+  return { ok: true, value: { amount, paidAfter, closes: paidAfter.equals(c.totalDue) } };
+}
+
+export type SettlementViolation = "amount_negative" | "amount_exceeds_remaining";
+
+/**
+ * Đóng / tất toán: `amount` null = thu đủ còn phải thu; có nhập thì được thấp hơn, kể cả 0 (tiệm giảm cho khách tất toán
+ * sớm, phần chênh không thu), không được cao hơn. Hợp đồng chuyển "Đã đóng".
+ */
+export function planSettlement(
+  c: InstallmentStanding,
+  amount: Money | null,
+): { ok: true; value: Payment } | { ok: false; error: SettlementViolation } {
+  const remaining = c.totalDue.subtract(c.amountPaid);
+  const value = amount ?? remaining;
+  if (value.isNegative()) return { ok: false, error: "amount_negative" };
+  if (value.compare(remaining) > 0) return { ok: false, error: "amount_exceeds_remaining" };
+  return { ok: true, value: { amount: value, paidAfter: c.amountPaid.add(value), closes: true } };
+}
+
+/** Loại thao tác trên hợp đồng trả góp (bảng `installment_operations`). */
+export type OperationKind = "disbursement" | "pay" | "close";
+
+/** Huỷ giao dịch: chỉ thao tác mới nhất chưa huỷ, không huỷ riêng giải ngân (muốn bỏ hợp đồng thì xoá). */
+export const isReversible = (kind: OperationKind) => kind !== "disbursement";

@@ -62,7 +62,11 @@ export async function InstallmentListPage({ query }: { query: Record<string, str
               <tbody>
                 {view.items.map((c) => (
                   <tr key={c.id}>
-                    <td className="font-medium">{c.code}</td>
+                    <td className="font-medium">
+                      <Link href={`/tra-gop/${c.id}`} className="text-teal-700 hover:underline">
+                        {c.code}
+                      </Link>
+                    </td>
                     <td>
                       <Link href={`/khach-hang/${c.customerId}`} className="font-medium hover:underline">
                         {c.customerName}

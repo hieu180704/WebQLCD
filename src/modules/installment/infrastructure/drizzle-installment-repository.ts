@@ -1,18 +1,36 @@
 import "server-only";
-import { and, desc, eq, isNull, lt, sql } from "drizzle-orm";
+import { and, asc, desc, eq, isNull, lt, sql } from "drizzle-orm";
 import type { AppendCashEntries } from "@/modules/cashbook";
 // Chỉ kiểu: index của customer kéo theo presentation, mà presentation import composition-root (vòng import).
 import type { DrizzleCustomerWriter } from "@/modules/customer";
 import type { Db, Tx } from "@/shared/infrastructure/db/client";
 import { dbCause } from "@/shared/infrastructure/db/errors";
-import { auditLogs, customers, installmentContracts, installmentOperations, shopCounters } from "@/shared/infrastructure/db/schema";
+import {
+  auditLogs,
+  cashTransactions,
+  customers,
+  installmentContracts,
+  installmentOperations,
+  shopCounters,
+  users,
+} from "@/shared/infrastructure/db/schema";
+import { businessDate } from "@/shared/kernel/local-date";
 import { Money } from "@/shared/kernel/money";
 import { maskPhone } from "@/shared/kernel/personal-data";
-import { CODE_PREFIX } from "../domain/installment";
-import type { Actor, CreatedInstallment, InstallmentDraft, InstallmentListRow, InstallmentRepository } from "../application/ports";
-
-/** Loại thao tác trên hợp đồng trả góp (bảng `installment_operations`). */
-type OperationKind = (typeof installmentOperations.kind.enumValues)[number];
+import { CODE_PREFIX, type OperationKind } from "../domain/installment";
+import type {
+  Actor,
+  CreatedInstallment,
+  InstallmentCashType,
+  InstallmentDetailRow,
+  InstallmentDraft,
+  InstallmentListRow,
+  InstallmentRecord,
+  InstallmentRepository,
+  InstallmentTransaction,
+  PaymentDraft,
+  PaymentRecord,
+} from "../application/ports";
 
 const AUDIT_ENTITY = "installment_contract";
 
@@ -90,6 +108,161 @@ export class DrizzleInstallmentRepository implements InstallmentRepository {
       totalDue: Money.of(row.totalDue),
       amountPaid: Money.of(row.amountPaid),
     }));
+  }
+
+  async findDetail(shopId: string, contractId: string): Promise<InstallmentDetailRow | null> {
+    const c = installmentContracts;
+    const [row] = await this.db
+      .select({
+        id: c.id,
+        code: c.code,
+        customerId: c.customerId,
+        customerName: customers.fullName,
+        amountGiven: c.amountGiven,
+        totalDue: c.totalDue,
+        amountPaid: c.amountPaid,
+        totalDays: c.totalDays,
+        periodDays: c.periodDays,
+        startDate: c.startDate,
+        status: c.status,
+        note: c.note,
+        staffName: users.name,
+        closedAt: c.closedAt,
+        phone: customers.phone,
+        address: customers.address,
+        cccdMasked: customers.cccdMasked,
+        deletedAt: c.deletedAt,
+        deletedReason: c.deletedReason,
+        // Index (shop_id, installment_contract_id) và UNIQUE (reverses_id).
+        ledgerNet: sql<string>`coalesce((
+          SELECT sum(t.amount) FROM cash_transactions t
+          WHERE t.shop_id = ${c.shopId} AND t.installment_contract_id = ${c.id} AND t.type <> 'reversal'
+            AND NOT EXISTS (SELECT 1 FROM cash_transactions r WHERE r.reverses_id = t.id)
+        ), 0)`,
+      })
+      .from(c)
+      .innerJoin(customers, and(eq(customers.shopId, c.shopId), eq(customers.id, c.customerId)))
+      .innerJoin(users, and(eq(users.shopId, c.shopId), eq(users.id, c.staffId)))
+      // Hợp đồng đã xoá vẫn xem được (mockup); findRecord lọc bỏ nên không thao tác được.
+      .where(and(eq(c.shopId, shopId), eq(c.id, contractId)));
+    if (!row) return null;
+    const { phone, address, cccdMasked, closedAt, deletedAt, deletedReason, ledgerNet, ...contract } = row;
+    return {
+      ...contract,
+      closedOn: closedAt ? businessDate(closedAt) : null,
+      amountGiven: Money.of(row.amountGiven),
+      totalDue: Money.of(row.totalDue),
+      amountPaid: Money.of(row.amountPaid),
+      customer: { phone, address, cccdMasked },
+      ledgerNet: Money.of(BigInt(ledgerNet)),
+      deleted: deletedAt ? { on: businessDate(deletedAt), reason: deletedReason ?? "" } : null,
+    };
+  }
+
+  async listTransactions(shopId: string, contractId: string, limit: number): Promise<InstallmentTransaction[]> {
+    const t = cashTransactions;
+    const o = installmentOperations;
+    const rows = await this.db
+      .select({
+        id: t.id,
+        occurredAt: t.occurredAt,
+        type: t.type,
+        amount: t.amount,
+        operationKind: o.kind,
+        createdByName: users.name,
+        note: t.note,
+        reversed: sql<boolean>`EXISTS (SELECT 1 FROM cash_transactions r WHERE r.reverses_id = ${t.id})`,
+      })
+      .from(t)
+      .innerJoin(users, and(eq(users.shopId, t.shopId), eq(users.id, t.createdBy)))
+      .leftJoin(o, and(eq(o.shopId, t.shopId), eq(o.id, t.operationId)))
+      .where(and(eq(t.shopId, shopId), eq(t.installmentContractId, contractId)))
+      .orderBy(desc(t.id)) // uuid v7 tăng theo thời gian tạo.
+      .limit(limit);
+    // installment_contract_id chỉ gắn với các loại giao dịch trả góp (CHECK cash_transactions_type_rules).
+    return rows.map((row) => ({ ...row, type: row.type as InstallmentCashType, amount: Money.of(row.amount) }));
+  }
+
+  async listPayments(shopId: string, contractId: string): Promise<PaymentRecord[]> {
+    const t = cashTransactions;
+    const rows = await this.db
+      .select({ id: t.id, on: t.businessDate, amount: t.amount })
+      .from(t)
+      .where(
+        and(
+          eq(t.shopId, shopId),
+          eq(t.installmentContractId, contractId),
+          eq(t.type, "installment_payment"),
+          sql`NOT EXISTS (SELECT 1 FROM cash_transactions r WHERE r.reverses_id = ${t.id})`,
+        ),
+      )
+      .orderBy(asc(t.id));
+    return rows.map((row) => ({ ...row, amount: Money.of(row.amount) }));
+  }
+
+  async findRecord(shopId: string, contractId: string): Promise<InstallmentRecord | null> {
+    const c = installmentContracts;
+    const [row] = await this.db
+      .select({
+        code: c.code,
+        status: c.status,
+        totalDue: c.totalDue,
+        totalDays: c.totalDays,
+        periodDays: c.periodDays,
+        startDate: c.startDate,
+        amountPaid: c.amountPaid,
+      })
+      .from(c)
+      .where(and(eq(c.shopId, shopId), eq(c.id, contractId), isNull(c.deletedAt)));
+    if (!row) return null;
+    return { ...row, totalDue: Money.of(row.totalDue), amountPaid: Money.of(row.amountPaid) };
+  }
+
+  async recordPayment(actor: Actor, draft: PaymentDraft): Promise<boolean> {
+    const { contractId, payment } = draft;
+    const c = installmentContracts;
+    try {
+      return await this.db.transaction(async (tx) => {
+        // UPDATE có điều kiện khoá dòng hợp đồng: hai lần thu đồng thời thì lần sau không khớp số đã thu.
+        const updated = await tx
+          .update(c)
+          .set({
+            amountPaid: payment.paidAfter.toBigInt(),
+            ...(payment.closes && { status: "closed" as const, closedAt: sql`now()` }),
+          })
+          .where(
+            and(
+              eq(c.shopId, actor.shopId),
+              eq(c.id, contractId),
+              eq(c.status, "active"),
+              isNull(c.deletedAt),
+              eq(c.amountPaid, draft.expectedPaid.toBigInt()),
+            ),
+          )
+          .returning({ id: c.id });
+        if (updated.length === 0) return false;
+        const operationId = await insertOperation(tx, actor, contractId, draft.kind);
+        // Tất toán thu 0 đồng không có dòng sổ két (sổ két cấm amount = 0).
+        if (payment.amount.isPositive()) {
+          await this.appendCashEntries(
+            tx,
+            { shopId: actor.shopId, createdBy: actor.userId, businessDate: draft.businessDate, operationId },
+            [{ type: "installment_payment", installmentContractId: contractId, amount: payment.amount }],
+          );
+        }
+        await tx.insert(auditLogs).values({
+          shopId: actor.shopId,
+          userId: actor.userId,
+          entity: AUDIT_ENTITY,
+          entityId: contractId,
+          action: draft.kind,
+          changedFields: payment.closes ? ["amount_paid", "status"] : ["amount_paid"],
+        });
+        return true;
+      });
+    } catch (error) {
+      throw dbCause(error);
+    }
   }
 }
 

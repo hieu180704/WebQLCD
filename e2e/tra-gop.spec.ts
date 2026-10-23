@@ -70,3 +70,50 @@ test("tạo hợp đồng trả góp: tóm tắt, cảnh báo lãi, giải ngân
   const cash = page.getByRole("row", { name: /Giải ngân trả góp/ });
   await expect(cash).toContainText("4.000.000");
 });
+
+test("chi tiết: lịch góp, đóng tiền góp lẻ dồn sang kỳ sau, ghi sổ quỹ", async ({ page }) => {
+  await signIn(page);
+  await page.goto("/tra-gop");
+  await page.getByRole("link", { name: "TG-1" }).click();
+  await expect(page).toHaveURL(/\/tra-gop\/[0-9a-f-]{36}$/);
+  await expect(page.getByRole("heading", { name: "Hợp đồng TG-1" })).toBeVisible();
+  const stats = page.getByRole("region", { name: "Số liệu" });
+  await expect(stats.getByText("Tiến độ").locator("..")).toContainText("0 / 25 kỳ");
+  const schedule = page.getByRole("region", { name: "Lịch góp" });
+  await expect(schedule.getByRole("row")).toHaveCount(7); // tiêu đề + 6 kỳ đầu
+  await expect(schedule.getByRole("link", { name: "Xem đủ 25 kỳ" })).toBeVisible();
+
+  // Khách đưa lẻ 250.000: đủ kỳ 1, kỳ 2 góp được 50.000.
+  await page.getByRole("button", { name: "Đóng tiền góp" }).click();
+  const dialog = page.getByRole("dialog", { name: "Đóng tiền góp — TG-1" });
+  await expect(dialog.getByLabel("Số tiền khách đưa")).toHaveValue("200.000");
+  await dialog.getByLabel("Góp đến hết kỳ").selectOption("2");
+  await expect(dialog.getByLabel("Số tiền khách đưa")).toHaveValue("400.000");
+  await dialog.getByLabel("Số tiền khách đưa").fill("250.000");
+  await dialog.getByRole("button", { name: "Xác nhận" }).click();
+  await expect(page.getByRole("status")).toContainText("Đã thu 250.000 đ tiền góp");
+  await expect(stats.getByText("Đã thu").locator("..")).toContainText("250.000");
+  await expect(stats.getByText("Còn phải thu").locator("..")).toContainText("4.750.000");
+  await expect(stats.getByText("Tiến độ").locator("..")).toContainText("1 / 25 kỳ");
+  const row = (k: number) =>
+    schedule
+      .getByRole("row")
+      .filter({ has: page.getByRole("cell", { name: String(k), exact: true }) })
+      .first();
+  await expect(row(1)).toContainText("Đã góp");
+  await expect(row(2)).toContainText("50.000");
+  await expect(row(2)).toContainText("Chưa tới");
+  const history = page.getByRole("region", { name: "Lịch sử giao dịch" });
+  await expect(history.getByRole("row", { name: /Góp kỳ 1–2/ })).toContainText("250.000");
+
+  // Hộp thoại gợi ý phần còn thiếu của kỳ 2; thu quá số còn phải thu thì từ chối.
+  await page.getByRole("button", { name: "Đóng tiền góp" }).click();
+  await expect(dialog.getByLabel("Số tiền khách đưa")).toHaveValue("150.000");
+  await dialog.getByLabel("Số tiền khách đưa").fill("4.750.001");
+  await dialog.getByRole("button", { name: "Xác nhận" }).click();
+  await expect(dialog.getByRole("alert")).toContainText("không được lớn hơn số còn phải thu");
+  await dialog.getByRole("button", { name: "Huỷ" }).click();
+
+  await page.goto("/quy-ket");
+  await expect(page.getByRole("row", { name: /Thu trả góp/ })).toContainText("250.000");
+});

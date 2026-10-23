@@ -6,10 +6,15 @@ import {
   dueStatus,
   dueThrough,
   paidPeriods,
+  paymentOptions,
   periodCount,
+  periodsCovered,
   periodDueDate,
+  planPayment,
+  planSettlement,
   progress,
   rateWarning,
+  schedulePeriods,
   type InstallmentTerms,
 } from "./installment";
 
@@ -88,5 +93,57 @@ describe("tạo hợp đồng", () => {
     expect(rateWarning({ amountGiven: vnd(3_650_000), totalDue: vnd(3_850_000), totalDays: 100 })).toBe("none");
     expect(rateWarning({ amountGiven: vnd(3_650_000), totalDue: vnd(3_850_001), totalDays: 100 })).toBe("above_civil_cap");
     expect(rateWarning({ ...TERMS, totalDue: vnd(4_000_000) })).toBe("none");
+  });
+});
+
+describe("đóng tiền góp", () => {
+  const paid = (n: number) => ({ ...TERMS, amountPaid: vnd(n) });
+
+  it("lựa chọn góp đến hết kỳ k: số tiền = luỹ kế − đã thu", () => {
+    const options = paymentOptions(paid(1_650_000));
+    expect(options[0]).toMatchObject({ index: 9, due: "2026-10-19" });
+    expect(options.map((o) => o.amount.toBigInt()).slice(0, 3)).toEqual([150_000n, 350_000n, 550_000n]);
+    expect(options).toHaveLength(17);
+    expect(paymentOptions(paid(5_000_000))).toEqual([]);
+  });
+
+  it("số tiền tự do trong khoảng (0, còn phải thu]; thu đủ thì đóng hợp đồng", () => {
+    expect(planPayment(paid(0), Money.ZERO)).toEqual({ ok: false, error: "amount_not_positive" });
+    expect(planPayment(paid(4_900_000), vnd(100_001))).toEqual({ ok: false, error: "amount_exceeds_remaining" });
+    const partial = planPayment(paid(0), vnd(250_000));
+    expect(partial.ok && partial.value.closes).toBe(false);
+    const last = planPayment(paid(4_900_000), vnd(100_000));
+    expect(last.ok && last.value.closes).toBe(true);
+  });
+
+  it("tất toán: mặc định thu đủ, được giảm kể cả về 0, không thu quá", () => {
+    const full = planSettlement(paid(1_600_000), null);
+    expect(full.ok && full.value.amount.toBigInt()).toBe(3_400_000n);
+    const discounted = planSettlement(paid(1_600_000), Money.ZERO);
+    expect(discounted.ok && discounted.value).toMatchObject({ closes: true });
+    expect(planSettlement(paid(1_600_000), vnd(3_400_001))).toEqual({ ok: false, error: "amount_exceeds_remaining" });
+    expect(planSettlement(paid(1_600_000), vnd(-1))).toEqual({ ok: false, error: "amount_negative" });
+  });
+
+  it("nhãn kỳ của một lần thu", () => {
+    expect(periodsCovered(TERMS, vnd(1_200_000), vnd(1_600_000))).toEqual({ first: 7, last: 8 });
+    expect(periodsCovered(TERMS, vnd(1_600_000), vnd(1_650_000))).toEqual({ first: 9, last: 9 });
+    expect(periodsCovered(TERMS, vnd(1_650_000), vnd(1_800_000))).toEqual({ first: 9, last: 9 });
+    expect(periodsCovered(TERMS, vnd(4_900_000), vnd(5_000_000))).toEqual({ first: 25, last: 25 });
+  });
+
+  it("lịch góp: phần đã góp từng kỳ, ngày góp đủ theo lần thu", () => {
+    const payments = [
+      { on: "2026-10-03", amount: vnd(150_000) },
+      { on: "2026-10-05", amount: vnd(300_000) },
+    ];
+    const rows = schedulePeriods(paid(450_000), payments, 1, 4);
+    expect(rows.map((r) => [r.index, r.due, r.paid.toBigInt(), r.paidOn])).toEqual([
+      [1, "2026-10-03", 200_000n, "2026-10-05"],
+      [2, "2026-10-05", 200_000n, "2026-10-05"],
+      [3, "2026-10-07", 50_000n, null],
+      [4, "2026-10-09", 0n, null],
+    ]);
+    expect(schedulePeriods(paid(450_000), payments, 2, 2).map((r) => r.paidOn)).toEqual(["2026-10-05"]);
   });
 });
