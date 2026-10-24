@@ -1,0 +1,15 @@
+# 2026-10-24: Dữ liệu demo cho khách xem + dựng môi trường máy mới — [verified: tsc, eslint file mới; seed chạy trên DB mới; Playwright (Edge) đăng nhập `demo`, 8 trang chính + chi tiết HĐ trả 200, không lỗi console; đối chiếu số liệu bằng SQL]
+
+- Commit: xem `git log` (commit cùng worklog này).
+- Đã làm:
+  1. Người dùng chốt hướng: cho khách xem demo trước (build production chạy local, dữ liệu giả), deploy sau khi xác minh luật lưu CCCD + chọn hosting. Phiên này chỉ làm dữ liệu demo.
+  2. Máy mới thiếu môi trường: cài Node 24.18.1 (khớp Dockerfile) ở `%LOCALAPPDATA%\Programs\nodejs` + PATH user; PostgreSQL 18.6 portable vào `.local/pgsql`, cụm `.local/pgdata` cổng 5433 (`--locale-provider=builtin`, C.UTF-8), mật khẩu superuser `.local/pwfile`, role `webqlcd_app` (mật khẩu `.local/app-pwfile`); `npm ci`, migrate, seed dev. `.env` do người dùng chạy script sinh (hook chặn agent).
+  3. `npm run db:seed-demo` (`scripts/seed-demo.mjs` → `scripts/demo/seed-demo.ts`): cửa hàng "Tiệm Cầm Đồ Demo", chủ tiệm `demo`, KTV `ktv.lan`, `ktv.hung` (mật khẩu `demo12345`, đổi bằng `SEED_DEMO_PASSWORD`). Lịch sử 60 ngày đi qua use case thật với tham số `now` lùi ngày: 28 HĐ cầm đồ/tín chấp (4 quá hạn, 1 đến hạn hôm nay, 4 đã chuộc), 9 HĐ trả góp (2 chậm góp, 3 tự đóng), 30 khách, thu/chi khác, nạp vốn. Kịch bản quá hạn / chậm góp cố định, phần còn lại PRNG hạt giống cố định.
+  4. Script nạp code app qua `runnerImport` của Vite (alias `@/`, TSX trong barrel module, `server-only`); Node thuần + hook resolve không chạy được JSX của barrel.
+  5. Use case ghi giờ thật (`now()`), nên cuối script dùng superuser dời `occurred_at` / `created_at` của cửa hàng demo về ngày nghiệp vụ (07:30 + 15 phút mỗi thao tác), tạm tắt rồi bật lại trigger `cash_transactions_append_only` trong một transaction. Không đổi số tiền, ngày nghiệp vụ, liên kết.
+- File: package.json, scripts/seed-demo.mjs, scripts/demo/seed-demo.ts, Docs/Handoffs/handoff-webqlcd-mvp.txt.
+- Trạng thái: xong dữ liệu demo; chưa có câu hỏi xác nhận GIẢ ĐỊNH TẠM / kịch bản demo (người dùng chỉ yêu cầu dữ liệu).
+- Lưu ý cho phiên sau:
+  - Dữ liệu neo theo ngày chạy seed: seed lại ngay trước buổi demo. Script từ chối chạy khi đã có tài khoản `demo`; làm lại = drop + create DB `webqlcd` (superuser, `.local/pwfile`), `db:migrate`, `db:seed`, `db:seed-demo`.
+  - Vite là dependency gián tiếp qua vitest, không khai trực tiếp trong package.json.
+  - psql trên Windows: truyền SQL tiếng Việt qua heredoc/stdin, không qua `-c` (lỗi byte UTF-8).

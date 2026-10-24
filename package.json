@@ -14,6 +14,7 @@
     "db:start": ".local\\pgsql\\bin\\pg_ctl -D .local/pgdata -l .local/pg.log -w start",
     "db:stop": ".local\\pgsql\\bin\\pg_ctl -D .local/pgdata -w stop",
     "db:seed": "node --conditions=react-server --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/seed-dev.mts",
+    "db:seed-demo": "node scripts/seed-demo.mjs",
     "test:e2e": "playwright test"
   },
   "dependencies": {
